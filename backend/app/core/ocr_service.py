@@ -1,0 +1,1 @@
+# Hand-written text recognition using Mathpix, LaTex-OCR 

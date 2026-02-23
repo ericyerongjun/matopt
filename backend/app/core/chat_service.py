@@ -1,0 +1,1 @@
+# Get the service from OpenAI to handle chat interactions

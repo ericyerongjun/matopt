@@ -1,0 +1,1 @@
+# Mathematics knowledge database integration from Wolfram Alpha, Math Stack Exchange, MathWorld, Sympy

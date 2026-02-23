@@ -1,0 +1,1 @@
+# For hand-written text recognition using OCR
