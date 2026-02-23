@@ -1,0 +1,49 @@
+# MatOpt — docker compose
+# Usage:
+#   docker compose up --build        # build & start everything
+#   docker compose up -d             # detached
+#   docker compose logs -f backend   # tail backend logs
+#   docker compose down              # stop & remove
+
+services:
+  # ── Backend (FastAPI + Python) ──────────────────────────────────────────
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: matopt-backend
+    restart: unless-stopped
+    env_file: ./backend/.env
+    environment:
+      - DEBUG=false
+      - HOST=0.0.0.0
+      - PORT=8000
+    ports:
+      - "8000:8000"
+    volumes:
+      # Persist uploads and exports across restarts
+      - backend-uploads:/app/uploads
+      - backend-exports:/app/exports
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+
+  # ── Frontend (Nginx serving Vite build) ─────────────────────────────────
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: matopt-frontend
+    restart: unless-stopped
+    ports:
+      - "3000:80"
+    depends_on:
+      backend:
+        condition: service_healthy
+
+volumes:
+  backend-uploads:
+  backend-exports:

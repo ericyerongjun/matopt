@@ -43,6 +43,29 @@ datasets>=3.2.0
 # ============================
 sympy>=1.13.3
 wolframalpha>=5.1.3
+latex2sympy2>=1.9.1
+
+# ============================
+# Numerical / scientific computing
+# numpy    — ndarray, linear algebra, FFT, random
+# scipy    — optimisation, integration, interpolation, sparse, signal, stats
+# mpmath   — arbitrary-precision arithmetic
+# matplotlib — plotting (server-side PNG/SVG generation)
+# pandas   — tabular data wrangling
+# networkx — graph/combinatorics algorithms
+# scikit-learn — ML utilities (PCA, regression, clustering)
+# numba    — JIT-compiled numerical kernels
+# cvxpy    — convex optimisation modelling
+# ============================
+numpy>=1.26.0
+scipy>=1.14.0
+mpmath>=1.3.0
+matplotlib>=3.9.0
+pandas>=2.2.0
+networkx>=3.3
+scikit-learn>=1.5.0
+numba>=0.60.0
+cvxpy>=1.6.0
 
 # ============================
 # Export functionality (Python 3.7+)
