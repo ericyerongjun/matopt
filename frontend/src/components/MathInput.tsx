@@ -1,65 +1,100 @@
 /**
- * MathInput — dual-mode input: LaTeX text area or handwriting canvas.
+ * ChatInput — ChatGPT-style centered input bar.
  *
- * On submit, the typed LaTeX is sent directly.
- * TODO: integrate react-canvas-draw for handwriting → OCR path.
+ * Pill-shaped container with attachment button, auto-resizing textarea,
+ * and a send arrow button.
  */
 
-import React, { useState, useCallback } from "react";
+import React, { useState, useCallback, useRef, useEffect } from "react";
+import { ArrowUp, Paperclip, Square } from "lucide-react";
 
 interface Props {
-    onSubmit: (latex: string) => void;
+    onSubmit: (text: string) => void;
+    onFileClick?: () => void;
     disabled?: boolean;
+    loading?: boolean;
     placeholder?: string;
 }
 
 export default function MathInput({
     onSubmit,
+    onFileClick,
     disabled = false,
-    placeholder = "Type a question or LaTeX…",
+    loading = false,
+    placeholder = "Message MatOpt…",
 }: Props) {
     const [value, setValue] = useState("");
+    const textareaRef = useRef<HTMLTextAreaElement>(null);
 
-    const handleSubmit = useCallback(
-        (e: React.FormEvent) => {
-            e.preventDefault();
-            const trimmed = value.trim();
-            if (!trimmed) return;
-            onSubmit(trimmed);
-            setValue("");
-        },
-        [value, onSubmit]
-    );
+    // Auto-resize textarea
+    useEffect(() => {
+        const ta = textareaRef.current;
+        if (!ta) return;
+        ta.style.height = "auto";
+        ta.style.height = `${Math.min(ta.scrollHeight, 200)}px`;
+    }, [value]);
+
+    const handleSubmit = useCallback(() => {
+        const trimmed = value.trim();
+        if (!trimmed || disabled) return;
+        onSubmit(trimmed);
+        setValue("");
+        // Reset height
+        if (textareaRef.current) {
+            textareaRef.current.style.height = "auto";
+        }
+    }, [value, disabled, onSubmit]);
 
     const handleKeyDown = useCallback(
         (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-            // Submit on Enter (without Shift)
             if (e.key === "Enter" && !e.shiftKey) {
                 e.preventDefault();
-                handleSubmit(e as unknown as React.FormEvent);
+                handleSubmit();
             }
         },
         [handleSubmit]
     );
 
+    const canSend = value.trim().length > 0 && !disabled;
+
     return (
-        <form className="math-input" onSubmit={handleSubmit}>
-            <textarea
-                className="math-input__textarea"
-                rows={3}
-                value={value}
-                onChange={(e) => setValue(e.target.value)}
-                onKeyDown={handleKeyDown}
-                placeholder={placeholder}
-                disabled={disabled}
-            />
-            <button
-                className="math-input__submit"
-                type="submit"
-                disabled={disabled || !value.trim()}
-            >
-                Send
-            </button>
-        </form>
+        <div className="chat-input-wrapper">
+            <div className="chat-input">
+                {onFileClick && (
+                    <button
+                        className="chat-input__attach"
+                        onClick={onFileClick}
+                        disabled={disabled}
+                        title="Attach file"
+                        type="button"
+                    >
+                        <Paperclip size={20} />
+                    </button>
+                )}
+                <textarea
+                    ref={textareaRef}
+                    className="chat-input__textarea"
+                    rows={1}
+                    value={value}
+                    onChange={(e) => setValue(e.target.value)}
+                    onKeyDown={handleKeyDown}
+                    placeholder={placeholder}
+                    disabled={disabled}
+                />
+                <button
+                    className={`chat-input__send ${canSend ? "chat-input__send--active" : ""}`}
+                    onClick={loading ? undefined : handleSubmit}
+                    disabled={!canSend && !loading}
+                    title={loading ? "Stop" : "Send"}
+                    type="button"
+                >
+                    {loading ? <Square size={16} /> : <ArrowUp size={18} />}
+                </button>
+            </div>
+            <p className="chat-input__disclaimer">
+                MatOpt can make mistakes. Verify important math.
+            </p>
+        </div>
     );
 }
+

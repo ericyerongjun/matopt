@@ -1,8 +1,12 @@
 /**
- * ChatPage — main page combining chat messages, input, file upload, and export.
+ * ChatPage — ChatGPT-style layout: sidebar + main content area.
+ *
+ * Sidebar: conversation history, new-chat button, user section.
+ * Main: centered message thread, welcome screen when empty,
+ *       and a bottom-pinned input bar.
  */
 
-import React, { useCallback } from "react";
+import React, { useState, useCallback, useRef } from "react";
 import { useChat } from "../hooks/useChat";
 import { useDocument } from "../hooks/useDocument";
 import { useExport } from "../hooks/useExport";
@@ -10,19 +14,52 @@ import {
     MessageList,
     MathInput,
     FileUploader,
-    ExportButton,
+    Sidebar,
+    WelcomeScreen,
 } from "../components";
 import type { ExportFormat } from "../types/export";
 
 export default function ChatPage() {
-    const { messages, loading, error, sendMessage, clearChat } = useChat();
+    const {
+        conversations,
+        activeId,
+        createConversation,
+        switchConversation,
+        deleteConversation,
+        messages,
+        loading,
+        error,
+        sendMessage,
+    } = useChat();
+
     const { upload: uploadDoc, loading: docLoading } = useDocument();
     const { doExport, loading: exportLoading } = useExport();
+    const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+    const fileInputRef = useRef<HTMLInputElement>(null);
 
-    const handleFile = useCallback(
-        async (file: File) => {
-            await uploadDoc(file);
-            // TODO: display parsed document or inject into chat context
+    const handleNewChat = useCallback(() => {
+        createConversation();
+    }, [createConversation]);
+
+    const handleSend = useCallback(
+        (text: string) => {
+            sendMessage(text);
+        },
+        [sendMessage]
+    );
+
+    const handleFileClick = useCallback(() => {
+        fileInputRef.current?.click();
+    }, []);
+
+    const handleFileChange = useCallback(
+        async (e: React.ChangeEvent<HTMLInputElement>) => {
+            const file = e.target.files?.[0];
+            if (file) {
+                await uploadDoc(file);
+            }
+            // Reset so the same file can be re-selected
+            if (fileInputRef.current) fileInputRef.current.value = "";
         },
         [uploadDoc]
     );
@@ -30,38 +67,74 @@ export default function ChatPage() {
     const handleExport = useCallback(
         (format: ExportFormat) => {
             const allContent = messages
-                .map((m) => (m.role === "user" ? `**You:** ${m.content}` : m.content))
+                .map((m) =>
+                    m.role === "user" ? `**You:** ${m.content}` : m.content
+                )
                 .join("\n\n---\n\n");
             doExport(allContent, format, "MatOpt Chat Export");
         },
         [messages, doExport]
     );
 
+    const isEmpty = messages.length === 0;
+
     return (
-        <div className="chat-page">
-            <header className="chat-page__header">
-                <h1>MatOpt</h1>
-                <div className="chat-page__actions">
-                    <ExportButton
-                        onExport={handleExport}
-                        disabled={exportLoading || messages.length === 0}
-                    />
-                    <button onClick={clearChat} disabled={messages.length === 0}>
-                        Clear
-                    </button>
+        <div className="app-layout">
+            <Sidebar
+                conversations={conversations}
+                activeId={activeId}
+                onNewChat={handleNewChat}
+                onSelect={switchConversation}
+                onDelete={deleteConversation}
+                onExport={handleExport}
+                collapsed={sidebarCollapsed}
+                onToggleCollapse={() =>
+                    setSidebarCollapsed(!sidebarCollapsed)
+                }
+            />
+
+            <main className="main">
+                {/* Header bar */}
+                <header className="main__header">
+                    <span className="main__model-label">MatOpt</span>
+                </header>
+
+                {/* Message area */}
+                <div className="main__thread-area">
+                    {isEmpty ? (
+                        <WelcomeScreen onSuggestion={handleSend} />
+                    ) : (
+                        <MessageList messages={messages} loading={loading} />
+                    )}
                 </div>
-            </header>
 
-            <main className="chat-page__messages">
-                <MessageList messages={messages} loading={loading} />
+                {/* Error banner */}
+                {error && (
+                    <div className="main__error">
+                        <span>{error}</span>
+                    </div>
+                )}
+
+                {/* Input bar */}
+                <div className="main__input-area">
+                    <MathInput
+                        onSubmit={handleSend}
+                        onFileClick={handleFileClick}
+                        disabled={loading}
+                        loading={loading}
+                    />
+                </div>
+
+                {/* Hidden file input */}
+                <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept=".pdf,.png,.jpg,.jpeg,.webp"
+                    style={{ display: "none" }}
+                    onChange={handleFileChange}
+                />
             </main>
-
-            {error && <div className="chat-page__error">{error}</div>}
-
-            <footer className="chat-page__footer">
-                <FileUploader onFile={handleFile} disabled={docLoading} />
-                <MathInput onSubmit={sendMessage} disabled={loading} />
-            </footer>
         </div>
     );
 }
+

@@ -11,12 +11,14 @@
     "dependencies": {
         "axios": "^1.7.9",
         "katex": "^0.16.21",
+        "lucide-react": "^0.575.0",
         "mermaid": "^11.4.1",
         "prismjs": "^1.30.0",
         "react": "^19.2.4",
         "react-dom": "^19.2.4",
         "react-dropzone": "^15.0.0",
         "react-markdown": "^10.1.0",
+        "react-router-dom": "^7.13.0",
         "react-syntax-highlighter": "^15.6.1",
         "rehype-katex": "^7.0.1",
         "remark-math": "^6.0.0"
@@ -24,11 +26,11 @@
     "devDependencies": {
         "@types/katex": "^0.16.7",
         "@types/mermaid": "^9.2.0",
+        "@types/node": "^22.13.10",
         "@types/prismjs": "^1.26.5",
         "@types/react": "^18.3.11",
         "@types/react-dom": "^18.3.0",
         "@types/react-syntax-highlighter": "^15.5.13",
-        "@types/node": "^22.13.10",
         "@vitejs/plugin-react": "^4.3.4",
         "typescript": "~5.7.3",
         "vite": "^6.2.1"
