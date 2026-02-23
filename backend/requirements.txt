@@ -1,57 +1,56 @@
 # ============================
-# Core web framework
+# Core web framework (Python 3.8+; tested on 3.13)
 # ============================
-fastapi>=0.126.0               # Python 3.8+ (works on 3.13)
-uvicorn[standard]>=0.40.0      # Python 3.8+ (works on 3.13)
+fastapi>=0.126.0
+uvicorn[standard]>=0.40.0
 
 # ============================
-# API clients & utilities
+# API clients & utilities (Python 3.8+)
 # ============================
-openai>=2.21.0                 # Python 3.8+ (works on 3.13)
-httpx>=0.28.1                  # Python 3.8+ (works on 3.13)
-requests>=2.32.3                # Python 3.8+ (works on 3.13)
-python-dotenv>=1.0.1            # Python 3.8+ (works on 3.13)
-pydantic>=2.10.0                # Python 3.8+ (works on 3.13)
-pydantic-settings>=2.7.0        # Python 3.8+ (works on 3.13)
+openai>=2.21.0
+httpx>=0.28.1
+requests>=2.32.3
+python-dotenv>=1.0.1
+pydantic>=2.10.0
+pydantic-settings>=2.7.0
 
 # ============================
-# File handling & uploads
+# File handling & uploads (Python 3.8+; Pillow needs 3.9+)
 # ============================
-python-multipart>=0.0.20        # Python 3.8+ (works on 3.13)
-aiofiles>=24.1.0                # Python 3.8+ (works on 3.13)
-Pillow>=11.1.0                  # Python 3.9+ (works on 3.13)
+python-multipart>=0.0.20
+aiofiles>=24.1.0
+Pillow>=11.1.0
 
 # ============================
 # Document parsing (MinerU)
+# MinerU 2.7.6 supports Python 3.10-3.13 on Linux/macOS, and up to 3.12 on Windows (Feb 2026).
 # ============================
-# MinerU 2.7.6 – supports Python 3.10–3.13 on Linux/macOS,
-# but on Windows only up to 3.12 (as of Feb 2026).
 mineru[all]>=2.7.6
 
 # ============================
-# OCR for handwritten formulas
+# OCR for handwritten formulas (Python 3.9-3.13 recommended)
+# Pin onnxruntime to a cp310-compatible build; bump if you move to Python 3.11+
 # ============================
-# LaTeX-OCR (pix2tex) – latest stable
-# Check PyPI for current version: https://pypi.org/project/pix2tex
-pix2tex>=0.1.2                  # Python 3.7+ (works on 3.13)
-torch>=2.6.0                    # Python 3.9–3.13 (official support)
-torchvision>=0.21.0              # Python 3.9–3.13 (official support)
-transformers>=4.48.0             # Python 3.9+ (works on 3.13)
-datasets>=3.2.0                  # Python 3.9+ (works on 3.13)
+pix2tex>=0.1.2
+onnxruntime==1.23.1
+torch>=2.6.0
+torchvision>=0.21.0
+transformers>=4.48.0
+datasets>=3.2.0
 
 # ============================
-# Math knowledge & computation
+# Math knowledge & computation (Python 3.8+)
 # ============================
-sympy>=1.13.3                    # Python 3.8+ (works on 3.13)
-wolframalpha>=5.1.3              # Python 3.7+ (works on 3.13)
+sympy>=1.13.3
+wolframalpha>=5.1.3
 
 # ============================
-# Export functionality
+# Export functionality (Python 3.7+)
 # ============================
-pypandoc>=1.15                    # Python 3.7+ (works on 3.13)
+pypandoc>=1.15
 
 # ============================
-# Testing & development
+# Testing & development (Python 3.8+)
 # ============================
-pytest>=8.3.4                     # Python 3.8+ (works on 3.13)
-pytest-asyncio>=0.25.3            # Python 3.8+ (works on 3.13)
+pytest>=8.3.4
+pytest-asyncio>=0.25.3
