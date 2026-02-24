@@ -17,7 +17,7 @@ router = APIRouter(prefix="/api", tags=["documents"])
 @router.post("/documents/parse", response_model=DocumentParseResponse)
 async def parse_document(file: UploadFile = File(...)):
     """
-    Upload a PDF or image → returns extracted Markdown with LaTeX blocks.
+    Upload a PDF or image -> returns extracted Markdown with LaTeX blocks.
     """
     path = await save_upload(file, allowed_types=ALLOWED_DOCUMENT_TYPES)
     try:

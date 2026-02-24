@@ -2,16 +2,15 @@
  * Sidebar — ChatGPT-style dark sidebar with conversation history.
  */
 
-import React, { useState } from "react";
+import React, { useState, useMemo, useRef, useEffect } from "react";
 import {
     Plus,
     MessageSquare,
     Trash2,
     PanelLeftClose,
     PanelLeft,
-    Settings,
-    FileText,
-    Download,
+    Search,
+    X,
 } from "lucide-react";
 import type { Conversation } from "../types/conversation";
 import type { ExportFormat } from "../types/export";
@@ -36,6 +35,24 @@ export default function Sidebar({
     collapsed,
     onToggleCollapse,
 }: Props) {
+    const [searchOpen, setSearchOpen] = useState(false);
+    const [searchQuery, setSearchQuery] = useState("");
+    const searchInputRef = useRef<HTMLInputElement>(null);
+
+    // Focus the search input when the search bar opens
+    useEffect(() => {
+        if (searchOpen) {
+            searchInputRef.current?.focus();
+        }
+    }, [searchOpen]);
+
+    // Filter conversations by search query
+    const filtered = useMemo(() => {
+        if (!searchQuery.trim()) return conversations;
+        const q = searchQuery.toLowerCase();
+        return conversations.filter((c) => c.title.toLowerCase().includes(q));
+    }, [conversations, searchQuery]);
+
     // Group conversations by date
     const today = new Date();
     const todayStart = new Date(
@@ -47,16 +64,16 @@ export default function Sidebar({
     const monthAgo = todayStart - 30 * 86400000;
 
     const groups: { label: string; convs: Conversation[] }[] = [];
-    const todayConvs = conversations.filter(
+    const todayConvs = filtered.filter(
         (c) => c.updatedAt >= todayStart
     );
-    const weekConvs = conversations.filter(
+    const weekConvs = filtered.filter(
         (c) => c.updatedAt >= weekAgo && c.updatedAt < todayStart
     );
-    const monthConvs = conversations.filter(
+    const monthConvs = filtered.filter(
         (c) => c.updatedAt >= monthAgo && c.updatedAt < weekAgo
     );
-    const olderConvs = conversations.filter(
+    const olderConvs = filtered.filter(
         (c) => c.updatedAt < monthAgo
     );
 
@@ -104,9 +121,48 @@ export default function Sidebar({
                 )}
             </div>
 
+            {!collapsed && (
+                <div className="sidebar__quick">
+                    {searchOpen ? (
+                        <div className="sidebar__search-bar">
+                            <Search size={16} className="sidebar__search-icon" />
+                            <input
+                                ref={searchInputRef}
+                                className="sidebar__search-input"
+                                type="text"
+                                placeholder="Search chats…"
+                                value={searchQuery}
+                                onChange={(e) => setSearchQuery(e.target.value)}
+                            />
+                            <button
+                                className="sidebar__search-close"
+                                type="button"
+                                onClick={() => {
+                                    setSearchOpen(false);
+                                    setSearchQuery("");
+                                }}
+                                title="Close search"
+                            >
+                                <X size={14} />
+                            </button>
+                        </div>
+                    ) : (
+                        <button
+                            className="sidebar__quick-item"
+                            type="button"
+                            onClick={() => setSearchOpen(true)}
+                        >
+                            <Search size={16} />
+                            <span>Search chats</span>
+                        </button>
+                    )}
+                </div>
+            )}
+
             {/* Conversation list */}
             {!collapsed && (
                 <div className="sidebar__conversations">
+                    <div className="sidebar__section-label">Your chats</div>
                     {groups.length === 0 && (
                         <div className="sidebar__empty">
                             No conversations yet
@@ -121,8 +177,8 @@ export default function Sidebar({
                                 <div
                                     key={conv.id}
                                     className={`sidebar__item ${conv.id === activeId
-                                            ? "sidebar__item--active"
-                                            : ""
+                                        ? "sidebar__item--active"
+                                        : ""
                                         }`}
                                     onClick={() => onSelect(conv.id)}
                                 >
@@ -147,15 +203,7 @@ export default function Sidebar({
                 </div>
             )}
 
-            {/* Bottom section */}
-            {!collapsed && (
-                <div className="sidebar__bottom">
-                    <div className="sidebar__user">
-                        <div className="sidebar__avatar">M</div>
-                        <span>MatOpt User</span>
-                    </div>
-                </div>
-            )}
+
         </nav>
     );
 }

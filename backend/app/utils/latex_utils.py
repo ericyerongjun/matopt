@@ -141,7 +141,7 @@ def strip_latex_string(string: str) -> str:
     if string and string[0] == ".":
         string = "0" + string
 
-    # k = ... → just the value
+    # k = ... -> just the value
     if len(string.split("=")) == 2 and len(string.split("=")[0]) <= 2:
         string = string.split("=")[1]
 

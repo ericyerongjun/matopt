@@ -10,7 +10,7 @@ dependencies = [
     "fastapi>=0.126.0",
     "httpx>=0.28.1",
     "latex2sympy2>=1.9.1",
-    "mineru[all]>=2.7.6",
+    # "mineru[all]>=2.7.6",  # conflicts with latex2sympy2 (antlr4 version)
     "onnxruntime==1.23.1",
     "openai>=2.21.0",
     "pillow>=11.1.0",

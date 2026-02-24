@@ -35,3 +35,16 @@ export interface MathResponseBody {
     result: string;
     error?: string;
 }
+
+export interface SuggestionResponseBody {
+    suggestions: string[];
+}
+
+export interface FollowUpRequestBody {
+    content: string;
+    count?: number;
+}
+
+export interface FollowUpResponseBody {
+    followups: string[];
+}

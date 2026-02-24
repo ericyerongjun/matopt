@@ -59,13 +59,13 @@ class _Timeout:
 
     @staticmethod
     def _handler(signum: int, frame: Any):
-        raise TimeoutError("LaTeX → SymPy conversion timed out")
+        raise TimeoutError("LaTeX -> SymPy conversion timed out")
 
 
 # ── Public data class ───────────────────────────────────────────────────
 @dataclass
 class ConversionResult:
-    """Result of a LaTeX → SymPy conversion attempt."""
+    """Result of a LaTeX -> SymPy conversion attempt."""
     success: bool
     expr: Optional[sp.Basic] = None
     canonical_latex: Optional[str] = None
@@ -77,7 +77,7 @@ class ConversionResult:
 # ── Core converter ──────────────────────────────────────────────────────
 class LatexConverter:
     """
-    Stateless converter: LaTeX string → SymPy expression.
+    Stateless converter: LaTeX string -> SymPy expression.
 
     Usage::
 

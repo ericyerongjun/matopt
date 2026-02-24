@@ -31,11 +31,32 @@ Rules:
 2. When you write code, use fenced code blocks with the language tag.
 3. When a diagram would help, output a Mermaid code block (```mermaid).
 4. You have access to tools: parse_latex, simplify, solve, differentiate, integrate,
-   evaluate, wolfram_query, exec_python, compare_answers.
-   Use them when you need verified symbolic computation or numerical evaluation.
-5. After using a tool, incorporate its result naturally into your response.
-6. If a problem is ambiguous, state your assumptions clearly.
-7. Be concise but thorough. Show key steps.
+   evaluate, plot_function, wolfram_query, exec_python, compare_answers.
+   Use them for verified computation and to generate plots, charts, and tables.
+5. **Thinking**: Before solving non-trivial problems, show your reasoning approach briefly.
+6. **Interactive charts/plots/graphs**: When the user asks for a chart, graph, or plot:
+   - **Preferred**: Use the `plot_function` tool for standard function plots (it returns Plotly JSON automatically).
+   - **Plotly JSON**: For custom or complex plots, include a fenced code block with language tag `plotly` containing
+     valid JSON with `{ "data": [...], "layout": {...} }` in Plotly.js format. Example:
+     ````
+     ```plotly
+     {"data":[{"x":[1,2,3],"y":[4,1,7],"type":"scatter","mode":"lines+markers","name":"Example"}],"layout":{"title":"My Plot","xaxis":{"title":"x"},"yaxis":{"title":"y"}}}
+     ```
+     ````
+   - **Chart.js**: For bar charts, pie charts, radar, doughnut, etc., use a fenced code block with language tag `chartjs` containing
+     valid JSON with `{ "type": "bar"|"pie"|"line"|..., "data": {...}, "options": {...} }`. Example:
+     ````
+     ```chartjs
+     {"type":"bar","data":{"labels":["A","B","C"],"datasets":[{"label":"Values","data":[10,20,15],"backgroundColor":["#10a37f","#3b82f6","#f59e0b"]}]}}
+     ```
+     ````
+   - **Never use matplotlib** for generating images. Always produce interactive Plotly or Chart.js JSON.
+   - Use exec_python only for numeric computation, NOT for generating plots.
+7. **Show code**: When you use exec_python, include the Python code in your response
+   inside a fenced ```python block so the user can see what was computed.
+8. After using a tool, incorporate its result naturally into your response.
+9. If a problem is ambiguous, state your assumptions clearly.
+10. Be concise but thorough. Show key steps in your mathematical reasoning.
 """
 
 
@@ -125,6 +146,78 @@ class ChatService:
         for msg in request.messages:
             messages.append({"role": msg.role, "content": msg.content})
         return messages
+
+    async def generate_suggestions(self, count: int = 4) -> list[str]:
+        """
+        Ask the LLM for short, diverse suggestions and return them as a list.
+        """
+        count = max(1, min(count, 8))
+        prompt = (
+            "Generate {count} short, diverse suggestions for a math assistant. "
+            "Each suggestion should be a single sentence or question and fit in 100 characters. "
+            "IMPORTANT: Any mathematical expression must be wrapped in $...$ LaTeX delimiters. "
+            "For example write '$x^n$' not 'x^n', write '$3x - 7 = 2x + 5$' not '3x - 7 = 2x + 5'. "
+            "Return ONLY a JSON array of strings."
+        ).format(count=count)
+
+        response = await self.client.chat.completions.create(
+            model=self.model,
+            messages=[
+                {"role": "system", "content": "You are a helpful assistant."},
+                {"role": "user", "content": prompt},
+            ],
+            timeout=settings.llm_timeout,
+        )
+
+        content = response.choices[0].message.content or "[]"
+        try:
+            data = json.loads(content)
+            if isinstance(data, list):
+                return [str(item).strip() for item in data if str(item).strip()]
+        except json.JSONDecodeError:
+            pass
+
+        # Fallback: parse as lines if the model didn't return JSON
+        suggestions = [
+            line.strip(" -•\t")
+            for line in content.splitlines()
+            if line.strip()
+        ]
+        return suggestions[:count]
+
+    async def generate_followups(self, content: str, count: int = 3) -> list[str]:
+        """
+        Ask the LLM for follow-up questions based on the assistant's last reply.
+        """
+        count = max(1, min(count, 6))
+        prompt = (
+            "Given the assistant reply below, generate {count} short follow-up questions "
+            "a user might ask next. Each should be under 100 characters. "
+            "IMPORTANT: Any mathematical expression must be wrapped in $...$ LaTeX delimiters. "
+            "For example write '$x^n$' not 'x^n', write '$\\sin(x)$' not 'sin(x)'. "
+            "Return ONLY a JSON array of strings.\n\n"
+            "Assistant reply:\n{content}"
+        ).format(count=count, content=content)
+
+        response = await self.client.chat.completions.create(
+            model=self.model,
+            messages=[
+                {"role": "system", "content": "You are a helpful assistant."},
+                {"role": "user", "content": prompt},
+            ],
+            timeout=settings.llm_timeout,
+        )
+
+        raw = response.choices[0].message.content or "[]"
+        try:
+            data = json.loads(raw)
+            if isinstance(data, list):
+                return [str(item).strip() for item in data if str(item).strip()]
+        except json.JSONDecodeError:
+            pass
+
+        lines = [line.strip(" -•\t") for line in raw.splitlines() if line.strip()]
+        return lines[:count]
 
 
 # Module-level singleton

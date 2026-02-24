@@ -298,8 +298,8 @@ TOOL_DEFINITIONS: list[dict] = [
         "function": {
             "name": ToolName.PLOT_FUNCTION,
             "description": (
-                "Plot one or more mathematical functions and return a base64-encoded PNG. "
-                "Uses matplotlib with numpy vectorised evaluation."
+                "Plot one or more mathematical functions. Returns Plotly JSON data "
+                "for client-side rendering. Fast and interactive."
             ),
             "parameters": {
                 "type": "object",
@@ -315,7 +315,7 @@ TOOL_DEFINITIONS: list[dict] = [
                         "description": "Plot range [xmin, xmax] (default: [-10, 10])",
                         "items": {"type": "number"},
                     },
-                    "num_points": {"type": "integer", "description": "Number of sample points (default: 1000)"},
+                    "num_points": {"type": "integer", "description": "Number of sample points (default: 1000, capped at 800)"},
                     "title": {"type": "string", "description": "Plot title"},
                 },
                 "required": ["expressions"],
@@ -797,17 +797,18 @@ class MathEngine:
         title: str | None = None,
     ) -> ToolResult:
         """
-        Render one or more math functions to a base64 PNG using matplotlib + numpy.
+        Compute (x, y) data for one or more functions and return Plotly JSON
+        for fast client-side rendering (no matplotlib image generation).
         """
-        import matplotlib
-        matplotlib.use("Agg")
-        import matplotlib.pyplot as plt
+        import json as _json
 
         xmin, xmax = (x_range or [-10.0, 10.0])[:2]
+        # Cap points to keep payloads small and rendering fast.
+        num_points = max(200, min(int(num_points), 800))
         x = np.linspace(xmin, xmax, num_points)
         var = sp.Symbol(variable)
 
-        fig, ax = plt.subplots(figsize=(8, 5), dpi=100)
+        traces = []
         for latex_expr in expressions:
             res = latex_converter.parse(latex_expr)
             if not res.success:
@@ -818,25 +819,39 @@ class MathEngine:
                 y = np.where(np.isfinite(y), y, np.nan)  # mask infinities
             except Exception:
                 continue
-            ax.plot(x, y, label=f"${res.canonical_latex}$")
+            traces.append({
+                "x": x.tolist(),
+                "y": y.tolist(),
+                "type": "scatter",
+                "mode": "lines",
+                "name": res.canonical_latex or latex_expr,
+            })
 
-        ax.set_xlabel(f"${variable}$")
-        ax.set_ylabel("$y$")
-        ax.legend()
-        ax.grid(True, alpha=0.3)
-        if title:
-            ax.set_title(title)
+        if not traces:
+            return ToolResult(
+                name=ToolName.PLOT_FUNCTION,
+                success=False,
+                result="",
+                error="Could not evaluate any of the given expressions.",
+            )
 
-        buf = io.BytesIO()
-        fig.savefig(buf, format="png", bbox_inches="tight")
-        plt.close(fig)
-        buf.seek(0)
-        b64 = base64.b64encode(buf.read()).decode()
+        plotly_obj = {
+            "data": traces,
+            "layout": {
+                "title": title or "",
+                "xaxis": {"title": variable},
+                "yaxis": {"title": "y"},
+            },
+        }
+        plotly_json = _json.dumps(plotly_obj)
+        # Wrap in a ```plotly code block so the frontend MarkdownRenderer
+        # can detect and render it with Plotly.js client-side.
+        result_md = f"```plotly\n{plotly_json}\n```"
         return ToolResult(
             name=ToolName.PLOT_FUNCTION,
             success=True,
-            result=f"![plot](data:image/png;base64,{b64})",
-            raw={"base64_png": b64},
+            result=result_md,
+            raw=plotly_obj,
         )
 
     # ── external tools ──────────────────────────────────────────────────
@@ -857,11 +872,22 @@ class MathEngine:
     def _exec_python(self, code: str) -> ToolResult:
         output, report = python_sandbox.run(code)
         success = report == "Done"
+        if success:
+            # Include the code and output so the LLM can show them to the user
+            result_parts = []
+            if output.strip():
+                result_parts.append(output)
+            return ToolResult(
+                name=ToolName.EXEC_PYTHON,
+                success=True,
+                result="\n".join(result_parts) if result_parts else "(no output)",
+                error=None,
+            )
         return ToolResult(
             name=ToolName.EXEC_PYTHON,
-            success=success,
-            result=output if success else f"Error: {report}",
-            error=None if success else report,
+            success=False,
+            result=f"Error: {report}",
+            error=report,
         )
 
     def _compare_answers(self, answer_a: str, answer_b: str) -> ToolResult:

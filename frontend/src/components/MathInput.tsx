@@ -21,7 +21,7 @@ export default function MathInput({
     onFileClick,
     disabled = false,
     loading = false,
-    placeholder = "Message MatOpt…",
+    placeholder = "Ask anything",
 }: Props) {
     const [value, setValue] = useState("");
     const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -92,9 +92,8 @@ export default function MathInput({
                 </button>
             </div>
             <p className="chat-input__disclaimer">
-                MatOpt can make mistakes. Verify important math.
+                ChatGPT can make mistakes. Check important info.
             </p>
         </div>
     );
 }
-

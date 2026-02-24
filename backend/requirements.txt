@@ -22,10 +22,11 @@ aiofiles>=24.1.0
 Pillow>=11.1.0
 
 # ============================
-# Document parsing (MinerU)
-# MinerU 2.7.6 supports Python 3.10-3.13 on Linux/macOS, and up to 3.12 on Windows (Feb 2026).
+# Document parsing (MinerU) — DISABLED: conflicts with latex2sympy2
+# (antlr4-python3-runtime 4.9.* vs 4.7.2). Install separately if needed:
+#   pip install mineru[all]>=2.7.6
 # ============================
-mineru[all]>=2.7.6
+# mineru[all]>=2.7.6
 
 # ============================
 # OCR for handwritten formulas (Python 3.9-3.13 recommended)

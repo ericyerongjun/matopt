@@ -17,7 +17,7 @@ router = APIRouter(prefix="/api", tags=["ocr"])
 @router.post("/ocr", response_model=OcrResponse)
 async def recognise_formula(image: UploadFile = File(...)):
     """
-    Upload an image of a handwritten formula → returns LaTeX string + confidence.
+    Upload an image of a handwritten formula -> returns LaTeX string + confidence.
     """
     path = await save_upload(image, allowed_types=ALLOWED_IMAGE_TYPES)
     try:

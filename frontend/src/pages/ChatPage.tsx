@@ -6,7 +6,8 @@
  *       and a bottom-pinned input bar.
  */
 
-import React, { useState, useCallback, useRef } from "react";
+import React, { useState, useCallback, useRef, useEffect } from "react";
+import { ChevronDown } from "lucide-react";
 import { useChat } from "../hooks/useChat";
 import { useDocument } from "../hooks/useDocument";
 import { useExport } from "../hooks/useExport";
@@ -47,6 +48,19 @@ export default function ChatPage() {
         },
         [sendMessage]
     );
+
+    useEffect(() => {
+        const handler = (e: Event) => {
+            const custom = e as CustomEvent<string>;
+            if (custom.detail) {
+                handleSend(custom.detail);
+            }
+        };
+        window.addEventListener("matopt:followup", handler);
+        return () => {
+            window.removeEventListener("matopt:followup", handler);
+        };
+    }, [handleSend]);
 
     const handleFileClick = useCallback(() => {
         fileInputRef.current?.click();
@@ -96,7 +110,13 @@ export default function ChatPage() {
             <main className="main">
                 {/* Header bar */}
                 <header className="main__header">
-                    <span className="main__model-label">MatOpt</span>
+                    <div className="main__header-left">
+                        <button className="main__model-button" type="button">
+                            <span>ChatGPT</span>
+                            <ChevronDown size={16} />
+                        </button>
+                    </div>
+
                 </header>
 
                 {/* Message area */}
@@ -137,4 +157,3 @@ export default function ChatPage() {
         </div>
     );
 }
-

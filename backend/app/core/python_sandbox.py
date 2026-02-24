@@ -6,6 +6,7 @@ Adapted from Qwen2.5-Math evaluation/python_executor.py but hardened:
 - execution timeout
 - output truncation
 - restricted builtins
+
 """
 
 from __future__ import annotations
@@ -122,6 +123,7 @@ class PythonSandbox:
         Execute *code* and return ``(stdout_output, report)``.
 
         ``report`` is ``"Done"`` on success or a short traceback on failure.
+
         """
         runtime = SandboxRuntime(restricted=self.restricted)
         lines = code.strip().splitlines()

@@ -1,4 +1,7 @@
 export { default as MarkdownRenderer } from "./MarkdownRenderer";
+export { default as InlineMathText } from "./InlineMathText";
+export { default as PlotRenderer } from "./PlotRenderer";
+export { default as ChartRenderer } from "./ChartRenderer";
 export { default as MessageList } from "./MessageList";
 export { default as MathInput } from "./MathInput";
 export { default as FileUploader } from "./FileUploader";
