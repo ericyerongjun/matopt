@@ -1,24 +1,13 @@
 /**
- * Export service — generate PDF / LaTeX / Markdown downloads.
+ * @deprecated Prefer `exportConversation` from `./conversations`.
  */
 
-import apiClient from "./api";
+import { exportConversation } from "./conversations";
 import type { ExportOptions } from "../types/export";
 
 export async function exportContent(options: ExportOptions): Promise<void> {
-    const { data } = await apiClient.post("/export", options, {
-        responseType: "blob",
-    });
-
-    // Trigger browser download
-    const ext = { pdf: "pdf", latex: "tex", markdown: "md" }[options.format];
-    const filename = `${options.title ?? "matopt-export"}.${ext}`;
-    const url = URL.createObjectURL(data);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = filename;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    URL.revokeObjectURL(url);
+    if (!options.conversationId) {
+        throw new Error("Export requires a conversation id");
+    }
+    await exportConversation(options.conversationId, options.format);
 }

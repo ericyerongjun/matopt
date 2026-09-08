@@ -40,6 +40,7 @@ venv/
 .env
 .env.*
 *.env
+!.env.example
 
 # Editors / OS
 .vscode/
@@ -58,3 +59,8 @@ build/
 package-lock.json
 pnpm-lock.yaml
 yarn.lock
+
+# MatOpt runtime data
+backend/data/
+backend/.venv-mineru/
+backend/static/

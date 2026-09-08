@@ -11,6 +11,7 @@
  */
 
 import React, { useMemo, lazy, Suspense, memo } from "react";
+import "./ChartRenderer.css";
 
 const Chart = lazy(async () => {
     await import("chart.js/auto");

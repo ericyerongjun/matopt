@@ -8,10 +8,8 @@ COPY frontend/ .
 RUN npm run build
 
 # ── Stage 2: Python backend ─────────────────────────────────────────────
-FROM python:3.10-slim AS backend
+FROM python:3.12-slim AS backend
 
-# System deps: pandoc (for export), poppler (for MinerU PDF), build tools,
-#              BLAS/LAPACK (numpy/scipy), gfortran (numba/scipy wheel build)
 RUN apt-get update && apt-get install -y --no-install-recommends \
     pandoc \
     poppler-utils \
@@ -23,31 +21,23 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     gfortran \
     && rm -rf /var/lib/apt/lists/*
 
-# Install uv for fast dependency management
-COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /usr/local/bin/
-
 WORKDIR /app
 
-# Install Python deps (cached layer)
-COPY backend/pyproject.toml backend/requirements.txt ./
-RUN uv pip install --system --no-cache -r requirements.txt
+COPY backend/requirements.txt ./
+RUN pip install --no-cache-dir --upgrade pip \
+    && pip install --no-cache-dir -r requirements.txt
 
-# Copy backend source
 COPY backend/ .
-
-# Copy built frontend into a static directory the backend can serve
 COPY --from=frontend-build /app/frontend/dist /app/static
 
-# Create data directories
-RUN mkdir -p /app/uploads /app/exports
-
-# Non-root user
-RUN useradd -m matopt && chown -R matopt:matopt /app
+RUN mkdir -p /app/data/workspaces \
+    && useradd -m matopt && chown -R matopt:matopt /app
 USER matopt
+
+ENV DATA_DIR=/app/data
 
 EXPOSE 8000
 
-# Health check
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
     CMD curl -f http://localhost:8000/health || exit 1
 

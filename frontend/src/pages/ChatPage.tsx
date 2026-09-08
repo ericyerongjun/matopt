@@ -1,158 +1,222 @@
 /**
- * ChatPage — ChatGPT-style layout: sidebar + main content area.
- *
- * Sidebar: conversation history, new-chat button, user section.
- * Main: centered message thread, welcome screen when empty,
- *       and a bottom-pinned input bar.
+ * ChatPage — OpenAI/ChatGPT light canvas: home greeting, thread, composer.
  */
 
-import React, { useState, useCallback, useRef, useEffect } from "react";
-import { ChevronDown } from "lucide-react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
+import { FolderOpen, MoreHorizontal, RotateCcw, ShieldCheck } from "lucide-react";
 import { useChat } from "../hooks/useChat";
-import { useDocument } from "../hooks/useDocument";
-import { useExport } from "../hooks/useExport";
+import { useConversations } from "../hooks/useConversations";
+import { useLlmSelection } from "../hooks/useLlmSelection";
+import { useWorkspaceFiles } from "../hooks/useWorkspaceFiles";
+import { exportConversation, restartKernel } from "../services/conversations";
+import { uploadFiles } from "../services/files";
 import {
-    MessageList,
+    FilesPanel,
     MathInput,
-    FileUploader,
+    MessageList,
+    ModelPicker,
     Sidebar,
     WelcomeScreen,
 } from "../components";
-import type { ExportFormat } from "../types/export";
+import "./ChatPage.css";
 
 export default function ChatPage() {
-    const {
-        conversations,
-        activeId,
-        createConversation,
-        switchConversation,
-        deleteConversation,
-        messages,
-        loading,
-        error,
-        sendMessage,
-    } = useChat();
-
-    const { upload: uploadDoc, loading: docLoading } = useDocument();
-    const { doExport, loading: exportLoading } = useExport();
+    const llm = useLlmSelection();
+    const convos = useConversations();
+    const files = useWorkspaceFiles(convos.activeId);
     const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
-    const fileInputRef = useRef<HTMLInputElement>(null);
+    const [filesOpen, setFilesOpen] = useState(false);
+    const [menuOpen, setMenuOpen] = useState(false);
+    const menuRef = useRef<HTMLDivElement>(null);
 
-    const handleNewChat = useCallback(() => {
-        createConversation();
-    }, [createConversation]);
+    const chat = useChat({
+        activeId: convos.activeId,
+        messages: convos.messages,
+        setMessages: convos.setMessages,
+        setActiveId: convos.setActiveId,
+        createConversation: convos.create,
+        refreshList: convos.refreshList,
+        provider: llm.provider,
+        model: llm.model,
+        reasoning: llm.reasoning,
+        verify: llm.verify,
+        onArtifacts: () => {
+            void files.refresh();
+        },
+    });
 
     const handleSend = useCallback(
-        (text: string) => {
-            sendMessage(text);
+        (text: string, attached: File[] = []) => {
+            void chat.sendMessage(text, attached);
         },
-        [sendMessage]
+        [chat.sendMessage]
     );
 
     useEffect(() => {
-        const handler = (e: Event) => {
-            const custom = e as CustomEvent<string>;
-            if (custom.detail) {
-                handleSend(custom.detail);
-            }
+        if (!menuOpen) return;
+        const onClick = (event: MouseEvent) => {
+            if (!menuRef.current?.contains(event.target as Node)) setMenuOpen(false);
         };
-        window.addEventListener("matopt:followup", handler);
-        return () => {
-            window.removeEventListener("matopt:followup", handler);
-        };
-    }, [handleSend]);
+        document.addEventListener("mousedown", onClick);
+        return () => document.removeEventListener("mousedown", onClick);
+    }, [menuOpen]);
 
-    const handleFileClick = useCallback(() => {
-        fileInputRef.current?.click();
-    }, []);
+    const messages =
+        chat.streaming && chat.overlay && convos.activeId === chat.overlay.cid
+            ? chat.overlay.messages
+            : convos.messages;
+    const showWelcome = !convos.activeId && messages.length === 0 && !chat.streaming;
+    const error = convos.error || chat.streamError || llm.error;
 
-    const handleFileChange = useCallback(
-        async (e: React.ChangeEvent<HTMLInputElement>) => {
-            const file = e.target.files?.[0];
-            if (file) {
-                await uploadDoc(file);
+    const composer = (
+        <MathInput
+            onSubmit={handleSend}
+            onStop={() => void chat.stop()}
+            disabled={false}
+            loading={chat.streaming}
+            showDisclaimer={!showWelcome}
+            toolbar={
+                <ModelPicker
+                    catalog={llm.catalog}
+                    provider={llm.provider}
+                    model={llm.model}
+                    label={llm.selectedLabel}
+                    onSelect={llm.select}
+                    disabled={chat.streaming}
+                    menuUp={!showWelcome}
+                    levels={llm.allowedLevels}
+                    reasoning={llm.reasoning}
+                    onReasoningChange={llm.selectReasoning}
+                />
             }
-            // Reset so the same file can be re-selected
-            if (fileInputRef.current) fileInputRef.current.value = "";
-        },
-        [uploadDoc]
+        />
     );
-
-    const handleExport = useCallback(
-        (format: ExportFormat) => {
-            const allContent = messages
-                .map((m) =>
-                    m.role === "user" ? `**You:** ${m.content}` : m.content
-                )
-                .join("\n\n---\n\n");
-            doExport(allContent, format, "MatOpt Chat Export");
-        },
-        [messages, doExport]
-    );
-
-    const isEmpty = messages.length === 0;
 
     return (
         <div className="app-layout">
             <Sidebar
-                conversations={conversations}
-                activeId={activeId}
-                onNewChat={handleNewChat}
-                onSelect={switchConversation}
-                onDelete={deleteConversation}
-                onExport={handleExport}
+                conversations={convos.conversations}
+                activeId={convos.activeId}
+                onNewChat={convos.newChat}
+                onSelect={convos.select}
+                onDelete={(id) => void convos.remove(id)}
+                onRename={(id, title) => void convos.rename(id, title)}
                 collapsed={sidebarCollapsed}
-                onToggleCollapse={() =>
-                    setSidebarCollapsed(!sidebarCollapsed)
-                }
+                onToggleCollapse={() => setSidebarCollapsed((v) => !v)}
             />
 
-            <main className="main">
-                {/* Header bar */}
+            <main className={`main ${showWelcome ? "main--home" : ""}`}>
                 <header className="main__header">
-                    <div className="main__header-left">
-                        <button className="main__model-button" type="button">
-                            <span>ChatGPT</span>
-                            <ChevronDown size={16} />
-                        </button>
+                    <div className="main__header-left" />
+                    <div className="main__header-right">
+                        <div className="header-menu" ref={menuRef}>
+                            <button
+                                type="button"
+                                className="header-menu__trigger"
+                                title="More"
+                                onClick={() => setMenuOpen((v) => !v)}
+                            >
+                                <MoreHorizontal size={18} />
+                            </button>
+                            {menuOpen && (
+                                <div className="header-menu__list">
+                                    {convos.activeId && (
+                                        <>
+                                            <button
+                                                type="button"
+                                                onClick={() => {
+                                                    setFilesOpen((v) => !v);
+                                                    void files.refresh();
+                                                    setMenuOpen(false);
+                                                }}
+                                            >
+                                                <FolderOpen size={16} />
+                                                {filesOpen ? "Hide files" : "Files"}
+                                            </button>
+                                            <button
+                                                type="button"
+                                                disabled={messages.length === 0}
+                                                onClick={() => {
+                                                    if (convos.activeId) void exportConversation(convos.activeId, "markdown");
+                                                    setMenuOpen(false);
+                                                }}
+                                            >
+                                                Export markdown
+                                            </button>
+                                            <button
+                                                type="button"
+                                                disabled={messages.length === 0}
+                                                onClick={() => {
+                                                    if (convos.activeId) void exportConversation(convos.activeId, "ipynb");
+                                                    setMenuOpen(false);
+                                                }}
+                                            >
+                                                Export notebook
+                                            </button>
+                                            <button
+                                                type="button"
+                                                disabled={chat.streaming}
+                                                onClick={() => {
+                                                    if (convos.activeId) void restartKernel(convos.activeId);
+                                                    setMenuOpen(false);
+                                                }}
+                                            >
+                                                <RotateCcw size={16} />
+                                                Restart analysis
+                                            </button>
+                                        </>
+                                    )}
+                                    <label className="header-menu__check">
+                                        <ShieldCheck size={16} />
+                                        <span>Check answers</span>
+                                        <input
+                                            type="checkbox"
+                                            checked={llm.verify}
+                                            onChange={(e) => llm.selectVerify(e.target.checked)}
+                                            disabled={chat.streaming}
+                                        />
+                                    </label>
+                                </div>
+                            )}
+                        </div>
                     </div>
-
                 </header>
 
-                {/* Message area */}
-                <div className="main__thread-area">
-                    {isEmpty ? (
-                        <WelcomeScreen onSuggestion={handleSend} />
+                <div className="main__stage">
+                    {showWelcome ? (
+                        <WelcomeScreen />
                     ) : (
-                        <MessageList messages={messages} loading={loading} />
+                        <div className="main__body">
+                            <div className="main__thread-area">
+                                <MessageList
+                                    messages={messages}
+                                    conversationId={convos.activeId}
+                                    streaming={chat.streaming}
+                                />
+                            </div>
+                            {filesOpen && convos.activeId && (
+                                <FilesPanel
+                                    conversationId={convos.activeId}
+                                    files={files.files}
+                                    onDelete={(path) => void files.remove(path)}
+                                    onClose={() => setFilesOpen(false)}
+                                    onUpload={(list) => {
+                                        if (!convos.activeId) return;
+                                        void uploadFiles(convos.activeId, Array.from(list)).then(() => files.refresh());
+                                    }}
+                                />
+                            )}
+                        </div>
                     )}
+
+                    {error && (
+                        <div className="main__error">
+                            <span>{error}</span>
+                        </div>
+                    )}
+
+                    <div className="main__input-area">{composer}</div>
                 </div>
-
-                {/* Error banner */}
-                {error && (
-                    <div className="main__error">
-                        <span>{error}</span>
-                    </div>
-                )}
-
-                {/* Input bar */}
-                <div className="main__input-area">
-                    <MathInput
-                        onSubmit={handleSend}
-                        onFileClick={handleFileClick}
-                        disabled={loading}
-                        loading={loading}
-                    />
-                </div>
-
-                {/* Hidden file input */}
-                <input
-                    ref={fileInputRef}
-                    type="file"
-                    accept=".pdf,.png,.jpg,.jpeg,.webp"
-                    style={{ display: "none" }}
-                    onChange={handleFileChange}
-                />
             </main>
         </div>
     );

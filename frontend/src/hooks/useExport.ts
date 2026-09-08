@@ -11,11 +11,11 @@ export function useExport() {
     const [error, setError] = useState<string | null>(null);
 
     const doExport = useCallback(
-        async (content: string, format: ExportFormat, title?: string) => {
+        async (conversationId: string, format: ExportFormat) => {
             setLoading(true);
             setError(null);
             try {
-                await exportContent({ content, format, title });
+                await exportContent({ conversationId, format });
             } catch (err: unknown) {
                 setError(err instanceof Error ? err.message : "Export failed");
             } finally {

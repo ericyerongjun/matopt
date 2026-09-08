@@ -8,3 +8,7 @@ export { default as FileUploader } from "./FileUploader";
 export { default as ExportButton } from "./ExportButton";
 export { default as Sidebar } from "./Sidebar";
 export { default as WelcomeScreen } from "./WelcomeScreen";
+export { default as ModelPicker } from "./ModelPicker";
+export { default as ReasoningSlider } from "./ReasoningSlider";
+export { default as FilesPanel } from "./FilesPanel";
+export { default as ToolCallCard } from "./ToolCallCard";

@@ -1,19 +1,19 @@
 /**
- * Sidebar — ChatGPT-style dark sidebar with conversation history.
+ * Sidebar — server conversations grouped by date, with search, rename, delete.
  */
 
-import React, { useState, useMemo, useRef, useEffect } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
-    Plus,
     MessageSquare,
-    Trash2,
-    PanelLeftClose,
     PanelLeft,
+    PanelLeftClose,
+    Plus,
     Search,
+    Trash2,
     X,
 } from "lucide-react";
-import type { Conversation } from "../types/conversation";
-import type { ExportFormat } from "../types/export";
+import type { Conversation } from "../types/protocol";
+import "./Sidebar.css";
 
 interface Props {
     conversations: Conversation[];
@@ -21,7 +21,7 @@ interface Props {
     onNewChat: () => void;
     onSelect: (id: string) => void;
     onDelete: (id: string) => void;
-    onExport?: (format: ExportFormat) => void;
+    onRename: (id: string, title: string) => void;
     collapsed: boolean;
     onToggleCollapse: () => void;
 }
@@ -32,93 +32,60 @@ export default function Sidebar({
     onNewChat,
     onSelect,
     onDelete,
+    onRename,
     collapsed,
     onToggleCollapse,
 }: Props) {
     const [searchOpen, setSearchOpen] = useState(false);
     const [searchQuery, setSearchQuery] = useState("");
+    const [editingId, setEditingId] = useState<string | null>(null);
+    const [draft, setDraft] = useState("");
     const searchInputRef = useRef<HTMLInputElement>(null);
 
-    // Focus the search input when the search bar opens
     useEffect(() => {
-        if (searchOpen) {
-            searchInputRef.current?.focus();
-        }
+        if (searchOpen) searchInputRef.current?.focus();
     }, [searchOpen]);
 
-    // Filter conversations by search query
     const filtered = useMemo(() => {
         if (!searchQuery.trim()) return conversations;
         const q = searchQuery.toLowerCase();
         return conversations.filter((c) => c.title.toLowerCase().includes(q));
     }, [conversations, searchQuery]);
 
-    // Group conversations by date
     const today = new Date();
-    const todayStart = new Date(
-        today.getFullYear(),
-        today.getMonth(),
-        today.getDate()
-    ).getTime();
+    const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate()).getTime();
     const weekAgo = todayStart - 7 * 86400000;
     const monthAgo = todayStart - 30 * 86400000;
+    const ms = (c: Conversation) => c.updated_at * 1000;
 
     const groups: { label: string; convs: Conversation[] }[] = [];
-    const todayConvs = filtered.filter(
-        (c) => c.updatedAt >= todayStart
-    );
-    const weekConvs = filtered.filter(
-        (c) => c.updatedAt >= weekAgo && c.updatedAt < todayStart
-    );
-    const monthConvs = filtered.filter(
-        (c) => c.updatedAt >= monthAgo && c.updatedAt < weekAgo
-    );
-    const olderConvs = filtered.filter(
-        (c) => c.updatedAt < monthAgo
-    );
+    const buckets = [
+        { label: "Today", convs: filtered.filter((c) => ms(c) >= todayStart) },
+        { label: "Previous 7 Days", convs: filtered.filter((c) => ms(c) >= weekAgo && ms(c) < todayStart) },
+        { label: "Previous 30 Days", convs: filtered.filter((c) => ms(c) >= monthAgo && ms(c) < weekAgo) },
+        { label: "Older", convs: filtered.filter((c) => ms(c) < monthAgo) },
+    ];
+    for (const b of buckets) if (b.convs.length) groups.push(b);
 
-    if (todayConvs.length) groups.push({ label: "Today", convs: todayConvs });
-    if (weekConvs.length)
-        groups.push({ label: "Previous 7 Days", convs: weekConvs });
-    if (monthConvs.length)
-        groups.push({ label: "Previous 30 Days", convs: monthConvs });
-    if (olderConvs.length) groups.push({ label: "Older", convs: olderConvs });
+    const commitRename = (id: string) => {
+        const title = draft.trim();
+        setEditingId(null);
+        if (title) onRename(id, title);
+    };
 
     return (
         <nav className={`sidebar ${collapsed ? "sidebar--collapsed" : ""}`}>
-            {/* Top section */}
             <div className="sidebar__top">
-                <button
-                    className="sidebar__toggle"
-                    onClick={onToggleCollapse}
-                    title={collapsed ? "Open sidebar" : "Close sidebar"}
-                >
-                    {collapsed ? (
-                        <PanelLeft size={20} />
-                    ) : (
-                        <PanelLeftClose size={20} />
-                    )}
+                <div className="sidebar__brand-row">
+                    {!collapsed && <span className="sidebar__logo">MatOpt</span>}
+                    <button className="sidebar__toggle" onClick={onToggleCollapse} title={collapsed ? "Open sidebar" : "Close sidebar"}>
+                        {collapsed ? <PanelLeft size={20} /> : <PanelLeftClose size={20} />}
+                    </button>
+                </div>
+                <button className={`sidebar__new-chat ${collapsed ? "sidebar__new-chat--icon" : ""}`} onClick={onNewChat} title="New chat">
+                    <Plus size={collapsed ? 20 : 18} />
+                    {!collapsed && <span>New chat</span>}
                 </button>
-
-                {!collapsed && (
-                    <button
-                        className="sidebar__new-chat"
-                        onClick={onNewChat}
-                        title="New chat"
-                    >
-                        <Plus size={18} />
-                        <span>New chat</span>
-                    </button>
-                )}
-                {collapsed && (
-                    <button
-                        className="sidebar__new-chat sidebar__new-chat--icon"
-                        onClick={onNewChat}
-                        title="New chat"
-                    >
-                        <Plus size={20} />
-                    </button>
-                )}
             </div>
 
             {!collapsed && (
@@ -141,17 +108,12 @@ export default function Sidebar({
                                     setSearchOpen(false);
                                     setSearchQuery("");
                                 }}
-                                title="Close search"
                             >
                                 <X size={14} />
                             </button>
                         </div>
                     ) : (
-                        <button
-                            className="sidebar__quick-item"
-                            type="button"
-                            onClick={() => setSearchOpen(true)}
-                        >
+                        <button className="sidebar__quick-item" type="button" onClick={() => setSearchOpen(true)}>
                             <Search size={16} />
                             <span>Search chats</span>
                         </button>
@@ -159,33 +121,52 @@ export default function Sidebar({
                 </div>
             )}
 
-            {/* Conversation list */}
             {!collapsed && (
                 <div className="sidebar__conversations">
                     <div className="sidebar__section-label">Your chats</div>
-                    {groups.length === 0 && (
-                        <div className="sidebar__empty">
-                            No conversations yet
-                        </div>
-                    )}
+                    {groups.length === 0 && <div className="sidebar__empty">No conversations yet</div>}
                     {groups.map((group) => (
                         <div key={group.label} className="sidebar__group">
-                            <div className="sidebar__group-label">
-                                {group.label}
-                            </div>
+                            <div className="sidebar__group-label">{group.label}</div>
                             {group.convs.map((conv) => (
                                 <div
                                     key={conv.id}
-                                    className={`sidebar__item ${conv.id === activeId
-                                        ? "sidebar__item--active"
-                                        : ""
-                                        }`}
+                                    role="button"
+                                    tabIndex={0}
+                                    className={`sidebar__item ${conv.id === activeId ? "sidebar__item--active" : ""}`}
                                     onClick={() => onSelect(conv.id)}
+                                    onKeyDown={(e) => {
+                                        if (e.key === "Enter" || e.key === " ") {
+                                            e.preventDefault();
+                                            onSelect(conv.id);
+                                        }
+                                    }}
+                                    onDoubleClick={(e) => {
+                                        e.stopPropagation();
+                                        setEditingId(conv.id);
+                                        setDraft(conv.title);
+                                    }}
                                 >
                                     <MessageSquare size={16} />
-                                    <span className="sidebar__item-title">
-                                        {conv.title}
-                                    </span>
+                                    {editingId === conv.id ? (
+                                        <input
+                                            className="sidebar__rename"
+                                            value={draft}
+                                            autoFocus
+                                            onClick={(e) => e.stopPropagation()}
+                                            onChange={(e) => setDraft(e.target.value)}
+                                            onBlur={() => commitRename(conv.id)}
+                                            onKeyDown={(e) => {
+                                                if (e.key === "Enter") commitRename(conv.id);
+                                                if (e.key === "Escape") setEditingId(null);
+                                            }}
+                                        />
+                                    ) : (
+                                        <span className="sidebar__item-title">
+                                            {conv.running && <span className="sidebar__running" />}
+                                            {conv.title}
+                                        </span>
+                                    )}
                                     <button
                                         className="sidebar__item-delete"
                                         onClick={(e) => {
@@ -202,8 +183,6 @@ export default function Sidebar({
                     ))}
                 </div>
             )}
-
-
         </nav>
     );
 }

@@ -1,188 +1,191 @@
 /**
- * useChat — manages multi-conversation chat state (ChatGPT-style).
+ * Drive one agent turn: upload attachments, POST /api/chat/stream, reduce
+ * SSE events into an assistant message of ordered parts.
  *
- * Each conversation gets its own message thread. The hook exposes the
- * active conversation, a conversation list for the sidebar, and helpers
- * to create / switch / delete conversations.
+ * Live parts are stored in an overlay keyed by conversation id so switching
+ * threads mid-run does not clobber another conversation's messages. The
+ * assistant snapshot is not in SQLite until `message_end`.
  */
 
-import { useState, useCallback, useMemo } from "react";
-import { sendChatMessage } from "../services/chat";
-import type { Message } from "../types/message";
-import type { Conversation } from "../types/conversation";
+import { useCallback, useRef, useState, type Dispatch, type SetStateAction } from "react";
+import { stopRun } from "../services/conversations";
+import { uploadFiles } from "../services/files";
+import {
+    applyEvent,
+    assistantFromStream,
+    emptyStreamState,
+    streamChat,
+    type StreamState,
+} from "../services/stream";
+import type { Attachment, ChatMessage, UserContent } from "../types/protocol";
 
-let _nextId = 1;
-function uid(prefix = "msg"): string {
-    return `${prefix}-${_nextId++}-${Date.now()}`;
+interface Options {
+    activeId: string | null;
+    messages: ChatMessage[];
+    setMessages: Dispatch<SetStateAction<ChatMessage[]>>;
+    setActiveId: (id: string | null) => void;
+    createConversation: (opts: {
+        provider?: string | null;
+        model?: string | null;
+        reasoning?: string | null;
+    }) => Promise<{ id: string; title: string }>;
+    refreshList: () => Promise<void>;
+    provider: string | null;
+    model: string | null;
+    reasoning: string | null;
+    verify: boolean;
+    onArtifacts?: () => void;
 }
 
-function titleFromContent(content: string): string {
-    const cleaned = content.replace(/\$[^$]*\$/g, "math").replace(/\s+/g, " ");
-    return cleaned.length > 40 ? cleaned.slice(0, 40) + "…" : cleaned;
+function uid(prefix: string) {
+    return `${prefix}${Math.random().toString(16).slice(2)}${Date.now().toString(16)}`;
 }
 
-export function useChat() {
-    const [conversations, setConversations] = useState<Conversation[]>([]);
-    const [activeId, setActiveId] = useState<string | null>(null);
-    const [loading, setLoading] = useState(false);
-    const [error, setError] = useState<string | null>(null);
+export function useChat(options: Options) {
+    const [streaming, setStreaming] = useState(false);
+    const [statusLine, setStatusLine] = useState<string | null>(null);
+    const [streamError, setStreamError] = useState<string | null>(null);
+    const [overlay, setOverlay] = useState<{ cid: string; messages: ChatMessage[] } | null>(null);
+    const abortRef = useRef<AbortController | null>(null);
+    const cidRef = useRef<string | null>(null);
+    const overlayRef = useRef<ChatMessage[]>([]);
+    const optionsRef = useRef(options);
+    optionsRef.current = options;
 
-    const activeConversation = useMemo(
-        () => conversations.find((c) => c.id === activeId) ?? null,
-        [conversations, activeId]
-    );
+    const sendMessage = useCallback(async (text: string, files: File[] = []) => {
+        const opts = optionsRef.current;
+        const trimmed = text.trim();
+        if (!trimmed || abortRef.current) return;
 
-    const messages = activeConversation?.messages ?? [];
+        setStreamError(null);
+        setStatusLine(null);
 
-    // ── helpers ─────────────────────────────────────────────────────────
-
-    const createConversation = useCallback((): string => {
-        const id = uid("conv");
-        const conv: Conversation = {
-            id,
-            title: "New chat",
-            messages: [],
-            createdAt: Date.now(),
-            updatedAt: Date.now(),
-        };
-        setConversations((prev) => [conv, ...prev]);
-        setActiveId(id);
-        setError(null);
-        return id;
-    }, []);
-
-    const switchConversation = useCallback((id: string) => {
-        setActiveId(id);
-        setError(null);
-    }, []);
-
-    const deleteConversation = useCallback(
-        (id: string) => {
-            setConversations((prev) => prev.filter((c) => c.id !== id));
-            if (activeId === id) {
-                setActiveId(null);
+        let cid = opts.activeId;
+        try {
+            if (!cid) {
+                const conv = await opts.createConversation({
+                    provider: opts.provider,
+                    model: opts.model,
+                    reasoning: opts.reasoning,
+                });
+                cid = conv.id;
             }
-        },
-        [activeId]
-    );
+            if (!cid) throw new Error("Could not create conversation");
 
-    const renameConversation = useCallback((id: string, title: string) => {
-        setConversations((prev) =>
-            prev.map((c) => (c.id === id ? { ...c, title } : c))
-        );
-    }, []);
-
-    // ── send message ────────────────────────────────────────────────────
-
-    const sendMessage = useCallback(
-        async (content: string) => {
-            let convId = activeId;
-
-            // Auto-create conversation if none active
-            if (!convId) {
-                convId = uid("conv");
-                const conv: Conversation = {
-                    id: convId,
-                    title: titleFromContent(content),
-                    messages: [],
-                    createdAt: Date.now(),
-                    updatedAt: Date.now(),
-                };
-                setConversations((prev) => [conv, ...prev]);
-                setActiveId(convId);
+            let attachments: Attachment[] = [];
+            if (files.length) {
+                setStatusLine("Uploading files…");
+                const uploaded = await uploadFiles(cid, files);
+                attachments = uploaded.map((f) => ({
+                    name: f.name,
+                    path: f.path,
+                    url: f.url,
+                    size: f.size,
+                    kind: f.kind,
+                }));
             }
 
-            const userMsg: Message = {
-                id: uid(),
+            const userMsg: ChatMessage = {
+                id: uid("u_"),
+                conversation_id: cid,
+                seq: opts.messages.length + 1,
                 role: "user",
-                content,
-                timestamp: Date.now(),
+                content: { text: trimmed, attachments } satisfies UserContent,
+                created_at: Date.now() / 1000,
+            };
+            const assistantId = uid("m_");
+            const assistantMsg: ChatMessage = {
+                id: assistantId,
+                conversation_id: cid,
+                seq: opts.messages.length + 2,
+                role: "assistant",
+                content: assistantFromStream(emptyStreamState()),
+                created_at: Date.now() / 1000,
             };
 
-            // Append user message & update title if first message
-            setConversations((prev) =>
-                prev.map((c) => {
-                    if (c.id !== convId) return c;
-                    const isFirst = c.messages.length === 0;
-                    return {
-                        ...c,
-                        title: isFirst ? titleFromContent(content) : c.title,
-                        messages: [...c.messages, userMsg],
-                        updatedAt: Date.now(),
-                    };
-                })
+            const starting = [...opts.messages, userMsg, assistantMsg];
+            overlayRef.current = starting;
+            setOverlay({ cid, messages: starting });
+            if (!opts.activeId || opts.activeId === cid) opts.setMessages(starting);
+            cidRef.current = cid;
+            setStreaming(true);
+
+            const abort = new AbortController();
+            abortRef.current = abort;
+            let state: StreamState = { ...emptyStreamState(), conversationId: cid, messageId: assistantId };
+
+            const patchAssistant = (next: StreamState) => {
+                state = next;
+                setStatusLine(next.statusLine);
+                overlayRef.current = overlayRef.current.map((m) =>
+                    m.id === assistantId || m.id === next.messageId
+                        ? {
+                              ...m,
+                              id: next.messageId || m.id,
+                              conversation_id: next.conversationId || m.conversation_id,
+                              content: assistantFromStream(next),
+                          }
+                        : m
+                );
+                const streamCid = next.conversationId || cid;
+                if (!streamCid) return;
+                setOverlay({ cid: streamCid, messages: overlayRef.current });
+                if (optionsRef.current.activeId === streamCid) {
+                    optionsRef.current.setMessages(overlayRef.current);
+                }
+                if (next.conversationId && !optionsRef.current.activeId) {
+                    optionsRef.current.setActiveId(next.conversationId);
+                    cidRef.current = next.conversationId;
+                }
+            };
+
+            await streamChat(
+                {
+                    conversation_id: cid,
+                    message: trimmed,
+                    attachments,
+                    provider: opts.provider,
+                    model: opts.model,
+                    reasoning: opts.reasoning,
+                    verify: opts.verify,
+                },
+                (event) => {
+                    const next = applyEvent(state, event);
+                    patchAssistant(next);
+                    if (event.type === "tool_result") optionsRef.current.onArtifacts?.();
+                },
+                abort.signal
             );
 
-            setLoading(true);
-            setError(null);
-
-            try {
-                // Build history from the current conversation
-                const currentConv = conversations.find(
-                    (c) => c.id === convId
-                );
-                const history = [
-                    ...(currentConv?.messages ?? []),
-                    userMsg,
-                ].map((m) => ({
-                    role: m.role,
-                    content: m.content,
-                }));
-
-                const resp = await sendChatMessage({ messages: history });
-                const assistantMsg: Message = {
-                    id: resp.id,
-                    role: "assistant",
-                    content: resp.content,
-                    timestamp: Date.now(),
-                    toolCalls: resp.tool_calls,
-                };
-
-                setConversations((prev) =>
-                    prev.map((c) =>
-                        c.id === convId
-                            ? {
-                                ...c,
-                                messages: [...c.messages, assistantMsg],
-                                updatedAt: Date.now(),
-                            }
-                            : c
-                    )
-                );
-            } catch (err: unknown) {
-                const msg =
-                    err instanceof Error ? err.message : "Chat failed";
-                setError(msg);
-            } finally {
-                setLoading(false);
+            void optionsRef.current.refreshList();
+            window.setTimeout(() => void optionsRef.current.refreshList(), 4000);
+            optionsRef.current.onArtifacts?.();
+        } catch (err: unknown) {
+            if ((err as Error).name === "AbortError") {
+                /* stop button */
+            } else {
+                const msg = err instanceof Error ? err.message : "Chat failed";
+                setStreamError(msg);
             }
-        },
-        [activeId, conversations]
-    );
+        } finally {
+            abortRef.current = null;
+            cidRef.current = null;
+            setStreaming(false);
+            setStatusLine(null);
+        }
+    }, []);
 
-    const clearChat = useCallback(() => {
-        if (!activeId) return;
-        setConversations((prev) =>
-            prev.map((c) =>
-                c.id === activeId ? { ...c, messages: [], updatedAt: Date.now() } : c
-            )
-        );
-        setError(null);
-    }, [activeId]);
+    const stop = useCallback(async () => {
+        const cid = cidRef.current || optionsRef.current.activeId;
+        abortRef.current?.abort();
+        if (cid) {
+            try {
+                await stopRun(cid);
+            } catch {
+                /* stream will end anyway */
+            }
+        }
+    }, []);
 
-    return {
-        // Conversation list (for sidebar)
-        conversations,
-        activeId,
-        createConversation,
-        switchConversation,
-        deleteConversation,
-        renameConversation,
-        // Active chat
-        messages,
-        loading,
-        error,
-        sendMessage,
-        clearChat,
-    };
+    return { sendMessage, stop, streaming, statusLine, streamError, setStreamError, overlay };
 }

@@ -1,0 +1,93 @@
+/**
+ * OpenAI color set (ChatGPT / openai.com).
+ * Section CSS should only reference these variables — no extra hex.
+ *
+ * Teal is the only saturated brand hue. Neutrals do layout and type.
+ */
+
+:root {
+    /* Brand */
+    --oai-teal: #10a37f;
+    --oai-teal-hover: #1a7f64;
+    --oai-teal-light: #d9f2ea;
+    --oai-white: #ffffff;
+    --oai-black: #0d0d0d;
+    --oai-ink: #000000;
+
+    /* Neutral scale (light) */
+    --oai-gray-50: #f7f7f8;
+    --oai-gray-100: #ececec;
+    --oai-gray-200: #e5e5e5;
+    --oai-gray-300: #d1d1d1;
+    --oai-gray-400: #b4b4b4;
+    --oai-gray-500: #9b9b9b;
+    --oai-gray-600: #6e6e80;
+    --oai-gray-700: #40414f;
+    --oai-gray-800: #2d2d2d;
+    --oai-gray-900: #0d0d0d;
+
+    /* Semantic */
+    --oai-error: #ef4146;
+    --oai-warning: #f5a623;
+    --oai-info: #4d6bfe;
+    --oai-success: var(--oai-teal);
+    --oai-user-bubble: #f4f4f4;
+
+    /* Surfaces used by sections */
+    --color-paper: var(--oai-white);
+    --color-sidebar-mist: var(--oai-gray-50);
+    --color-ash: var(--oai-gray-50);
+    --color-surface-hover: var(--oai-gray-100);
+    --color-graphite-ink: var(--oai-black);
+    --color-mid-ash: var(--oai-gray-600);
+    --color-hollow: var(--oai-gray-500);
+    --color-hairline: var(--oai-gray-200);
+    --color-edge: var(--oai-gray-200);
+    --color-ink-press: var(--oai-ink);
+    --color-brand: var(--oai-teal);
+    --color-brand-hover: var(--oai-teal-hover);
+    --color-brand-light: var(--oai-teal-light);
+    --color-user-bubble: var(--oai-user-bubble);
+    --color-link: var(--oai-teal);
+
+    --sidebar-bg: var(--color-sidebar-mist);
+    --sidebar-hover: var(--color-surface-hover);
+    --sidebar-active: var(--oai-gray-100);
+    --sidebar-text: var(--color-graphite-ink);
+    --sidebar-text-muted: var(--color-mid-ash);
+    --sidebar-border: var(--color-hairline);
+    --sidebar-width: 260px;
+    --sidebar-collapsed-width: 56px;
+
+    --main-bg: var(--color-paper);
+    --text-primary: var(--color-graphite-ink);
+    --text-secondary: var(--color-mid-ash);
+    --text-muted: var(--color-hollow);
+    --border-light: var(--color-hairline);
+
+    --accent: var(--color-ink-press);
+    --accent-soft: var(--oai-gray-100);
+    --accent-green: var(--color-brand);
+
+    --error-bg: color-mix(in srgb, var(--oai-error) 12%, var(--oai-white));
+    --error-text: var(--oai-error);
+    --warning-text: var(--oai-warning);
+    --info-text: var(--oai-info);
+
+    --input-bg: var(--color-paper);
+    --input-border: var(--oai-gray-200);
+    --input-focus-border: var(--oai-gray-300);
+
+    --radius-sm: 6px;
+    --radius-md: 10px;
+    --radius-lg: 24px;
+    --radius-full: 9999px;
+    --content-max-width: 48rem;
+    --shadow-soft: 0 0 0 1px var(--oai-gray-200);
+
+    --transition-fast: 150ms ease;
+    --transition-normal: 250ms ease;
+
+    --font-sans: "OpenAI Sans", "Söhne", "Inter", "Helvetica Neue", Helvetica, Arial, system-ui, sans-serif;
+    --font-mono: "SF Mono", "Söhne Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}

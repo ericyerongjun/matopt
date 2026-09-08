@@ -5,6 +5,7 @@
 
 import React, { useCallback } from "react";
 import { useDropzone } from "react-dropzone";
+import "./FileUploader.css";
 
 interface Props {
     onFile: (file: File) => void;

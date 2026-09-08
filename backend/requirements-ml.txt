@@ -1,0 +1,9 @@
+# Optional heavy ML packages for the agent's kernel (install on demand):
+#   .venv/bin/pip install -r requirements-ml.txt
+torch>=2.6
+torchvision>=0.21
+transformers>=4.48
+xgboost>=2.1
+lightgbm>=4.5
+cvxpy>=1.6
+numba>=0.61

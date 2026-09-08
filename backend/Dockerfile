@@ -1,8 +1,6 @@
 # ── Backend Dockerfile (standalone, no frontend) ────────────────────────
-FROM python:3.10-slim
+FROM python:3.12-slim
 
-# System deps: pandoc (export), poppler (MinerU PDF), OpenGL (OCR/torch),
-#              BLAS/LAPACK (numpy/scipy), gfortran (numba/scipy wheel build)
 RUN apt-get update && apt-get install -y --no-install-recommends \
     pandoc \
     poppler-utils \
@@ -14,24 +12,19 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     gfortran \
     && rm -rf /var/lib/apt/lists/*
 
-# Install uv
-COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /usr/local/bin/
-
 WORKDIR /app
 
-# Install Python deps (cached layer — only re-runs when deps change)
-COPY pyproject.toml requirements.txt ./
-RUN uv pip install --system --no-cache -r requirements.txt
+COPY requirements.txt ./
+RUN pip install --no-cache-dir --upgrade pip \
+    && pip install --no-cache-dir -r requirements.txt
 
-# Copy source
 COPY . .
 
-# Data directories
-RUN mkdir -p /app/uploads /app/exports
-
-# Non-root user
-RUN useradd -m matopt && chown -R matopt:matopt /app
+RUN mkdir -p /app/data/workspaces \
+    && useradd -m matopt && chown -R matopt:matopt /app
 USER matopt
+
+ENV DATA_DIR=/app/data
 
 EXPOSE 8000
 

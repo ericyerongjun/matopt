@@ -1,0 +1,21 @@
+.plot-container {
+    margin: 12px 0;
+    border-radius: var(--radius-md);
+    overflow: hidden;
+    border: 1px solid var(--border-light);
+    background: var(--color-paper);
+    box-shadow: var(--shadow-soft);
+}
+
+.plot-container .js-plotly-plot {
+    border-radius: var(--radius-md);
+}
+
+.plot-error {
+    padding: 16px;
+    color: var(--error-text);
+    background: var(--error-bg);
+    border-radius: var(--radius-md);
+    font-size: 0.875rem;
+    text-align: center;
+}

@@ -14,16 +14,15 @@ services:
     container_name: matopt-backend
     restart: unless-stopped
     env_file: ./backend/.env
+    ports:
+      - "8000:8000"
+    volumes:
+      - backend-data:/app/data
     environment:
       - DEBUG=false
       - HOST=0.0.0.0
       - PORT=8000
-    ports:
-      - "8000:8000"
-    volumes:
-      # Persist uploads and exports across restarts
-      - backend-uploads:/app/uploads
-      - backend-exports:/app/exports
+      - DATA_DIR=/app/data
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
       interval: 30s
@@ -45,5 +44,4 @@ services:
         condition: service_healthy
 
 volumes:
-  backend-uploads:
-  backend-exports:
+  backend-data:

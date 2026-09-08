@@ -18,20 +18,26 @@ import mermaid from "mermaid";
 import PlotRenderer from "./PlotRenderer";
 import ChartRenderer from "./ChartRenderer";
 import { preprocessLaTeX } from "../utils/formulaHelpers";
+import { rewriteWorkspaceLinks } from "../utils/workspaceLinks";
+import "./MarkdownRenderer.css";
 
 // Initialise Mermaid once
 mermaid.initialize({ startOnLoad: false, theme: "default" });
 
 interface Props {
     content: string;
+    conversationId?: string | null;
 }
 
-function MarkdownRenderer({ content }: Props) {
+function MarkdownRenderer({ content, conversationId }: Props) {
     const containerRef = useRef<HTMLDivElement>(null);
 
     // Preprocess once per content change — normalise LaTeX delimiters,
     // protect math from markdown interpretation, etc.
-    const processedContent = useMemo(() => preprocessLaTeX(content), [content]);
+    const processedContent = useMemo(
+        () => preprocessLaTeX(rewriteWorkspaceLinks(content, conversationId)),
+        [content, conversationId]
+    );
 
     // Re-render Mermaid diagrams whenever content changes
     useEffect(() => {

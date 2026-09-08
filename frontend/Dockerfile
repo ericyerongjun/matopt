@@ -22,23 +22,21 @@ server {
     root /usr/share/nginx/html;
     index index.html;
 
-    # API requests → backend container
     location /api/ {
         proxy_pass         http://backend:8000;
         proxy_set_header   Host $host;
         proxy_set_header   X-Real-IP $remote_addr;
         proxy_http_version 1.1;
         proxy_set_header   Connection "";
-        proxy_read_timeout 300s;
+        proxy_read_timeout 3600s;
     }
 
-    # Health endpoint → backend
     location /health {
         proxy_pass http://backend:8000;
     }
 
-    # SSE support for streaming chat
-    location /api/chat {
+    # SSE — buffering must stay off for the agent stream
+    location /api/chat/ {
         proxy_pass         http://backend:8000;
         proxy_set_header   Host $host;
         proxy_set_header   X-Real-IP $remote_addr;
@@ -46,7 +44,7 @@ server {
         proxy_set_header   Connection "";
         proxy_buffering    off;
         proxy_cache        off;
-        proxy_read_timeout 300s;
+        proxy_read_timeout 3600s;
     }
 
     # SPA fallback — serve index.html for client-side routes

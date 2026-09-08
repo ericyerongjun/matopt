@@ -1,7 +1,7 @@
 """
 Entry point for running the MatOpt backend.
 
-    uv run python main.py
+    python main.py
     # or
     uvicorn app.main:app --reload
 """

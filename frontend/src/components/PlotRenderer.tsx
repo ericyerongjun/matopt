@@ -6,25 +6,28 @@
  */
 
 import React, { useMemo, lazy, Suspense, memo } from "react";
+import "./PlotRenderer.css";
 
 // Lazy-load Plotly to avoid bloating the initial bundle (~3MB)
 const Plot = lazy(() => import("react-plotly.js"));
 
 interface Props {
     /** JSON string with Plotly { data, layout?, config? } */
-    json: string;
+    json?: string;
+    /** Already-parsed figure from a python-tool artifact. */
+    figure?: { data?: Plotly.Data[]; layout?: Partial<Plotly.Layout>; config?: Partial<Plotly.Config> };
 }
 
 const DEFAULT_LAYOUT: Partial<Plotly.Layout> = {
     autosize: true,
     margin: { l: 50, r: 30, t: 40, b: 50 },
-    font: { family: "inherit", size: 14 },
+    font: { family: "inherit", size: 14, color: "#0d0d0d" },
     paper_bgcolor: "transparent",
-    plot_bgcolor: "#fafafa",
-    xaxis: { gridcolor: "#e6e6f0", zeroline: false },
-    yaxis: { gridcolor: "#e6e6f0", zeroline: false },
+    plot_bgcolor: "#f7f7f8",
+    xaxis: { gridcolor: "#e5e5e5", zeroline: false, color: "#6e6e80" },
+    yaxis: { gridcolor: "#e5e5e5", zeroline: false, color: "#6e6e80" },
     legend: { orientation: "h", y: -0.15 },
-    colorway: ["#10a37f", "#3b82f6", "#f59e0b", "#ef4444", "#8b5cf6"],
+    colorway: ["#10a37f", "#0d0d0d", "#4d6bfe", "#f5a623", "#6e6e80"],
 };
 
 const DEFAULT_CONFIG: Partial<Plotly.Config> = {
@@ -34,10 +37,11 @@ const DEFAULT_CONFIG: Partial<Plotly.Config> = {
     displaylogo: false,
 };
 
-function PlotRenderer({ json }: Props) {
+function PlotRenderer({ json, figure }: Props) {
     const parsed = useMemo(() => {
         try {
-            const obj = JSON.parse(json);
+            const obj = figure ?? (json ? JSON.parse(json) : null);
+            if (!obj) return null;
             return {
                 data: obj.data || [],
                 layout: { ...DEFAULT_LAYOUT, ...obj.layout },
@@ -46,7 +50,7 @@ function PlotRenderer({ json }: Props) {
         } catch {
             return null;
         }
-    }, [json]);
+    }, [json, figure]);
 
     if (!parsed || parsed.data.length === 0) {
         return (

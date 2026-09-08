@@ -1,9 +1,8 @@
-/** Supported export formats. */
-export type ExportFormat = "pdf" | "latex" | "markdown";
+export type ExportFormat = "markdown" | "ipynb";
 
 export interface ExportOptions {
-    content: string;
     format: ExportFormat;
+    conversationId: string;
     title?: string;
-    template?: string;
+    content?: string;
 }
