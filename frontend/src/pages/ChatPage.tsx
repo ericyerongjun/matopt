@@ -217,9 +217,11 @@ export default function ChatPage() {
                         </>
                     ) : (
                         <>
-                            {chat.statusLine && <div className="main__status">{chat.statusLine}</div>}
                             <div className="main__body">
                                 <div className="main__thread-col">
+                                    <div className={`main__status ${chat.statusLine ? "main__status--on" : ""}`} aria-live="polite">
+                                        {chat.statusLine || "\u00a0"}
+                                    </div>
                                     <div className="main__thread-area">
                                         <MessageList
                                             messages={messages}

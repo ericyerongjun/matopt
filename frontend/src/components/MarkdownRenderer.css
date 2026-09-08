@@ -1,5 +1,8 @@
 .markdown-body {
     line-height: 1.7;
+    min-width: 0;
+    max-width: 100%;
+    overflow-wrap: break-word;
 }
 
 .markdown-body pre {
@@ -59,12 +62,45 @@
     margin: 0.5em 0;
 }
 
-.markdown-body table {
-    border-collapse: collapse;
-    margin: 0.75em 0;
+.markdown-table-wrap {
     width: 100%;
+    max-width: 100%;
+    overflow-x: auto;
+    margin: 0.75em 0;
+    border: 1px solid var(--border-light);
     border-radius: var(--radius-md);
-    overflow: hidden;
+}
+
+.markdown-body table {
+    display: table;
+    width: max-content;
+    min-width: 100%;
+    border-collapse: collapse;
+    margin: 0;
+}
+
+.md-figures {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 12px;
+    margin: 12px 0;
+    max-width: 100%;
+}
+
+.markdown-body img,
+.markdown-body .markdown-figure {
+    display: block;
+    width: 100%;
+    max-width: 100%;
+    height: auto;
+    object-fit: contain;
+    border-radius: var(--radius-md);
+    margin: 12px 0;
+}
+
+.md-figures .markdown-figure,
+.md-figures img {
+    margin: 0;
 }
 
 .markdown-body th,

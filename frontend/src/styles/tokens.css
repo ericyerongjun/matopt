@@ -58,6 +58,10 @@
     --sidebar-border: var(--color-hairline);
     --sidebar-width: 260px;
     --sidebar-collapsed-width: 56px;
+    --work-width: 268px;
+    --work-rail-width: 40px;
+    --thread-min-width: 22rem;
+    --thread-gutter: 28px;
 
     --main-bg: var(--color-paper);
     --text-primary: var(--color-graphite-ink);

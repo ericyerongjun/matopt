@@ -1,6 +1,10 @@
 .files-panel {
+    flex: 0 0 280px;
     width: 280px;
     min-width: 240px;
+    max-width: 280px;
+    height: 100%;
+    overflow: hidden;
     border-left: 1px solid var(--border-light);
     display: flex;
     flex-direction: column;
