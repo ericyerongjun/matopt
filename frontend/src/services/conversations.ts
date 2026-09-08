@@ -45,6 +45,10 @@ export async function stopRun(id: string): Promise<void> {
     await apiClient.post(`/chat/${id}/stop`);
 }
 
+export async function steerRun(id: string, message: string): Promise<void> {
+    await apiClient.post(`/chat/${id}/steer`, { message });
+}
+
 function filenameFromDisposition(header: string | null, fallback: string): string {
     if (!header) return fallback;
     const star = /filename\*=UTF-8''([^;]+)/i.exec(header);

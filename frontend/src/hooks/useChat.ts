@@ -8,7 +8,9 @@
  */
 
 import { useCallback, useRef, useState, type Dispatch, type SetStateAction } from "react";
-import { stopRun } from "../services/conversations";
+import { fetchFollowUps } from "../services/followups";
+import { steerRun, stopRun } from "../services/conversations";
+import { textFromAssistant, isAssistantContent } from "../types/protocol";
 import { uploadFiles } from "../services/files";
 import {
     applyEvent,
@@ -34,6 +36,7 @@ interface Options {
     model: string | null;
     reasoning: string | null;
     verify: boolean;
+    webSearch?: boolean;
     onArtifacts?: () => void;
 }
 
@@ -52,10 +55,21 @@ export function useChat(options: Options) {
     const optionsRef = useRef(options);
     optionsRef.current = options;
 
-    const sendMessage = useCallback(async (text: string, files: File[] = []) => {
+    const sendMessage = useCallback(async (text: string, files: File[] = [], skillNames: string[] = []) => {
         const opts = optionsRef.current;
         const trimmed = text.trim();
-        if (!trimmed || abortRef.current) return;
+        if (!trimmed) return;
+        if (abortRef.current) {
+            const cid = cidRef.current || opts.activeId;
+            if (cid) {
+                try {
+                    await steerRun(cid, trimmed);
+                } catch (err: unknown) {
+                    setStreamError(err instanceof Error ? err.message : "Could not steer");
+                }
+            }
+            return;
+        }
 
         setStreamError(null);
         setStatusLine(null);
@@ -148,6 +162,8 @@ export function useChat(options: Options) {
                     model: opts.model,
                     reasoning: opts.reasoning,
                     verify: opts.verify,
+                    skills: skillNames.length ? skillNames : undefined,
+                    web_search: Boolean(opts.webSearch),
                 },
                 (event) => {
                     const next = applyEvent(state, event);
@@ -157,6 +173,25 @@ export function useChat(options: Options) {
                 abort.signal
             );
 
+            const last = [...overlayRef.current].reverse().find((m) => m.role === "assistant");
+            if (last && isAssistantContent(last.content) && !last.content.parts.some((p) => p.type === "options")) {
+                const reply = textFromAssistant(last.content);
+                if (reply) {
+                    try {
+                        const { followups } = await fetchFollowUps({
+                            content: reply,
+                            provider: opts.provider ?? undefined,
+                            model: opts.model ?? undefined,
+                        });
+                        if (followups?.length) {
+                            const next = applyEvent(state, { type: "options", items: followups });
+                            patchAssistant(next);
+                        }
+                    } catch {
+                        /* chips are optional */
+                    }
+                }
+            }
             void optionsRef.current.refreshList();
             window.setTimeout(() => void optionsRef.current.refreshList(), 4000);
             optionsRef.current.onArtifacts?.();

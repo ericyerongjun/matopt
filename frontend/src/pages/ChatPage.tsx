@@ -7,10 +7,12 @@ import { FolderOpen, MoreHorizontal, RotateCcw, ShieldCheck } from "lucide-react
 import { useChat } from "../hooks/useChat";
 import { useConversations } from "../hooks/useConversations";
 import { useLlmSelection } from "../hooks/useLlmSelection";
+import { useSkills } from "../hooks/useSkills";
 import { useWorkspaceFiles } from "../hooks/useWorkspaceFiles";
 import { exportConversation, restartKernel } from "../services/conversations";
 import { uploadFiles } from "../services/files";
 import {
+    AnalysisPanel,
     FilesPanel,
     MathInput,
     MessageList,
@@ -24,9 +26,18 @@ export default function ChatPage() {
     const llm = useLlmSelection();
     const convos = useConversations();
     const files = useWorkspaceFiles(convos.activeId);
+    const skillCatalog = useSkills();
     const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
     const [filesOpen, setFilesOpen] = useState(false);
+    const [workOpen, setWorkOpen] = useState(false);
     const [menuOpen, setMenuOpen] = useState(false);
+    const [webSearch, setWebSearch] = useState(() => {
+        try {
+            return localStorage.getItem("matopt.webSearch") === "1";
+        } catch {
+            return false;
+        }
+    });
     const menuRef = useRef<HTMLDivElement>(null);
 
     const chat = useChat({
@@ -40,14 +51,15 @@ export default function ChatPage() {
         model: llm.model,
         reasoning: llm.reasoning,
         verify: llm.verify,
+        webSearch,
         onArtifacts: () => {
             void files.refresh();
         },
     });
 
     const handleSend = useCallback(
-        (text: string, attached: File[] = []) => {
-            void chat.sendMessage(text, attached);
+        (text: string, attached: File[] = [], skillNames: string[] = []) => {
+            void chat.sendMessage(text, attached, skillNames);
         },
         [chat.sendMessage]
     );
@@ -75,6 +87,16 @@ export default function ChatPage() {
             disabled={false}
             loading={chat.streaming}
             showDisclaimer={!showWelcome}
+            skills={skillCatalog.skills}
+            webSearch={webSearch}
+            onWebSearchChange={(on) => {
+                setWebSearch(on);
+                try {
+                    localStorage.setItem("matopt.webSearch", on ? "1" : "0");
+                } catch {
+                    /* private mode */
+                }
+            }}
             toolbar={
                 <ModelPicker
                     catalog={llm.catalog}
@@ -184,38 +206,57 @@ export default function ChatPage() {
 
                 <div className="main__stage">
                     {showWelcome ? (
-                        <WelcomeScreen />
+                        <>
+                            <WelcomeScreen />
+                            {error && (
+                                <div className="main__error">
+                                    <span>{error}</span>
+                                </div>
+                            )}
+                            <div className="main__input-area">{composer}</div>
+                        </>
                     ) : (
-                        <div className="main__body">
-                            <div className="main__thread-area">
-                                <MessageList
+                        <>
+                            {chat.statusLine && <div className="main__status">{chat.statusLine}</div>}
+                            <div className="main__body">
+                                <div className="main__thread-col">
+                                    <div className="main__thread-area">
+                                        <MessageList
+                                            messages={messages}
+                                            conversationId={convos.activeId}
+                                            streaming={chat.streaming}
+                                            onPickOption={(text) => void chat.sendMessage(text)}
+                                            onOpenWork={() => setWorkOpen(true)}
+                                        />
+                                    </div>
+                                    {error && (
+                                        <div className="main__error">
+                                            <span>{error}</span>
+                                        </div>
+                                    )}
+                                    <div className="main__input-area">{composer}</div>
+                                </div>
+                                <AnalysisPanel
                                     messages={messages}
                                     conversationId={convos.activeId}
-                                    streaming={chat.streaming}
+                                    open={workOpen}
+                                    onToggle={() => setWorkOpen((v) => !v)}
                                 />
+                                {filesOpen && convos.activeId && (
+                                    <FilesPanel
+                                        conversationId={convos.activeId}
+                                        files={files.files}
+                                        onDelete={(path) => void files.remove(path)}
+                                        onClose={() => setFilesOpen(false)}
+                                        onUpload={(list) => {
+                                            if (!convos.activeId) return;
+                                            void uploadFiles(convos.activeId, Array.from(list)).then(() => files.refresh());
+                                        }}
+                                    />
+                                )}
                             </div>
-                            {filesOpen && convos.activeId && (
-                                <FilesPanel
-                                    conversationId={convos.activeId}
-                                    files={files.files}
-                                    onDelete={(path) => void files.remove(path)}
-                                    onClose={() => setFilesOpen(false)}
-                                    onUpload={(list) => {
-                                        if (!convos.activeId) return;
-                                        void uploadFiles(convos.activeId, Array.from(list)).then(() => files.refresh());
-                                    }}
-                                />
-                            )}
-                        </div>
+                        </>
                     )}
-
-                    {error && (
-                        <div className="main__error">
-                            <span>{error}</span>
-                        </div>
-                    )}
-
-                    <div className="main__input-area">{composer}</div>
                 </div>
             </main>
         </div>

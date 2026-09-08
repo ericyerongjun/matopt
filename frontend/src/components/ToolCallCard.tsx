@@ -20,6 +20,8 @@ export const SILENT_TOOLS = new Set([
     "update_plan",
     "wolfram_alpha",
     "check_equivalence",
+    "load_skill",
+    "search_skills",
 ]);
 
 export const CODE_TOOLS = new Set(["python", "bash"]);
@@ -36,7 +38,7 @@ function fileUrl(conversationId: string | null | undefined, artifact: Artifact):
     return undefined;
 }
 
-function ArtifactView({ artifact, conversationId }: { artifact: Artifact; conversationId?: string | null }) {
+export function ArtifactView({ artifact, conversationId }: { artifact: Artifact; conversationId?: string | null }) {
     const url = fileUrl(conversationId, artifact);
     const [fetched, setFetched] = useState<unknown>(null);
 

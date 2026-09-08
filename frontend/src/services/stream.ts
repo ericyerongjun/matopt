@@ -26,6 +26,8 @@ export interface ChatStreamBody {
     reasoning?: string | null;
     verify?: boolean;
     temperature?: number;
+    skills?: string[];
+    web_search?: boolean;
 }
 
 export interface StreamState {
@@ -126,6 +128,39 @@ export function applyEvent(state: StreamState, event: StreamEvent): StreamState 
 
     if (type === "status") {
         return { ...state, statusLine: String(event.message ?? "") };
+    }
+
+    if (type === "skills") {
+        const names = Array.isArray(event.names) ? event.names.map(String) : [];
+        if (!names.length) return state;
+        const parts = [...state.parts];
+        if (!parts.some((p) => p.type === "skills")) {
+            parts.unshift({ type: "skills", names, auto: Boolean(event.auto) });
+        }
+        return { ...state, parts };
+    }
+
+    if (type === "options") {
+        const items = Array.isArray(event.items) ? event.items.map(String).filter(Boolean) : [];
+        if (!items.length) return state;
+        const parts = [...state.parts.filter((p) => p.type !== "options"), { type: "options" as const, items }];
+        return { ...state, parts };
+    }
+
+    if (type === "monitor") {
+        const summary = String(event.summary ?? "");
+        if (!summary) return state;
+        return {
+            ...state,
+            parts: [
+                ...state.parts,
+                { type: "monitor", level: String(event.level ?? "watch"), summary, tool: event.tool ? String(event.tool) : undefined },
+            ],
+        };
+    }
+
+    if (type === "steer_applied") {
+        return { ...state, statusLine: `Steered: ${String(event.text ?? "").slice(0, 80)}` };
     }
 
     if (type === "phase") {

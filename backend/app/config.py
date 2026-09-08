@@ -11,6 +11,7 @@ from typing import Optional
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 BACKEND_DIR = Path(__file__).resolve().parent.parent
+REPO_ROOT = BACKEND_DIR.parent
 
 
 class Settings(BaseSettings):
@@ -58,6 +59,30 @@ class Settings(BaseSettings):
     tool_max_output_chars: int = 12_000
     kernel_idle_seconds: int = 1800
 
+    # ── Skills (Agent Skills folders) ───────────────────────────────────
+    skills_dirs: str = ""                  # extra comma-separated directories
+    skill_auto_activate: bool = True
+    skill_auto_activate_max: int = 2
+    skill_catalog_limit: int = 16
+
+    # ── MCP ─────────────────────────────────────────────────────────────
+    mcp_enabled: bool = True
+    mcp_config_path: Optional[Path] = None     # default: <repo>/mcp.json
+    mcp_mount_path: str = "/mcp"
+
+    # ── LAMBDA data agent (vendored AMA-CMFAI/LAMBDA backend) ───────────
+    lambda_enabled: bool = True
+
+    # ── Web search (ddgs by default; optional SearXNG / Tavily / Brave) ─
+    web_search_enabled: bool = True
+    searxng_url: Optional[str] = None
+    tavily_api_key: Optional[str] = None
+    brave_search_api_key: Optional[str] = None
+
+    # ── Alignment monitor (local analog of Astra misalignment monitoring)
+    align_monitor: bool = True
+    align_monitor_llm: bool = False
+
     # ── Document parsing (MinerU) ───────────────────────────────────────
     mineru_command: Optional[str] = None           # path to the mineru CLI; auto-detected if empty
     mineru_backend: str = "pipeline"               # pipeline | vlm-transformers | vlm-http-client ...
@@ -78,6 +103,23 @@ class Settings(BaseSettings):
 
     def ensure_dirs(self) -> None:
         self.workspace_dir.mkdir(parents=True, exist_ok=True)
+
+    def skill_directories(self) -> list[Path]:
+        dirs = [
+            REPO_ROOT / "skills" / "matopt",
+            REPO_ROOT / "skills" / "anthropic",
+            Path.home() / ".matopt" / "skills",
+        ]
+        for raw in (self.skills_dirs or "").split(","):
+            raw = raw.strip()
+            if raw:
+                dirs.append(Path(raw).expanduser())
+        return [d for d in dirs if d.is_dir()]
+
+    def resolved_mcp_config_path(self) -> Path:
+        if self.mcp_config_path:
+            return Path(self.mcp_config_path)
+        return REPO_ROOT / "mcp.json"
 
 
 settings = Settings()

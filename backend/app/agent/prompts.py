@@ -29,6 +29,12 @@ the full Markdown is saved under `parsed/` and can be read with `read_file`.
 - `check_equivalence` — decide whether two expressions or answers are mathematically equivalent (LaTeX aware).
 - `update_plan` — keep a short step plan for tasks with 5+ meaningful steps (skip it for simple questions).
 {extra_tools_section}
+# Skills
+Skills are playbooks (Agent Skills format). Only names and descriptions sit in the catalog; the full instructions load when a skill is ACTIVE or when you call `load_skill`.
+- If a skill is marked ACTIVE below, follow it for this turn.
+- If the task matches another skill in the catalog, call `search_skills` then `load_skill` *before* doing the work. Do not reinvent a document/MCP/authoring workflow from memory.
+- Loaded skills are copied into the workspace at `skills/<name>/`. Run bundled scripts from there with `python` or `bash`.
+{skills_catalog_section}{skills_active_section}
 # How to work
 1. Decide whether tools are needed. Conversation, definitions, explanations and short derivations you are certain of: answer directly. \
 Anything involving non-trivial computation, data, files, or claims that can be checked: use tools.
@@ -43,6 +49,7 @@ bounds or special cases) and say what was verified.
 Every figure needs a title and labelled axes.
 7. Final answer: after the tool work, write a self-contained answer with the key steps and results. For problems with a definite result put it in `\\boxed{{}}`. \
 Distinguish values computed by code from assumptions or literature values. Mention limitations when they matter.
+8. When the work can continue in more than one direction, end with 2–4 short next-step options the user can pick (one line each). A mid-turn user message tagged `[Steer]` is a correction for the current job — incorporate it without restarting from scratch.
 
 # Formatting
 - Markdown with LaTeX: inline `$...$`, display `$$...$$`. Never put LaTeX inside code fences. Use tables for tabular results.
@@ -98,15 +105,29 @@ TITLE_PROMPT = (
 )
 
 
-def build_system_prompt(files_block: str, datasets_block: str, extra_tools: list[str] | None = None) -> str:
+def build_system_prompt(
+    files_block: str,
+    datasets_block: str,
+    extra_tools: list[str] | None = None,
+    skills_catalog: str = "",
+    skills_active: str = "",
+) -> str:
     workspace_section = WORKSPACE_TEMPLATE.format(files=files_block or "The workspace is empty.", datasets=datasets_block or "")
     extra = ""
     if extra_tools:
         extra = "\n".join(f"- {line}" for line in extra_tools) + "\n"
+    catalog_section = ""
+    if skills_catalog.strip():
+        catalog_section = "\n## Catalog\n" + skills_catalog.strip() + "\n"
+    active_section = ""
+    if skills_active.strip():
+        active_section = "\n## Active skill instructions\n" + skills_active.strip() + "\n"
     return SYSTEM_PROMPT_TEMPLATE.format(
         python_version=f"{sys.version_info.major}.{sys.version_info.minor}",
         platform=f"{platform.system()} {platform.machine()}",
         today=_dt.date.today().isoformat(),
         workspace_section=workspace_section,
         extra_tools_section=extra,
+        skills_catalog_section=catalog_section,
+        skills_active_section=active_section,
     )

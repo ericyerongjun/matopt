@@ -16,3 +16,21 @@
     letter-spacing: -0.03em;
     color: var(--color-graphite-ink);
 }
+
+.welcome__hint {
+    margin-top: 10px;
+    font-size: 0.95rem;
+    color: var(--text-secondary);
+    max-width: 28rem;
+    text-align: center;
+    line-height: 1.45;
+}
+
+.welcome__hint kbd {
+    font-family: var(--font-mono);
+    font-size: 0.85em;
+    padding: 1px 6px;
+    border-radius: 6px;
+    border: 1px solid var(--color-hairline);
+    background: var(--color-ash);
+}
