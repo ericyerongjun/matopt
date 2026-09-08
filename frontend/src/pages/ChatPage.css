@@ -5,11 +5,12 @@
 }
 
 .main {
-    flex: 1;
+    flex: 1 1 auto;
     display: flex;
     flex-direction: column;
-    min-width: 0;
+    min-width: var(--thread-min-width);
     height: 100%;
+    overflow: hidden;
     position: relative;
     background: var(--main-bg);
 }
@@ -38,8 +39,10 @@
 .main__stage {
     flex: 1;
     min-height: 0;
+    min-width: 0;
     display: flex;
     flex-direction: column;
+    overflow: hidden;
 }
 
 .main--home .main__stage {
@@ -61,27 +64,41 @@
     display: flex;
     flex: 1;
     min-height: 0;
+    min-width: 0;
+    overflow: hidden;
     position: relative;
 }
 
 .main__thread-col {
-    flex: 1;
-    min-width: 0;
+    flex: 1 1 auto;
+    min-width: var(--thread-min-width);
     min-height: 0;
     display: flex;
     flex-direction: column;
+    overflow: hidden;
 }
 
 .main__status {
+    flex-shrink: 0;
+    height: 22px;
     padding: 4px 16px 0;
     text-align: center;
     font-size: 0.72rem;
+    color: transparent;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+}
+
+.main__status--on {
     color: var(--text-muted);
 }
 
 .main__thread-area {
     flex: 1;
-    overflow-y: auto;
+    min-height: 0;
+    min-width: 0;
+    overflow: hidden;
     display: flex;
     flex-direction: column;
     background: var(--main-bg);
@@ -109,6 +126,7 @@
     flex-shrink: 0;
     display: flex;
     justify-content: center;
+    overflow: hidden;
     background: linear-gradient(to top, var(--color-paper) 70%, rgba(255, 255, 255, 0));
 }
 
@@ -182,6 +200,11 @@
 }
 
 @media (max-width: 768px) {
+    .main,
+    .main__thread-col {
+        min-width: 0;
+    }
+
     .main__header {
         flex-wrap: wrap;
         height: auto;

@@ -9,8 +9,9 @@
  * to the $…$ / $$…$$ form that remark-math expects.
  */
 
-import React, { useEffect, useRef, useMemo, memo } from "react";
+import React, { isValidElement, useEffect, useRef, useMemo, memo, type ReactNode } from "react";
 import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import remarkMath from "remark-math";
 import rehypeKatex from "rehype-katex";
 import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
@@ -18,6 +19,7 @@ import mermaid from "mermaid";
 import PlotRenderer from "./PlotRenderer";
 import ChartRenderer from "./ChartRenderer";
 import { preprocessLaTeX } from "../utils/formulaHelpers";
+import { normalizeAgentMarkdown } from "../utils/markdownNormalize";
 import { rewriteWorkspaceLinks } from "../utils/workspaceLinks";
 import "./MarkdownRenderer.css";
 
@@ -49,7 +51,8 @@ function MarkdownRenderer({ content, conversationId }: Props) {
     // Preprocess once per content change — normalise LaTeX delimiters,
     // protect math from markdown interpretation, etc.
     const processedContent = useMemo(
-        () => preprocessLaTeX(rewriteWorkspaceLinks(content, conversationId)),
+        () =>
+            preprocessLaTeX(normalizeAgentMarkdown(rewriteWorkspaceLinks(content, conversationId))),
         [content, conversationId]
     );
 
@@ -67,7 +70,7 @@ function MarkdownRenderer({ content, conversationId }: Props) {
     return (
         <div ref={containerRef} className="markdown-body">
             <ReactMarkdown
-                remarkPlugins={[[remarkMath, { singleDollarTextMath: true }]]}
+                remarkPlugins={[remarkGfm, [remarkMath, { singleDollarTextMath: true }]]}
                 rehypePlugins={[[rehypeKatex, KATEX_OPTIONS]]}
                 components={{
                     code({ className, children, ...rest }) {
@@ -106,7 +109,6 @@ function MarkdownRenderer({ content, conversationId }: Props) {
                             </code>
                         );
                     },
-                    // Render images — supports base64 data URLs from matplotlib
                     img({ src, alt, ...rest }) {
                         return (
                             <img
@@ -118,11 +120,41 @@ function MarkdownRenderer({ content, conversationId }: Props) {
                             />
                         );
                     },
+                    p({ children }) {
+                        if (isFigureGroup(children)) {
+                            return <div className="md-figures">{children}</div>;
+                        }
+                        return <p>{children}</p>;
+                    },
+                    table({ children }) {
+                        return (
+                            <div className="markdown-table-wrap">
+                                <table>{children}</table>
+                            </div>
+                        );
+                    },
                 }}
             >
                 {processedContent}
             </ReactMarkdown>
         </div>
+    );
+}
+
+function isFigureGroup(children: ReactNode): boolean {
+    const nodes = React.Children.toArray(children).filter((child) => {
+        if (typeof child === "string") return child.trim().length > 0;
+        return true;
+    });
+    if (nodes.length === 0) return false;
+    return nodes.every(
+        (child) =>
+            isValidElement(child) &&
+            (child.type === "img" ||
+                (typeof child.props === "object" &&
+                    child.props !== null &&
+                    "className" in child.props &&
+                    String((child.props as { className?: string }).className || "").includes("markdown-figure")))
     );
 }
 

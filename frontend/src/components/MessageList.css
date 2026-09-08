@@ -1,7 +1,22 @@
 .thread {
+    flex: 1;
+    min-height: 0;
+    overflow-x: hidden;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    scrollbar-width: none;
+}
+
+.thread::-webkit-scrollbar {
+    width: 0;
+    height: 0;
+}
+
+.thread__inner {
     display: flex;
     flex-direction: column;
-    padding-bottom: 32px;
+    padding: 8px 0 28px;
+    min-height: min-content;
 }
 
 .thread__row {
@@ -10,9 +25,10 @@
 }
 
 .thread__message {
-    max-width: var(--content-max-width);
-    margin: 0 auto;
-    padding: 0 24px;
+    width: 100%;
+    max-width: none;
+    margin: 0;
+    padding: 0 var(--thread-gutter, 28px);
     display: flex;
     gap: 16px;
     align-items: flex-start;
@@ -23,6 +39,9 @@
 }
 
 .thread__body {
+    flex: 1;
+    min-width: 0;
+    max-width: 100%;
     font-size: 1rem;
     line-height: 1.7;
     color: var(--text-primary);

@@ -6,11 +6,13 @@
     height: 100%;
     background: var(--sidebar-bg);
     color: var(--sidebar-text);
-    transition: width var(--transition-normal), min-width var(--transition-normal);
+    flex: 0 0 var(--sidebar-width);
+    transition: none;
     overflow: hidden;
 }
 
 .sidebar--collapsed {
+    flex-basis: var(--sidebar-collapsed-width);
     width: var(--sidebar-collapsed-width);
     min-width: var(--sidebar-collapsed-width);
 }

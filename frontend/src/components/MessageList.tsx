@@ -2,7 +2,7 @@
  * ChatGPT-style thread: user bubbles, assistant prose, results — never source.
  */
 
-import React, { useEffect, useRef, type ReactNode } from "react";
+import React, { useLayoutEffect, useRef, type ReactNode } from "react";
 import { Copy } from "lucide-react";
 import type { AssistantContent, ChatMessage, Part } from "../types/protocol";
 import { isAssistantContent, isUserContent, textFromAssistant } from "../types/protocol";
@@ -126,25 +126,51 @@ function AssistantFooter({ content }: { content: AssistantContent }) {
 }
 
 export default function MessageList({ messages, conversationId, streaming, onPickOption, onOpenWork }: Props) {
-    const bottomRef = useRef<HTMLDivElement>(null);
+    const rootRef = useRef<HTMLDivElement>(null);
+    const pinnedRef = useRef(true);
 
-    useEffect(() => {
-        bottomRef.current?.scrollIntoView({ behavior: "smooth" });
-    }, [messages]);
+    const stick = () => {
+        const el = rootRef.current;
+        if (!el || !pinnedRef.current) return;
+        el.scrollTop = el.scrollHeight;
+    };
+
+    useLayoutEffect(() => {
+        if (streaming) pinnedRef.current = true;
+        stick();
+    }, [messages, streaming]);
+
+    useLayoutEffect(() => {
+        const el = rootRef.current;
+        const inner = el?.firstElementChild;
+        if (!inner) return;
+        const ro = new ResizeObserver(() => stick());
+        ro.observe(inner);
+        return () => ro.disconnect();
+    }, []);
 
     return (
-        <div className="thread">
-            {messages.map((msg, index) => (
-                <MessageRow
-                    key={msg.id}
-                    msg={msg}
-                    conversationId={conversationId}
-                    streaming={Boolean(streaming && index === messages.length - 1)}
-                    onPickOption={onPickOption}
-                    onOpenWork={onOpenWork}
-                />
-            ))}
-            <div ref={bottomRef} />
+        <div
+            className="thread"
+            ref={rootRef}
+            onScroll={() => {
+                const el = rootRef.current;
+                if (!el) return;
+                pinnedRef.current = el.scrollHeight - el.scrollTop - el.clientHeight < 72;
+            }}
+        >
+            <div className="thread__inner">
+                {messages.map((msg, index) => (
+                    <MessageRow
+                        key={msg.id}
+                        msg={msg}
+                        conversationId={conversationId}
+                        streaming={Boolean(streaming && index === messages.length - 1)}
+                        onPickOption={onPickOption}
+                        onOpenWork={onOpenWork}
+                    />
+                ))}
+            </div>
         </div>
     );
 }
