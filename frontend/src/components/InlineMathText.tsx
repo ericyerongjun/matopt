@@ -22,7 +22,11 @@ interface Props {
  */
 function renderSegments(text: string): React.ReactNode[] {
     // Normalise \(...\) → $...$
-    let normalised = text.replace(/\\\(([\s\S]*?)\\\)/g, (_m, inner: string) => `$${inner}$`);
+    let normalised = text.replace(/\\\(([\s\S]*?)\\\)/g, (_m, inner: string) => `$${inner.trim()}$`);
+    normalised = normalised.replace(
+        /\$(?!\$)([^\n$]+?)\$(?!\$)/g,
+        (_m, inner: string) => `$${inner.trim()}$`
+    );
 
     // Split on $...$ (non-greedy, single-line)
     const parts = normalised.split(/(\$[^$]+?\$)/g);

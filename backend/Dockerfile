@@ -20,7 +20,7 @@ RUN pip install --no-cache-dir --upgrade pip \
 
 COPY . .
 
-RUN mkdir -p /app/data/workspaces \
+RUN mkdir -p /app/data/workspaces /app/data/lambda \
     && useradd -m matopt && chown -R matopt:matopt /app
 USER matopt
 

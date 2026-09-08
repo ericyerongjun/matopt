@@ -89,11 +89,23 @@
     margin: 1.5em 0;
 }
 
-.katex {
+/* KaTeX layout is font-metric based. Do not set letter-spacing or
+   line-height on .katex — both shift superscripts, fractions and roots. */
+.markdown-body .katex {
     font-size: 1.05em;
-    line-height: 1.5;
-    letter-spacing: -0.01em;
     color: var(--text-primary);
+    letter-spacing: normal;
+}
+
+.markdown-body .katex,
+.markdown-body .katex * {
+    box-sizing: content-box;
+}
+
+.markdown-body .katex .fbox,
+.markdown-body .katex .fcolorbox,
+.markdown-body .katex .angl {
+    box-sizing: border-box;
 }
 
 .katex-display {
@@ -106,30 +118,6 @@
 .katex-display > .katex {
     font-size: 1.1em;
     text-align: center;
-}
-
-.katex .mord,
-.katex .mbin,
-.katex .mrel,
-.katex .mop,
-.katex .mopen,
-.katex .mclose,
-.katex .mpunct,
-.katex .minner,
-.katex .mfrac,
-.katex .mspace,
-.katex .mtable,
-.katex .msupsub {
-    color: inherit;
-}
-
-.katex .frac-line,
-.katex .sqrt-line,
-.katex .overline-line,
-.katex .underline-line,
-.katex .rule {
-    border-color: var(--text-primary);
-    background: var(--text-primary);
 }
 
 .katex .katex-error {

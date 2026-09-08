@@ -114,7 +114,10 @@ export type Part =
           raw?: string;
       }
     | { type: "phase"; phase: "verify" | "revise"; round: number }
-    | { type: "verification"; verdict: "correct" | "incorrect" | "uncertain" | string; report: string; round: number };
+    | { type: "verification"; verdict: "correct" | "incorrect" | "uncertain" | string; report: string; round: number }
+    | { type: "skills"; names: string[]; auto?: boolean }
+    | { type: "options"; items: string[] }
+    | { type: "monitor"; level: string; summary: string; tool?: string };
 
 export interface AssistantContent {
     parts: Part[];

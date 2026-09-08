@@ -37,10 +37,10 @@ def test_discover_anthropic_and_matopt():
         "pdf", "docx", "pptx", "xlsx", "mcp-builder", "skill-creator",
         "algorithmic-art", "frontend-design", "webapp-testing", "claude-api",
         "sympy-compute", "statistical-inference", "numerical-optimization",
-        "ml-experiment", "math-verification",
+        "ml-experiment", "math-verification", "lambda-data-agent",
     ):
         assert expected in names, expected
-    assert len(reg) >= 24
+    assert len(reg) >= 25
     pdf = reg.get("pdf")
     assert pdf.source == "anthropic" and "pdf" in pdf.description.lower()
     assert (pdf.path / "SKILL.md").is_file()
@@ -66,6 +66,37 @@ def test_router_sympy_integral():
 def test_router_simple_arithmetic_does_not_force_a_skill():
     plan = SkillRouter(_registry()).plan("What is 6 times 7?")
     assert plan.activate == []
+
+
+def test_router_csv_analysis_activates_lambda():
+    plan = SkillRouter(_registry()).plan(
+        "Analyze this dataset and write an EDA report",
+        files=[{"path": "uploads/sales.csv"}],
+    )
+    names = [s.name for s in plan.activate]
+    assert names and names[0] == "lambda-data-agent"
+
+
+def test_tool_router_lambda_alias():
+    tools = build_tools(SkillRegistry())
+    router = ToolRouter()
+    t, err = router.resolve(tools, "lambda")
+    assert err is None and t is not None and t.name == "lambda_data_agent"
+
+
+def test_slash_skill_tokens():
+    from app.agent.skills.slash import default_slash_prompt, split_slash_skills
+
+    known = ["pdf", "sympy-compute", "xlsx"]
+    rest, names = split_slash_skills("/pdf extract tables from the scan", known)
+    assert names == ["pdf"] and rest == "extract tables from the scan"
+    rest, names = split_slash_skills("/pdf /xlsx merge these", known)
+    assert names == ["pdf", "xlsx"] and rest == "merge these"
+    rest, names = split_slash_skills("/not-a-skill hello", known)
+    assert names == [] and rest.startswith("/not-a-skill")
+    rest, names = split_slash_skills("please /pdf anyway", known)
+    assert names == []
+    assert "sympy-compute" in default_slash_prompt(["sympy-compute"])
 
 
 @pytest.mark.asyncio

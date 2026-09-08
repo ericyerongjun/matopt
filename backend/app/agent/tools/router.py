@@ -38,6 +38,14 @@ ALIASES = {
     "equivalent": "check_equivalence",
     "ocr": "parse_document",
     "parse": "parse_document",
+    "lambda": "lambda_data_agent",
+    "data_agent": "lambda_data_agent",
+    "eda": "lambda_data_agent",
+    "web": "web_search",
+    "websearch": "web_search",
+    "search_web": "web_search",
+    "fetch": "web_fetch",
+    "browse": "web_fetch",
 }
 
 CORE = (
@@ -53,6 +61,9 @@ CORE = (
     "update_plan",
     "parse_document",
     "check_equivalence",
+    "lambda_data_agent",
+    "web_search",
+    "web_fetch",
 )
 
 _NORM = re.compile(r"[^a-z0-9]+")

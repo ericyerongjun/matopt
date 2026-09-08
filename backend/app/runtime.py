@@ -16,7 +16,9 @@ from app.agent.tools.plan_tool import UpdatePlanTool
 from app.agent.tools.python_tool import PythonTool
 from app.agent.tools.router import ToolRouter
 from app.agent.tools.shell_tool import ShellTool
+from app.agent.tools.lambda_tool import LambdaDataAgentTool
 from app.agent.tools.skill_tools import LoadSkillTool, SearchSkillsTool
+from app.agent.tools.web_search import WebFetchTool, WebSearchTool
 from app.agent.workspace import Workspace
 from app.config import settings
 from app.llm.registry import providers
@@ -72,6 +74,10 @@ def build_tools(skills: SkillRegistry | None = None) -> ToolRegistry:
         SearchSkillsTool(skills),
         LoadSkillTool(skills),
     ]
+    if settings.web_search_enabled:
+        tools.extend([WebSearchTool(), WebFetchTool()])
+    if settings.lambda_enabled:
+        tools.append(LambdaDataAgentTool())
     if settings.wolfram_app_id:
         tools.append(WolframAlphaTool(settings.wolfram_app_id))
     return ToolRegistry(tools)

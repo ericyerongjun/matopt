@@ -24,6 +24,20 @@ import "./MarkdownRenderer.css";
 // Initialise Mermaid once
 mermaid.initialize({ startOnLoad: false, theme: "default" });
 
+const KATEX_OPTIONS = {
+    output: "htmlAndMathml" as const,
+    throwOnError: false,
+    strict: false as const,
+    macros: {
+        "\\R": "\\mathbb{R}",
+        "\\N": "\\mathbb{N}",
+        "\\Z": "\\mathbb{Z}",
+        "\\Q": "\\mathbb{Q}",
+        "\\C": "\\mathbb{C}",
+        "\\E": "\\mathbb{E}",
+    },
+};
+
 interface Props {
     content: string;
     conversationId?: string | null;
@@ -53,8 +67,8 @@ function MarkdownRenderer({ content, conversationId }: Props) {
     return (
         <div ref={containerRef} className="markdown-body">
             <ReactMarkdown
-                remarkPlugins={[remarkMath]}
-                rehypePlugins={[[rehypeKatex, { output: "htmlAndMathml", throwOnError: false, strict: false }]]}
+                remarkPlugins={[[remarkMath, { singleDollarTextMath: true }]]}
+                rehypePlugins={[[rehypeKatex, KATEX_OPTIONS]]}
                 components={{
                     code({ className, children, ...rest }) {
                         const match = /language-(\w+)/.exec(className || "");

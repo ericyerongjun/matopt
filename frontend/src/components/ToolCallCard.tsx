@@ -38,7 +38,7 @@ function fileUrl(conversationId: string | null | undefined, artifact: Artifact):
     return undefined;
 }
 
-function ArtifactView({ artifact, conversationId }: { artifact: Artifact; conversationId?: string | null }) {
+export function ArtifactView({ artifact, conversationId }: { artifact: Artifact; conversationId?: string | null }) {
     const url = fileUrl(conversationId, artifact);
     const [fetched, setFetched] = useState<unknown>(null);
 

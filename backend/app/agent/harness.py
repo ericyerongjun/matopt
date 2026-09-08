@@ -36,7 +36,9 @@ from app.agent.prompts import (
     VERIFIER_USER_TEMPLATE,
     build_system_prompt,
 )
+from app.agent.monitor import inspect_tool_call, next_step_options
 from app.agent.skills.loader import SkillRegistry
+from app.agent.skills.slash import default_slash_prompt, split_slash_skills
 from app.agent.skills.materialize import materialize_skill
 from app.agent.skills.router import RoutePlan, SkillRouter
 from app.agent.tools.base import ToolContext, ToolRegistry, truncate_text
@@ -64,6 +66,8 @@ class RunRequest:
     reasoning: Optional[str] = None
     verify: bool = False
     temperature: Optional[float] = None
+    skills: list[str] = field(default_factory=list)
+    web_search: bool = False
 
 
 @dataclass
@@ -91,6 +95,7 @@ class AgentHarness:
         )
         self.tool_router = tool_router or ToolRouter()
         self._active: dict[str, asyncio.Event] = {}     # conversation_id -> cancel flag
+        self._steer: dict[str, asyncio.Queue[str]] = {}
 
     # ── public API ──────────────────────────────────────────────────────
 
@@ -102,6 +107,26 @@ class AgentHarness:
         if flag is None:
             return False
         flag.set()
+        return True
+
+    def enqueue_steer(self, conversation_id: str, text: str) -> bool:
+        """Queue a mid-turn correction (Claude/Astra-style fold at the next tool boundary)."""
+        q = self._steer.get(conversation_id)
+        if q is None or not (text or "").strip():
+            return False
+        q.put_nowait(text.strip())
+        return True
+
+    async def _drain_steer(self, conversation_id: str, history: list, emit: EmitFn) -> bool:
+        q = self._steer.get(conversation_id)
+        texts: list[str] = []
+        while q is not None and not q.empty():
+            texts.append(q.get_nowait())
+        if not texts:
+            return False
+        joined = "\n".join(texts)
+        history.append({"role": "user", "content": f"[Steer] {joined}"})
+        await emit(ev("steer_applied", text=joined))
         return True
 
     async def run(self, req: RunRequest) -> AsyncIterator[Event]:
@@ -151,10 +176,16 @@ class AgentHarness:
                 await emit(ev("error", message="A run is already in progress for this conversation."))
                 return
             self._active[cid] = cancel
+            self._steer[cid] = asyncio.Queue()
 
             workspace = Workspace(cid, self.settings.workspace_dir)
             prior_messages = self.db.list_messages(cid)
-            user_msg = self.db.add_message(cid, "user", {"text": req.text, "attachments": req.attachments})
+            original_text = req.text
+            slash_rest, slash_names = split_slash_skills(req.text, self.skills.names())
+            forced = list(dict.fromkeys([*(req.skills or []), *slash_names]))
+            llm_text = slash_rest.strip() or default_slash_prompt(forced) or req.text
+            req = dataclasses.replace(req, text=llm_text, skills=forced)
+            self.db.add_message(cid, "user", {"text": original_text, "attachments": req.attachments})
             await emit(ev("conversation", conversation_id=cid, title=conv["title"]))
 
             message_id = new_id("m_")
@@ -166,7 +197,7 @@ class AgentHarness:
                 state={"plan": state.plan, "skills": []}, kernels=self.kernels, settings=self.settings,
             )
             route = self._route_turn(req, workspace)
-            await self._activate_skills(route, ctx, emit)
+            await self._activate_skills(route, ctx, emit, forced=bool(req.skills), state=state)
             options = ChatOptions(model=model.id, reasoning=level, temperature=req.temperature, max_tokens=self.settings.max_output_tokens or None)
             system_prompt = self._system_prompt(workspace, route)
             history = [{"role": "system", "content": system_prompt}]
@@ -179,9 +210,14 @@ class AgentHarness:
                 final_text = await self._agent_loop(
                     provider, options, history, ctx, state, emit, tools=self.tools,
                     max_steps=self.settings.agent_max_steps, query=req.text, route=route,
+                    web_search=bool(req.web_search),
                 )
                 if req.verify and final_text.strip() and not cancel.is_set():
                     final_text = await self._verify_and_revise(provider, options, history, ctx, state, emit, req.text, final_text)
+                choices = next_step_options(ctx.state.get("plan") or state.plan, final_text)
+                if choices:
+                    state.parts.append({"type": "options", "items": choices})
+                    await emit(ev("options", items=choices))
             except Stopped:
                 status = "stopped"
             except asyncio.CancelledError:
@@ -211,6 +247,7 @@ class AgentHarness:
             await emit(ev("error", message=_friendly_error(exc)))
         finally:
             self._active.pop(cid, None)
+            self._steer.pop(cid, None)
             await queue.put(None)
 
     # ── system prompt & history ─────────────────────────────────────────
@@ -225,6 +262,16 @@ class AgentHarness:
         if self.tools.get("wolfram_alpha"):
             extra.append("`wolfram_alpha` — short factual/computational answers from Wolfram|Alpha for cross-checking.")
         extra.append("`search_skills` / `load_skill` — find and activate a specialised playbook from the skill space.")
+        if self.tools.get("lambda_data_agent"):
+            extra.append(
+                "`lambda_data_agent` — original LAMBDA data-analysis agent (EDA, charts, LaTeX/PDF reports, notebooks, PPT). "
+                "Use for dataset work instead of reinventing it in `python`."
+            )
+        if self.tools.get("web_search"):
+            extra.append(
+                "`web_search` / `web_fetch` — live web search (open metasearch: ddgs, optional SearXNG/Tavily/Brave) "
+                "and page fetch. Only advertised when the user turns Web Search on."
+            )
         catalog, active = "", ""
         if route is not None:
             catalog, active = route.as_prompt(getattr(self.settings, "skill_catalog_limit", 16))
@@ -240,10 +287,29 @@ class AgentHarness:
             files = workspace.list_files(limit=80)
         except Exception:  # noqa: BLE001
             files = []
-        return self.skill_router.plan(req.text, attachments=req.attachments, files=files)
+        route = self.skill_router.plan(req.text, attachments=req.attachments, files=files)
+        forced: list = []
+        for name in req.skills or []:
+            skill = self.skills.get(name)
+            if skill is not None:
+                forced.append(skill)
+        if not forced:
+            return route
+        seen = {s.name for s in forced}
+        route.activate = forced + [s for s in route.activate if s.name not in seen]
+        return route
 
-    async def _activate_skills(self, route: RoutePlan, ctx: ToolContext, emit: EmitFn) -> None:
-        if not getattr(self.settings, "skill_auto_activate", True):
+    async def _activate_skills(
+        self,
+        route: RoutePlan,
+        ctx: ToolContext,
+        emit: EmitFn,
+        forced: bool = False,
+        state: Optional[TurnState] = None,
+    ) -> None:
+        if not route.activate:
+            return
+        if not forced and not getattr(self.settings, "skill_auto_activate", True):
             return
         names = []
         for skill in route.activate:
@@ -254,8 +320,11 @@ class AgentHarness:
                 logger.exception("Failed to materialise skill %s", skill.name)
         if names:
             ctx.state["skills"] = names
+            part = {"type": "skills", "names": names, "auto": not forced}
+            if state is not None:
+                state.parts.append(part)
             await emit(ev("status", message="Loaded skill" + ("s" if len(names) > 1 else "") + ": " + ", ".join(names)))
-            await emit(ev("skills", names=names, auto=True))
+            await emit(ev("skills", names=names, auto=not forced))
 
     def _replay(self, messages: list[dict], provider: LLMProvider) -> list[dict]:
         """Rebuild LLM history from stored messages; recent turns keep full tool detail."""
@@ -284,13 +353,17 @@ class AgentHarness:
     # ── core loop ───────────────────────────────────────────────────────
 
     async def _agent_loop(self, provider, options, history, ctx: ToolContext, state: TurnState, emit: EmitFn,
-                          tools: ToolRegistry, max_steps: int, query: str = "", route: Optional[RoutePlan] = None) -> str:
+                          tools: ToolRegistry, max_steps: int, query: str = "", route: Optional[RoutePlan] = None,
+                          web_search: bool = False) -> str:
         consecutive_failures = 0
         last_text = ""
         schemas = self.tool_router.schemas(tools, query, route)
+        if not web_search:
+            schemas = [s for s in schemas if (s.get("function") or {}).get("name") not in {"web_search", "web_fetch"}]
         for step in range(max_steps):
             if ctx.cancel.is_set():
                 raise Stopped()
+            await self._drain_steer(ctx.conversation_id, history, emit)
             last_step = step == max_steps - 1
             if last_step:
                 history.append({"role": "user", "content": FINAL_STEP_NUDGE})
@@ -308,6 +381,7 @@ class AgentHarness:
             results = await self._execute_calls(calls, tools, ctx, emit, state)
             for call, res in zip(calls, results):
                 history.append(provider.tool_message(call.id, call.name, _tool_message_text(res)))
+            await self._drain_steer(ctx.conversation_id, history, emit)
             if all(not r.ok for r in results):
                 consecutive_failures += 1
             else:
@@ -385,15 +459,25 @@ class AgentHarness:
             elif ctx.cancel.is_set():
                 res = ToolResult(ok=False, output="", error="Skipped: the run was stopped.")
             else:
+                if getattr(self.settings, "align_monitor", True):
+                    verdict = inspect_tool_call(tool.name, args or {})
+                    if verdict.level != "ok":
+                        await emit(ev("monitor", level=verdict.level, summary=verdict.summary, tool=tool.name))
+                        state.parts.append({"type": "monitor", "level": verdict.level, "summary": verdict.summary, "tool": tool.name})
+                    if verdict.level == "block":
+                        res = ToolResult(ok=False, output="", error=verdict.summary, meta={"monitor": "block"})
+                        res.meta.setdefault("duration_ms", int((time.monotonic() - started) * 1000))
+                        return res
                 call_ctx = dataclasses.replace(ctx, call_id=call.id)
                 res = await tool(call_ctx, args or {})
             res.meta.setdefault("duration_ms", int((time.monotonic() - started) * 1000))
             return res
 
-        parallel = len(parsed) > 1 and all(
-            (self.tool_router.resolve(tools, c.name)[0] is not None and self.tool_router.resolve(tools, c.name)[0].read_only)
-            for c, _, _ in parsed
-        )
+        def _resolved(name: str):
+            return self.tool_router.resolve(tools, name)[0]
+
+        writes = [c for c, _, _ in parsed if (_resolved(c.name) is None or not _resolved(c.name).read_only)]
+        parallel = len(parsed) > 1 and len(writes) <= 1
         if parallel:
             results = await asyncio.gather(*(run_one(c, a, e) for c, a, e in parsed))
         else:
@@ -465,6 +549,7 @@ class AgentHarness:
 
 def _heuristic_title(text: str) -> str:
     cleaned = re.sub(r"\$[^$]*\$", "math", text or "").replace("\n", " ").strip()
+    cleaned = re.sub(r"^(?:/[a-z0-9]+(?:-[a-z0-9]+)*\s*)+", "", cleaned, flags=re.I).strip()
     return (cleaned[:60] + "…") if len(cleaned) > 60 else (cleaned or "New chat")
 
 

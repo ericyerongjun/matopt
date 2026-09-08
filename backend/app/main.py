@@ -71,6 +71,11 @@ def create_app() -> FastAPI:
     )
     app.include_router(api_router)
 
+    if settings.lambda_enabled:
+        from app.data.lambda_host import attach_lambda
+
+        attach_lambda(app)
+
     @app.get("/health")
     async def health():
         rt = get_runtime()
@@ -80,6 +85,7 @@ def create_app() -> FastAPI:
             "tools": rt.tools.names(),
             "skills": rt.skills.names(),
             "mcp": settings.mcp_enabled,
+            "lambda": settings.lambda_enabled,
         }
 
     if mcp_asgi is not None:

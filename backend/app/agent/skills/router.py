@@ -42,6 +42,7 @@ SYNONYMS: dict[str, tuple[str, ...]] = {
     "numerical-optimization": ("minimize", "minimise", "maximize", "optimise", "optimize", "l-bfgs", "bfgs", "least squares", "curve_fit"),
     "ml-experiment": ("sklearn", "classifier", "cross-validation", "pipeline", "roc", "random forest", "k-means"),
     "math-verification": ("verify", "equivalence", "sanity check", "boxed", "identity"),
+    "lambda-data-agent": ("dataset", "dataframe", "eda", "exploratory", "csv", "parquet", "data report", "autonomous exploration", "lambda"),
     "mcp-builder": ("mcp", "model context protocol", "fastmcp"),
     "skill-creator": ("create a skill", "author a skill", "skill.md"),
     "frontend-design": ("ui", "typography", "landing page"),
@@ -59,8 +60,9 @@ EXT_TO_SKILLS: dict[str, tuple[str, ...]] = {
     ".xlsx": ("xlsx",),
     ".xls": ("xlsx",),
     ".xlsm": ("xlsx",),
-    ".csv": ("xlsx", "statistical-inference"),
-    ".tsv": ("xlsx", "statistical-inference"),
+    ".csv": ("lambda-data-agent", "statistical-inference"),
+    ".tsv": ("lambda-data-agent", "statistical-inference"),
+    ".parquet": ("lambda-data-agent",),
     ".gif": ("slack-gif-creator",),
 }
 
@@ -204,7 +206,7 @@ class SkillRouter:
             for r in ranked[1 : self.auto_activate_max + 2]:
                 if len(activate) >= self.auto_activate_max:
                     break
-                if r.score >= self.auto_threshold and r.score >= (activate[0].score if activate else 0) - 0.15:
+                if r.score >= self.auto_threshold and r.score >= (top.score if activate else 0) - 0.15:
                     activate.append(r.skill)
         catalog = [r.skill.name for r in ranked]
         return RoutePlan(activate=activate, ranked=ranked, catalog_names=catalog)

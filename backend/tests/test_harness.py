@@ -151,3 +151,32 @@ def test_expand_parts_shapes():
     assert msgs[2]["role"] == "tool" and "stopped" in msgs[2]["content"]
     assert msgs[3] == {"role": "assistant", "content": "final"}
     assert json.loads(msgs[0]["tool_calls"][0]["function"]["arguments"]) == {"code": "1"}
+
+
+@pytest.mark.asyncio
+async def test_slash_skill_force_activates_and_persists(db):
+    from app.agent.skills.loader import SkillRegistry, load_skill_dir
+    from app.config import REPO_ROOT
+
+    skill = load_skill_dir(REPO_ROOT / "skills" / "matopt" / "sympy-compute", source="matopt")
+    registry = SkillRegistry([skill])
+    provider = FakeProvider([{"text": "expanded"}])
+    kernels = KernelPool(lambda cid: Workspace(cid, settings.workspace_dir))
+    harness = AgentHarness(db, kernels, settings, FakeRegistry(provider), build_tools(registry), skills=registry)
+    try:
+        events = await collect(
+            harness,
+            RunRequest(conversation_id=None, text="/sympy-compute expand (x+1)^2", skills=["sympy-compute"]),
+        )
+    finally:
+        await kernels.shutdown_all()
+    skills_ev = next(e for e in events if e["type"] == "skills")
+    assert skills_ev["names"] == ["sympy-compute"] and skills_ev["auto"] is False
+    cid = events[0]["conversation_id"]
+    msgs = db.list_messages(cid)
+    assert msgs[0]["content"]["text"].startswith("/sympy-compute")
+    assert msgs[1]["content"]["parts"][0]["type"] == "skills"
+    user = [m for m in provider.calls[0] if m["role"] == "user"][-1]
+    content = user["content"] if isinstance(user["content"], str) else str(user["content"])
+    assert "expand (x+1)^2" in content
+    assert "/sympy-compute" not in content

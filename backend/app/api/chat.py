@@ -35,6 +35,8 @@ class ChatStreamRequest(BaseModel):
     reasoning: Optional[str] = None
     verify: bool = False
     temperature: Optional[float] = None
+    skills: list[str] = Field(default_factory=list)
+    web_search: bool = False
 
 
 @router.post("/chat/stream")
@@ -56,6 +58,8 @@ async def chat_stream(body: ChatStreamRequest, request: Request):
         reasoning=body.reasoning,
         verify=body.verify,
         temperature=body.temperature,
+        skills=body.skills,
+        web_search=body.web_search,
     )
 
     async def gen():
@@ -84,3 +88,16 @@ async def chat_stop(conversation_id: str):
     if session is not None:
         await session.interrupt()
     return {"stopped": stopped}
+
+
+class SteerRequest(BaseModel):
+    message: str = Field(..., min_length=1)
+
+
+@router.post("/chat/{conversation_id}/steer")
+async def chat_steer(conversation_id: str, body: SteerRequest):
+    rt = get_runtime()
+    accepted = rt.harness.enqueue_steer(conversation_id, body.message)
+    if not accepted:
+        raise HTTPException(status_code=409, detail="No run is in progress for this conversation.")
+    return {"accepted": True}

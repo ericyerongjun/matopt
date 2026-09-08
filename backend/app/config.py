@@ -70,6 +70,19 @@ class Settings(BaseSettings):
     mcp_config_path: Optional[Path] = None     # default: <repo>/mcp.json
     mcp_mount_path: str = "/mcp"
 
+    # ── LAMBDA data agent (vendored AMA-CMFAI/LAMBDA backend) ───────────
+    lambda_enabled: bool = True
+
+    # ── Web search (ddgs by default; optional SearXNG / Tavily / Brave) ─
+    web_search_enabled: bool = True
+    searxng_url: Optional[str] = None
+    tavily_api_key: Optional[str] = None
+    brave_search_api_key: Optional[str] = None
+
+    # ── Alignment monitor (local analog of Astra misalignment monitoring)
+    align_monitor: bool = True
+    align_monitor_llm: bool = False
+
     # ── Document parsing (MinerU) ───────────────────────────────────────
     mineru_command: Optional[str] = None           # path to the mineru CLI; auto-detected if empty
     mineru_backend: str = "pipeline"               # pipeline | vlm-transformers | vlm-http-client ...

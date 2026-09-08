@@ -39,6 +39,9 @@ async def test_conversation_and_files_roundtrip():
         r = await client.post("/api/chat/stream", json={"conversation_id": cid, "message": "hi"})
         assert r.status_code == 400
 
+        r = await client.post(f"/api/chat/{cid}/steer", json={"message": "try a simpler proof"})
+        assert r.status_code == 409
+
         r = await client.delete(f"/api/conversations/{cid}")
         assert r.status_code == 200
         r = await client.get(f"/api/conversations/{cid}")
@@ -47,6 +50,6 @@ async def test_conversation_and_files_roundtrip():
         r = await client.get("/api/skills")
         assert r.status_code == 200
         names = {s["name"] for s in r.json()["skills"]}
-        assert "pdf" in names and "sympy-compute" in names
+        assert "pdf" in names and "sympy-compute" in names and "lambda-data-agent" in names
         r = await client.get("/api/skills/sympy-compute")
         assert r.status_code == 200 and "symbolic" in r.json()["body"].lower()

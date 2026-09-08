@@ -4,6 +4,7 @@
 }
 
 .chat-input {
+    position: relative;
     display: flex;
     flex-direction: column;
     gap: 4px;
@@ -84,6 +85,12 @@
     gap: 8px;
 }
 
+.chat-input__bar-left {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+}
+
 .chat-input__bar-right {
     display: flex;
     align-items: center;
@@ -108,6 +115,19 @@
 .chat-input__attach:hover {
     background: var(--accent-soft);
     color: var(--text-primary);
+}
+
+.chat-input__attach--on {
+    color: var(--oai-teal-hover);
+    background: var(--oai-teal-light);
+}
+
+.chat-input__search {
+    width: auto;
+    gap: 6px;
+    padding: 0 10px;
+    font-size: 0.78rem;
+    font-weight: 600;
 }
 
 .chat-input__send {

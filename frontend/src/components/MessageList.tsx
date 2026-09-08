@@ -6,20 +6,17 @@ import React, { useEffect, useRef, type ReactNode } from "react";
 import { Copy } from "lucide-react";
 import type { AssistantContent, ChatMessage, Part } from "../types/protocol";
 import { isAssistantContent, isUserContent, textFromAssistant } from "../types/protocol";
+import { parseSlashSkillTokens } from "../services/skills";
 import MarkdownRenderer from "./MarkdownRenderer";
-import ToolCallCard, {
-    AnalysisTrace,
-    CODE_TOOLS,
-    hasDisplayArtifact,
-    SILENT_TOOLS,
-    type ToolPart,
-} from "./ToolCallCard";
+import { hasDisplayArtifact, type ToolPart } from "./ToolCallCard";
 import "./MessageList.css";
 
 interface Props {
     messages: ChatMessage[];
     conversationId: string | null;
     streaming?: boolean;
+    onPickOption?: (text: string) => void;
+    onOpenWork?: () => void;
 }
 
 function ThinkingLabel({ streaming }: { streaming: boolean }) {
@@ -48,15 +45,16 @@ function AssistantBody({
     parts,
     conversationId,
     streaming,
+    onOpenWork,
 }: {
     parts: Part[];
     conversationId: string | null;
     streaming: boolean;
+    onOpenWork?: () => void;
 }) {
     const nodes: ReactNode[] = [];
     let sawReasoning = false;
-    let sawCodeTrace = false;
-    const codeTools = parts.filter((p): p is ToolPart => p.type === "tool_call" && CODE_TOOLS.has(p.name));
+    const toolCount = parts.filter((p) => p.type === "tool_call").length;
 
     for (let i = 0; i < parts.length; i++) {
         const part = parts[i];
@@ -67,6 +65,18 @@ function AssistantBody({
             }
             continue;
         }
+        if (part.type === "skills") {
+            nodes.push(
+                <div key={`skills-${i}`} className="thread__skills">
+                    {part.names.map((name) => (
+                        <span key={name} className="thread__skill">
+                            /{name}
+                        </span>
+                    ))}
+                </div>
+            );
+            continue;
+        }
         if (part.type === "text") {
             if (isCommentaryText(parts, i)) continue;
             nodes.push(
@@ -74,19 +84,19 @@ function AssistantBody({
             );
             continue;
         }
-        if (part.type === "tool_call") {
-            if (SILENT_TOOLS.has(part.name)) continue;
-            if (CODE_TOOLS.has(part.name)) {
-                if (!sawCodeTrace) {
-                    nodes.push(
-                        <AnalysisTrace key="analyzed" parts={codeTools} conversationId={conversationId} />
-                    );
-                    sawCodeTrace = true;
-                }
-                continue;
-            }
-            nodes.push(<ToolCallCard key={part.id} part={part} conversationId={conversationId} />);
+        if (part.type === "options") {
+            continue;
         }
+        if (part.type === "monitor" || part.type === "tool_call" || part.type === "phase" || part.type === "verification") {
+            continue;
+        }
+    }
+    if (toolCount > 0) {
+        nodes.unshift(
+            <button key="work-hint" type="button" className="thread__work-hint" onClick={onOpenWork}>
+                {streaming ? "Working" : "Work"} · {toolCount} {toolCount === 1 ? "action" : "actions"}
+            </button>
+        );
     }
 
     if (streaming && parts.length === 0) {
@@ -115,7 +125,7 @@ function AssistantFooter({ content }: { content: AssistantContent }) {
     );
 }
 
-export default function MessageList({ messages, conversationId, streaming }: Props) {
+export default function MessageList({ messages, conversationId, streaming, onPickOption, onOpenWork }: Props) {
     const bottomRef = useRef<HTMLDivElement>(null);
 
     useEffect(() => {
@@ -130,6 +140,8 @@ export default function MessageList({ messages, conversationId, streaming }: Pro
                     msg={msg}
                     conversationId={conversationId}
                     streaming={Boolean(streaming && index === messages.length - 1)}
+                    onPickOption={onPickOption}
+                    onOpenWork={onOpenWork}
                 />
             ))}
             <div ref={bottomRef} />
@@ -141,17 +153,31 @@ function MessageRow({
     msg,
     conversationId,
     streaming,
+    onPickOption,
+    onOpenWork,
 }: {
     msg: ChatMessage;
     conversationId: string | null;
     streaming: boolean;
+    onPickOption?: (text: string) => void;
+    onOpenWork?: () => void;
 }) {
     if (msg.role === "user" && isUserContent(msg.content)) {
+        const { names, rest } = parseSlashSkillTokens(msg.content.text);
         return (
             <div className="thread__row thread__row--user">
                 <div className="thread__message">
                     <div className="thread__body thread__body--user">
-                        <p>{msg.content.text}</p>
+                        {names.length > 0 && (
+                            <div className="thread__skills thread__skills--user">
+                                {names.map((name) => (
+                                    <span key={name} className="thread__skill">
+                                        /{name}
+                                    </span>
+                                ))}
+                            </div>
+                        )}
+                        {rest ? <p>{rest}</p> : null}
                         {msg.content.attachments?.length > 0 && (
                             <div className="thread__attachments">
                                 {msg.content.attachments.map((a) => (
@@ -174,7 +200,29 @@ function MessageRow({
         <div className="thread__row thread__row--assistant">
             <div className="thread__message">
                 <div className="thread__body">
-                    <AssistantBody parts={content.parts} conversationId={conversationId} streaming={streaming} />
+                    <AssistantBody
+                        parts={content.parts}
+                        conversationId={conversationId}
+                        streaming={streaming}
+                        onOpenWork={onOpenWork}
+                    />
+                    {!streaming &&
+                        content.parts
+                            .filter((p): p is Extract<Part, { type: "options" }> => p.type === "options")
+                            .map((part, i) => (
+                                <div key={`opt-${i}`} className="thread__options">
+                                    {part.items.map((item) => (
+                                        <button
+                                            key={item}
+                                            type="button"
+                                            className="thread__option"
+                                            onClick={() => onPickOption?.(item)}
+                                        >
+                                            {item}
+                                        </button>
+                                    ))}
+                                </div>
+                            ))}
                 </div>
                 {(content.status === "stopped" || content.status === "error") && (
                     <div className="thread__notice">

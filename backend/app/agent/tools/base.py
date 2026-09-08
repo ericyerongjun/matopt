@@ -44,6 +44,7 @@ class Tool(ABC):
     description: str = ""
     parameters: dict = {"type": "object", "properties": {}}
     read_only: bool = False      # read-only tools may run concurrently
+    background: bool = False     # may start without blocking sibling tools
     ui_kind: str = "generic"     # hint for the frontend renderer
 
     def schema(self) -> dict:

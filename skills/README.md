@@ -4,15 +4,15 @@ Skills follow the [Agent Skills](https://agentskills.io/specification) format: a
 
 ```
 skills/
-  matopt/       # native math / stats / ML / CS playbooks
+  matopt/       # native math / stats / ML / CS playbooks, plus lambda-data-agent
   anthropic/    # full catalog from github.com/anthropics/skills
   spec/         # format notes and the upstream template
 ```
 
 ## How the harness uses them
 
-1. **Discovery** — only `name` + `description` sit in the system prompt (and in `search_skills`).
-2. **Routing** — a lexical router scores the user message, attachments, and workspace files; high-confidence matches are auto-activated (at most two per turn).
+1. **Discovery** — only `name` + `description` sit in the system prompt (and in `search_skills`). The composer `/` menu lists the same catalog with a one-line intro.
+2. **Routing** — a lexical router scores the user message, attachments, and workspace files; high-confidence matches are auto-activated (at most two per turn). Typing `/skill-name` (or sending `skills` on the chat request) force-activates that playbook.
 3. **Activation** — `load_skill` (or auto-activate) injects the `SKILL.md` body and copies the folder into the conversation workspace at `skills/<name>/`.
 4. **Execution** — bundled scripts run via `python` / `bash` from that workspace copy.
 
