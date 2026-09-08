@@ -36,7 +36,11 @@ from app.agent.prompts import (
     VERIFIER_USER_TEMPLATE,
     build_system_prompt,
 )
+from app.agent.skills.loader import SkillRegistry
+from app.agent.skills.materialize import materialize_skill
+from app.agent.skills.router import RoutePlan, SkillRouter
 from app.agent.tools.base import ToolContext, ToolRegistry, truncate_text
+from app.agent.tools.router import ToolRouter
 from app.agent.workspace import Workspace
 from app.llm.base import ChatOptions, LLMProvider, ToolCallSpec
 from app.storage.db import Database, new_id
@@ -73,12 +77,19 @@ class TurnState:
 
 
 class AgentHarness:
-    def __init__(self, db: Database, kernels, settings, providers, tools: ToolRegistry):
+    def __init__(self, db: Database, kernels, settings, providers, tools: ToolRegistry,
+                 skills: Optional[SkillRegistry] = None, tool_router: Optional[ToolRouter] = None):
         self.db = db
         self.kernels = kernels
         self.settings = settings
         self.providers = providers
         self.tools = tools
+        self.skills = skills or SkillRegistry()
+        self.skill_router = SkillRouter(
+            self.skills,
+            auto_activate_max=getattr(settings, "skill_auto_activate_max", 2),
+        )
+        self.tool_router = tool_router or ToolRouter()
         self._active: dict[str, asyncio.Event] = {}     # conversation_id -> cancel flag
 
     # ── public API ──────────────────────────────────────────────────────
@@ -152,10 +163,12 @@ class AgentHarness:
             state = TurnState()
             ctx = ToolContext(
                 conversation_id=cid, workspace=workspace, emit=emit, cancel=cancel,
-                state={"plan": state.plan}, kernels=self.kernels, settings=self.settings,
+                state={"plan": state.plan, "skills": []}, kernels=self.kernels, settings=self.settings,
             )
+            route = self._route_turn(req, workspace)
+            await self._activate_skills(route, ctx, emit)
             options = ChatOptions(model=model.id, reasoning=level, temperature=req.temperature, max_tokens=self.settings.max_output_tokens or None)
-            system_prompt = self._system_prompt(workspace)
+            system_prompt = self._system_prompt(workspace, route)
             history = [{"role": "system", "content": system_prompt}]
             history += self._replay(prior_messages, provider)
             history.append({"role": "user", "content": _user_content(req.text, req.attachments)})
@@ -163,7 +176,10 @@ class AgentHarness:
             status = "complete"
             final_text = ""
             try:
-                final_text = await self._agent_loop(provider, options, history, ctx, state, emit, tools=self.tools, max_steps=self.settings.agent_max_steps)
+                final_text = await self._agent_loop(
+                    provider, options, history, ctx, state, emit, tools=self.tools,
+                    max_steps=self.settings.agent_max_steps, query=req.text, route=route,
+                )
                 if req.verify and final_text.strip() and not cancel.is_set():
                     final_text = await self._verify_and_revise(provider, options, history, ctx, state, emit, req.text, final_text)
             except Stopped:
@@ -199,7 +215,7 @@ class AgentHarness:
 
     # ── system prompt & history ─────────────────────────────────────────
 
-    def _system_prompt(self, workspace: Workspace) -> str:
+    def _system_prompt(self, workspace: Workspace, route: Optional[RoutePlan] = None) -> str:
         files_block = workspace.describe_for_prompt()
         try:
             ds = datasets_block(workspace)
@@ -208,7 +224,38 @@ class AgentHarness:
         extra = []
         if self.tools.get("wolfram_alpha"):
             extra.append("`wolfram_alpha` — short factual/computational answers from Wolfram|Alpha for cross-checking.")
-        return build_system_prompt(files_block, ds, extra)
+        extra.append("`search_skills` / `load_skill` — find and activate a specialised playbook from the skill space.")
+        catalog, active = "", ""
+        if route is not None:
+            catalog, active = route.as_prompt(getattr(self.settings, "skill_catalog_limit", 16))
+        elif len(self.skills):
+            catalog = self.skills.catalog_lines()
+        return build_system_prompt(files_block, ds, extra, skills_catalog=catalog, skills_active=active)
+
+    def _route_turn(self, req: RunRequest, workspace: Workspace) -> RoutePlan:
+        if not len(self.skills):
+            return RoutePlan()
+        files = []
+        try:
+            files = workspace.list_files(limit=80)
+        except Exception:  # noqa: BLE001
+            files = []
+        return self.skill_router.plan(req.text, attachments=req.attachments, files=files)
+
+    async def _activate_skills(self, route: RoutePlan, ctx: ToolContext, emit: EmitFn) -> None:
+        if not getattr(self.settings, "skill_auto_activate", True):
+            return
+        names = []
+        for skill in route.activate:
+            try:
+                materialize_skill(skill, ctx.workspace)
+                names.append(skill.name)
+            except Exception:  # noqa: BLE001
+                logger.exception("Failed to materialise skill %s", skill.name)
+        if names:
+            ctx.state["skills"] = names
+            await emit(ev("status", message="Loaded skill" + ("s" if len(names) > 1 else "") + ": " + ", ".join(names)))
+            await emit(ev("skills", names=names, auto=True))
 
     def _replay(self, messages: list[dict], provider: LLMProvider) -> list[dict]:
         """Rebuild LLM history from stored messages; recent turns keep full tool detail."""
@@ -237,10 +284,10 @@ class AgentHarness:
     # ── core loop ───────────────────────────────────────────────────────
 
     async def _agent_loop(self, provider, options, history, ctx: ToolContext, state: TurnState, emit: EmitFn,
-                          tools: ToolRegistry, max_steps: int) -> str:
+                          tools: ToolRegistry, max_steps: int, query: str = "", route: Optional[RoutePlan] = None) -> str:
         consecutive_failures = 0
         last_text = ""
-        schemas = tools.schemas()
+        schemas = self.tool_router.schemas(tools, query, route)
         for step in range(max_steps):
             if ctx.cancel.is_set():
                 raise Stopped()
@@ -330,11 +377,11 @@ class AgentHarness:
 
         async def run_one(call: ToolCallSpec, args: Optional[dict], err: Optional[str]) -> ToolResult:
             started = time.monotonic()
-            tool = tools.get(call.name)
+            tool, resolve_err = self.tool_router.resolve(tools, call.name)
             if err is not None:
                 res = ToolResult(ok=False, output="", error=f"Could not parse tool arguments as JSON: {err}")
             elif tool is None:
-                res = ToolResult(ok=False, output="", error=f"Unknown tool '{call.name}'. Available: {', '.join(tools.names())}.")
+                res = ToolResult(ok=False, output="", error=resolve_err or f"Unknown tool '{call.name}'. Available: {', '.join(tools.names())}.")
             elif ctx.cancel.is_set():
                 res = ToolResult(ok=False, output="", error="Skipped: the run was stopped.")
             else:
@@ -343,7 +390,10 @@ class AgentHarness:
             res.meta.setdefault("duration_ms", int((time.monotonic() - started) * 1000))
             return res
 
-        parallel = len(parsed) > 1 and all((tools.get(c.name) is not None and tools.get(c.name).read_only) for c, _, _ in parsed)
+        parallel = len(parsed) > 1 and all(
+            (self.tool_router.resolve(tools, c.name)[0] is not None and self.tool_router.resolve(tools, c.name)[0].read_only)
+            for c, _, _ in parsed
+        )
         if parallel:
             results = await asyncio.gather(*(run_one(c, a, e) for c, a, e in parsed))
         else:

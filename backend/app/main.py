@@ -26,7 +26,10 @@ logger = logging.getLogger(__name__)
 async def lifespan(app: FastAPI):
     rt = get_runtime()
     await rt.start()
-    logger.info("MatOpt backend ready (data_dir=%s, providers=%s)", settings.data_dir, rt.providers.configured_ids())
+    logger.info(
+        "MatOpt backend ready (data_dir=%s, providers=%s, skills=%d, tools=%s)",
+        settings.data_dir, rt.providers.configured_ids(), len(rt.skills), rt.tools.names(),
+    )
     try:
         yield
     finally:
@@ -34,11 +37,30 @@ async def lifespan(app: FastAPI):
 
 
 def create_app() -> FastAPI:
+    mcp_asgi = None
+    if settings.mcp_enabled:
+        try:
+            from app.agent.mcp.sandbox import build_mcp_asgi
+
+            mcp_asgi = build_mcp_asgi()
+        except Exception:  # noqa: BLE001
+            logger.exception("MCP sandbox HTTP transport is disabled")
+
+    @asynccontextmanager
+    async def _lifespan(app: FastAPI):
+        if mcp_asgi is not None and getattr(mcp_asgi, "lifespan", None) is not None:
+            async with mcp_asgi.lifespan(app):
+                async with lifespan(app):
+                    yield
+        else:
+            async with lifespan(app):
+                yield
+
     app = FastAPI(
         title=settings.app_name,
         version="1.0.0",
-        description="Agentic assistant for mathematics, statistics, ML and CS: tool-calling harness with a persistent Python kernel.",
-        lifespan=lifespan,
+        description="Agentic assistant for mathematics, statistics, ML and CS: tool-calling harness with a persistent Python kernel, Agent Skills, and MCP sandbox.",
+        lifespan=_lifespan,
     )
     app.add_middleware(
         CORSMiddleware,
@@ -52,7 +74,16 @@ def create_app() -> FastAPI:
     @app.get("/health")
     async def health():
         rt = get_runtime()
-        return {"status": "ok", "providers": rt.providers.configured_ids(), "tools": rt.tools.names()}
+        return {
+            "status": "ok",
+            "providers": rt.providers.configured_ids(),
+            "tools": rt.tools.names(),
+            "skills": rt.skills.names(),
+            "mcp": settings.mcp_enabled,
+        }
+
+    if mcp_asgi is not None:
+        app.mount(settings.mcp_mount_path, mcp_asgi)
 
     static_dir = Path(__file__).resolve().parent.parent / "static"
     if static_dir.exists():

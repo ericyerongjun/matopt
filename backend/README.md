@@ -1,7 +1,8 @@
 # MatOpt backend
 
-Agentic FastAPI service: a tool-calling harness with a persistent Python kernel,
-workspace files, optional MinerU document parsing, and streaming SSE events.
+The agentic FastAPI service: a tool-calling harness with a persistent Python kernel,
+workspace files, Agent Skills routing, an MCP sandbox, optional MinerU document parsing,
+and streaming SSE events.
 
 ## Environment
 

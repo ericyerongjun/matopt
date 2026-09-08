@@ -20,6 +20,8 @@ export const SILENT_TOOLS = new Set([
     "update_plan",
     "wolfram_alpha",
     "check_equivalence",
+    "load_skill",
+    "search_skills",
 ]);
 
 export const CODE_TOOLS = new Set(["python", "bash"]);

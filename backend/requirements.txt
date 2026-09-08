@@ -9,6 +9,10 @@ aiofiles>=24.1.0
 pydantic>=2.10.0
 pydantic-settings>=2.7.0
 python-dotenv>=1.0.1
+PyYAML>=6.0.2
+
+# ── MCP (sandbox server + extra-server client) ──
+fastmcp>=2.13.0
 
 # ── LLM clients (all OpenAI-compatible: DeepSeek, OpenAI, Qwen/DashScope) ──
 openai>=2.21.0

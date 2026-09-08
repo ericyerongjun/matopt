@@ -60,9 +60,27 @@ Tool names and their arguments: `python {code, timeout?, reset?}`, `bash {comman
 `read_file {path, start_line?, max_lines?}`, `write_file {path, content}`, `edit_file {path, old_string, new_string, replace_all?}`,
 `list_files {pattern?, path?}`, `grep {pattern, path?, glob?, case_sensitive?, max_results?}`,
 `parse_document {path, backend?, pages?, lang?}`, `check_equivalence {expression_a, expression_b}`,
-`update_plan {steps: PlanStep[]}`, `wolfram_alpha {query}` (only when configured).
+`update_plan {steps: PlanStep[]}`, `wolfram_alpha {query}` (only when configured),
+`search_skills {query, limit?}`, `load_skill {name}`. Extra MCP tools appear as `{server}_{tool}` when `mcp.json` lists servers.
 `result.meta` for `python` includes `status`, `duration_ms`, `execution_count`, `stdout`, `stderr`; for `bash` `exit_code`, `duration_ms`;
-for `update_plan` `steps`.
+for `update_plan` `steps`; for `load_skill` `name`, `path`, `files`.
+
+A `skills` SSE event (`{names, auto}`) is emitted when the router auto-activates playbooks. `status` also names them.
+
+## Skills
+
+`GET /api/skills` → `{skills: [{name, description, source, license, files}]}`.
+`GET /api/skills/{name}` → full `SKILL.md` body plus metadata.
+
+Skill folders live in `skills/matopt/` and `skills/anthropic/` (Agent Skills spec). The harness scores the user message and attachments, injects up to two matching `SKILL.md` bodies, and copies the folder into the conversation workspace at `skills/<name>/`.
+
+## MCP sandbox
+
+The previous RestrictedPython eval loop is replaced by the conversation kernel, exported as an MCP server:
+
+- Streamable HTTP: `POST http://localhost:8000/mcp` (FastMCP). Call `open_workspace` first.
+- stdio: `cd backend && .venv/bin/python -m app.agent.mcp`
+- Extra servers: repo-root `mcp.json` (`mcpServers` map, same shape as Claude Code).
 
 ## Files
 

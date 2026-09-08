@@ -43,3 +43,10 @@ async def test_conversation_and_files_roundtrip():
         assert r.status_code == 200
         r = await client.get(f"/api/conversations/{cid}")
         assert r.status_code == 404
+
+        r = await client.get("/api/skills")
+        assert r.status_code == 200
+        names = {s["name"] for s in r.json()["skills"]}
+        assert "pdf" in names and "sympy-compute" in names
+        r = await client.get("/api/skills/sympy-compute")
+        assert r.status_code == 200 and "symbolic" in r.json()["body"].lower()
