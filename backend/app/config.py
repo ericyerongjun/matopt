@@ -12,6 +12,26 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 BACKEND_DIR = Path(__file__).resolve().parent.parent
 REPO_ROOT = BACKEND_DIR.parent
+SKILL_GROUPS = ("matopt", "lambda", "anthropic")
+
+
+def default_skill_group_dirs(*roots: Path) -> list[Path]:
+    """Skill group folders under a checkout root and/or the backend tree.
+
+    Locally ``REPO_ROOT/skills`` is the catalog. The Docker image copies
+    ``backend/`` to ``/app`` and ``skills/`` to ``/app/skills``, so the
+    groups live next to the backend package, not under filesystem root.
+    """
+    seen: set[Path] = set()
+    dirs: list[Path] = []
+    for root in roots:
+        for group in SKILL_GROUPS:
+            path = root / "skills" / group
+            if path in seen:
+                continue
+            seen.add(path)
+            dirs.append(path)
+    return dirs
 
 
 class Settings(BaseSettings):
@@ -105,17 +125,21 @@ class Settings(BaseSettings):
         self.workspace_dir.mkdir(parents=True, exist_ok=True)
 
     def skill_directories(self) -> list[Path]:
-        dirs = [
-            REPO_ROOT / "skills" / "matopt",
-            REPO_ROOT / "skills" / "lambda",
-            REPO_ROOT / "skills" / "anthropic",
-            Path.home() / ".matopt" / "skills",
-        ]
+        dirs = default_skill_group_dirs(REPO_ROOT, BACKEND_DIR)
+        dirs.append(Path.home() / ".matopt" / "skills")
         for raw in (self.skills_dirs or "").split(","):
             raw = raw.strip()
             if raw:
                 dirs.append(Path(raw).expanduser())
-        return [d for d in dirs if d.is_dir()]
+        seen: set[Path] = set()
+        existing: list[Path] = []
+        for d in dirs:
+            resolved = d.resolve() if d.exists() else d
+            if not d.is_dir() or resolved in seen:
+                continue
+            seen.add(resolved)
+            existing.append(d)
+        return existing
 
     def resolved_mcp_config_path(self) -> Path:
         if self.mcp_config_path:
