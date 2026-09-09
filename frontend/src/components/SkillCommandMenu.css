@@ -76,9 +76,29 @@
 }
 
 .skill-menu__name {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
     font-family: var(--font-mono);
     font-size: 0.82rem;
     font-weight: 600;
+}
+
+.skill-menu__kind {
+    font-family: var(--font-sans, inherit);
+    font-size: 0.6rem;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    padding: 1px 5px;
+    border-radius: 4px;
+    background: var(--color-ash);
+    color: var(--text-muted);
+}
+
+.skill-menu__kind--skill {
+    background: var(--oai-teal-light);
+    color: var(--oai-teal-hover);
 }
 
 .skill-menu__intro {
@@ -109,4 +129,9 @@
 
 .skill-chip button:hover {
     opacity: 1;
+}
+
+.skill-chip--tool {
+    background: var(--color-ash);
+    color: var(--color-graphite-ink);
 }

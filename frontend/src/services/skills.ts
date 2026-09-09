@@ -1,6 +1,9 @@
-/** GET /api/skills catalog client. */
+/** GET /api/skills and /api/tools — slash catalog (Cursor / Claude / Codex). */
 
 import apiClient from "./api";
+import { commandToken, parseSlashCommands, parseSlashSkillTokens } from "./slash";
+
+export { commandToken, parseSlashCommands, parseSlashSkillTokens };
 
 export interface SkillInfo {
     name: string;
@@ -10,37 +13,59 @@ export interface SkillInfo {
     files?: string[];
 }
 
-const SLASH_LEAD = /^\/([a-z0-9]+(?:-[a-z0-9]+)*)(?:\s+|$)/i;
+export interface ToolInfo {
+    name: string;
+    description: string;
+    kind?: string;
+    source: string;
+}
+
+export type CommandKind = "skill" | "tool";
+
+export interface CommandInfo {
+    kind: CommandKind;
+    name: string;
+    description: string;
+    source: string;
+}
+
+const FALLBACK_TOOLS: ToolInfo[] = [
+    { name: "python", description: "Run code in the conversation kernel.", source: "matopt", kind: "code" },
+    { name: "bash", description: "Run a shell command in the workspace.", source: "matopt", kind: "terminal" },
+    { name: "read_file", description: "Read a workspace file.", source: "matopt", kind: "file" },
+    { name: "write_file", description: "Create or overwrite a workspace file.", source: "matopt", kind: "file" },
+    { name: "web_search", description: "Search the live web.", source: "matopt", kind: "search" },
+];
 
 export async function listSkills(): Promise<SkillInfo[]> {
     const { data } = await apiClient.get<{ skills: SkillInfo[] }>("/skills");
     return data.skills ?? [];
 }
 
-/** Strip leading `/skill-name` tokens, the same way Cursor/Claude slash commands work. */
-export function parseSlashSkillTokens(
-    text: string,
-    knownNames?: Iterable<string>
-): { rest: string; names: string[] } {
-    const known = knownNames
-        ? new Map([...knownNames].map((name) => [name.toLowerCase(), name]))
-        : null;
-    const names: string[] = [];
-    let rest = (text || "").trimStart();
-    while (true) {
-        const match = rest.match(SLASH_LEAD);
-        if (!match) break;
-        const raw = match[1];
-        if (known) {
-            const hit = known.get(raw.toLowerCase());
-            if (!hit) break;
-            if (!names.includes(hit)) names.push(hit);
-        } else if (!names.includes(raw.toLowerCase())) {
-            names.push(raw.toLowerCase());
-        }
-        rest = rest.slice(match[0].length).trimStart();
-    }
-    return { rest, names };
+export async function listTools(): Promise<ToolInfo[]> {
+    const { data } = await apiClient.get<{ tools: ToolInfo[] }>("/tools");
+    return data.tools ?? [];
+}
+
+export function fallbackTools(): ToolInfo[] {
+    return FALLBACK_TOOLS;
+}
+
+export function toCommands(skills: SkillInfo[], tools: ToolInfo[]): CommandInfo[] {
+    return [
+        ...tools.map((tool) => ({
+            kind: "tool" as const,
+            name: tool.name,
+            description: tool.description,
+            source: tool.source || "matopt",
+        })),
+        ...skills.map((skill) => ({
+            kind: "skill" as const,
+            name: skill.name,
+            description: skill.description,
+            source: skill.source,
+        })),
+    ];
 }
 
 export function skillIntro(description: string, max = 160): string {
@@ -50,8 +75,10 @@ export function skillIntro(description: string, max = 160): string {
     return sentence.slice(0, max - 1).trimEnd() + "…";
 }
 
-export function sourceLabel(source: string): string {
+export function sourceLabel(source: string, kind?: CommandKind): string {
+    if (kind === "tool") return "Tools";
     if (source === "matopt") return "MatOpt";
+    if (source === "lambda") return "LAMBDA";
     if (source === "anthropic") return "Anthropic";
     return source || "Custom";
 }

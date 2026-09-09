@@ -166,4 +166,6 @@ def _source_label(directory: Path) -> str:
         return "anthropic"
     if name == "matopt":
         return "matopt"
+    if name == "lambda":
+        return "lambda"
     return name

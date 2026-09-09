@@ -16,11 +16,12 @@ from app.runtime import build_tools
 
 ANTHROPIC = REPO_ROOT / "skills" / "anthropic"
 MATOPT = REPO_ROOT / "skills" / "matopt"
+LAMBDA = REPO_ROOT / "skills" / "lambda"
 FIXTURES = Path(__file__).parent / "fixtures" / "skills"
 
 
 def _registry():
-    return SkillRegistry.discover([MATOPT, ANTHROPIC])
+    return SkillRegistry.discover([MATOPT, LAMBDA, ANTHROPIC])
 
 
 def test_parse_frontmatter_multiline():
@@ -37,13 +38,16 @@ def test_discover_anthropic_and_matopt():
         "pdf", "docx", "pptx", "xlsx", "mcp-builder", "skill-creator",
         "algorithmic-art", "frontend-design", "webapp-testing", "claude-api",
         "sympy-compute", "statistical-inference", "numerical-optimization",
-        "ml-experiment", "math-verification", "lambda-data-agent",
+        "ml-experiment", "math-verification",
+        "lambda-data-agent", "lambda-eda", "lambda-report", "lambda-slides", "lambda-notebook",
     ):
         assert expected in names, expected
-    assert len(reg) >= 25
+    assert len(reg) >= 29
     pdf = reg.get("pdf")
     assert pdf.source == "anthropic" and "pdf" in pdf.description.lower()
     assert (pdf.path / "SKILL.md").is_file()
+    eda = reg.get("lambda-eda")
+    assert eda is not None and eda.source == "lambda"
 
 
 def test_router_xlsx_from_filename():
@@ -74,7 +78,15 @@ def test_router_csv_analysis_activates_lambda():
         files=[{"path": "uploads/sales.csv"}],
     )
     names = [s.name for s in plan.activate]
-    assert names and names[0] == "lambda-data-agent"
+    assert names and names[0] in {"lambda-eda", "lambda-data-agent", "lambda-report"}
+    assert any(n.startswith("lambda-") for n in names)
+
+
+def test_router_lambda_report_and_slides():
+    report = SkillRouter(_registry()).plan("Write a LaTeX analysis report of the EDA")
+    assert report.activate and report.activate[0].name == "lambda-report"
+    slides = SkillRouter(_registry()).plan("Turn this EDA into LAMBDA insight slides")
+    assert slides.activate and slides.activate[0].name == "lambda-slides"
 
 
 def test_tool_router_lambda_alias():
@@ -85,7 +97,7 @@ def test_tool_router_lambda_alias():
 
 
 def test_slash_skill_tokens():
-    from app.agent.skills.slash import default_slash_prompt, split_slash_skills
+    from app.agent.skills.slash import default_slash_prompt, split_slash_commands, split_slash_skills
 
     known = ["pdf", "sympy-compute", "xlsx"]
     rest, names = split_slash_skills("/pdf extract tables from the scan", known)
@@ -97,6 +109,16 @@ def test_slash_skill_tokens():
     rest, names = split_slash_skills("please /pdf anyway", known)
     assert names == []
     assert "sympy-compute" in default_slash_prompt(["sympy-compute"])
+
+    rest, skills, tools = split_slash_commands(
+        "/frontend-design /python make a landing page",
+        ["frontend-design", "pdf"],
+        ["python", "web_search"],
+    )
+    assert skills == ["frontend-design"] and tools == ["python"]
+    assert rest == "make a landing page"
+    rest, skills, tools = split_slash_commands("/web-search latest IMO results", [], ["web_search"])
+    assert skills == [] and tools == ["web_search"] and rest == "latest IMO results"
 
 
 @pytest.mark.asyncio

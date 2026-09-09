@@ -21,7 +21,7 @@ python3 scripts/vendor_lambda_backend.py /tmp/LAMBDA
 - Shared `backend/.env`: unknown MatOpt keys are ignored; empty `OPENAI_API_KEY` inherits `DEEPSEEK_API_KEY`.
 - OpenAI Python SDK 2.x (MatOpt) rejects an empty key at client init; `llm_service` passes `"not-configured"` when unset so the original module still imports.
 - Host: `app.data.lambda_host.attach_lambda` mounts the original router at **`/api/v1`** (LAMBDA's own URL prefix, no clash with MatOpt `/api/...`).
-- Tool `lambda_data_agent` and skill `lambda-data-agent` so the MatOpt harness can invoke LAMBDA's original `stream_chat_response`.
+- Tool `lambda_data_agent` plus split catalog skills under `skills/lambda/` (`lambda-data-agent`, `lambda-eda`, `lambda-report`, `lambda-slides`, `lambda-notebook`) so the harness can invoke LAMBDA's original `stream_chat_response` or a focused deliverable.
 
 Standalone extras kept for reference: `backend/lambda/main.py`, `requirements.txt`, `env.example`.
 

@@ -180,3 +180,58 @@ async def test_slash_skill_force_activates_and_persists(db):
     content = user["content"] if isinstance(user["content"], str) else str(user["content"])
     assert "expand (x+1)^2" in content
     assert "/sympy-compute" not in content
+    assert "sympy-compute" in content
+
+
+@pytest.mark.asyncio
+async def test_steer_slash_skill_activates_mid_turn(db):
+    from app.agent.skills.loader import SkillRegistry, load_skill_dir
+    from app.config import REPO_ROOT
+
+    skill = load_skill_dir(REPO_ROOT / "skills" / "anthropic" / "frontend-design", source="anthropic")
+    registry = SkillRegistry([skill])
+    conv = db.create_conversation(title="landing")
+    cid = conv["id"]
+
+    class SteerAfterFirstCall(FakeProvider):
+        async def stream(self, messages, tools, options):
+            async for delta in super().stream(messages, tools, options):
+                yield delta
+            if len(self.calls) == 1:
+                assert harness.enqueue_steer(cid, "/frontend-design make the hero distinctive")
+
+    provider = SteerAfterFirstCall([
+        {"tool": "list_files", "args": {}},
+        {"text": "here is a distinctive page"},
+    ])
+    kernels = KernelPool(lambda cid: Workspace(cid, settings.workspace_dir))
+    harness = AgentHarness(db, kernels, settings, FakeRegistry(provider), build_tools(registry), skills=registry)
+    try:
+        events = await collect(harness, RunRequest(conversation_id=cid, text="keep going on the page"))
+    finally:
+        await kernels.shutdown_all()
+    skills_ev = [e for e in events if e["type"] == "skills"]
+    assert skills_ev and "frontend-design" in skills_ev[-1]["names"]
+    assert skills_ev[-1]["auto"] is False
+    assert any(e["type"] == "steer_applied" and "frontend-design" in e["text"] for e in events)
+    assert len(provider.calls) >= 2
+    blob = json.dumps(provider.calls[1])
+    assert "frontend-design" in blob
+    assert "Ground your designs" in blob or "distinct visual identity" in blob
+    msgs = db.list_messages(cid)
+    assert any(m["role"] == "user" and "/frontend-design" in (m["content"] or {}).get("text", "") for m in msgs)
+
+
+@pytest.mark.asyncio
+async def test_slash_tool_is_preferred(db):
+    provider = FakeProvider([{"text": "plotted"}])
+    harness, kernels = make_harness(db, provider)
+    try:
+        events = await collect(harness, RunRequest(conversation_id=None, text="/python plot sin(x)"))
+    finally:
+        await kernels.shutdown_all()
+    assert events[-1]["type"] == "done"
+    user = [m for m in provider.calls[0] if m["role"] == "user"][-1]["content"]
+    assert "python" in user and "plot sin(x)" in user
+    schemas = provider.calls[0]  # stream sees tools via the call, not stored on messages
+    assert "plot sin(x)" in json.dumps(provider.calls[0])

@@ -6,7 +6,7 @@ import React, { useLayoutEffect, useRef, type ReactNode } from "react";
 import { Copy } from "lucide-react";
 import type { AssistantContent, ChatMessage, Part } from "../types/protocol";
 import { isAssistantContent, isUserContent, textFromAssistant } from "../types/protocol";
-import { parseSlashSkillTokens } from "../services/skills";
+import { commandToken, parseSlashCommands } from "../services/skills";
 import MarkdownRenderer from "./MarkdownRenderer";
 import { hasDisplayArtifact, type ToolPart } from "./ToolCallCard";
 import "./MessageList.css";
@@ -189,7 +189,8 @@ function MessageRow({
     onOpenWork?: () => void;
 }) {
     if (msg.role === "user" && isUserContent(msg.content)) {
-        const { names, rest } = parseSlashSkillTokens(msg.content.text);
+        const parsed = parseSlashCommands(msg.content.text);
+        const names = [...parsed.skills, ...parsed.tools];
         return (
             <div className="thread__row thread__row--user">
                 <div className="thread__message">
@@ -198,12 +199,12 @@ function MessageRow({
                             <div className="thread__skills thread__skills--user">
                                 {names.map((name) => (
                                     <span key={name} className="thread__skill">
-                                        /{name}
+                                        {commandToken(name)}
                                     </span>
                                 ))}
                             </div>
                         )}
-                        {rest ? <p>{rest}</p> : null}
+                        {parsed.rest ? <p>{parsed.rest}</p> : null}
                         {msg.content.attachments?.length > 0 && (
                             <div className="thread__attachments">
                                 {msg.content.attachments.map((a) => (

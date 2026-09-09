@@ -16,7 +16,7 @@ reasoning-effort slider (`off` … `max`).
 
 Web Search (composer toggle) uses open-source `ddgs` by default. Optional:
 `SEARXNG_URL`, `TAVILY_API_KEY`, or `BRAVE_SEARCH_API_KEY`. Mid-turn steering
-is `POST /api/chat/{id}/steer`. Local alignment checks are on via `ALIGN_MONITOR`.
+is `POST /api/chat/{id}/steer` (`message`, optional `skills` / `tools`). Local alignment checks are on via `ALIGN_MONITOR`. The Docker image includes the repo `skills/` tree at `/app/skills`.
 
 ## Local run (no uv)
 
