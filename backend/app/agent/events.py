@@ -47,6 +47,7 @@ class Artifact:
     mime: Optional[str] = None
     size: Optional[int] = None
     data: Any = None                # inline payload (plotly figure JSON, html snippet)
+    digest: Optional[str] = None    # sha256 of image/plotly bytes; used to skip recaptures
 
     def to_dict(self) -> dict:
         d = asdict(self)

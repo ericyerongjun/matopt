@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import asyncio
 import base64
+import hashlib
 import json
 import logging
 import re
@@ -47,6 +48,15 @@ try:
     plt.rcParams["figure.figsize"] = (8, 5)
     plt.rcParams["axes.grid"] = True
     plt.rcParams["grid.alpha"] = 0.3
+    # plt.show() already emits the figure; close so the inline backend
+    # does not flush the same open figure again at post_execute.
+    if not getattr(plt, "_matopt_show_wrapped", False):
+        _orig_show = plt.show
+        def _matopt_show(*args, **kwargs):
+            _orig_show(*args, **kwargs)
+            plt.close("all")
+        plt.show = _matopt_show
+        plt._matopt_show_wrapped = True
 except Exception as _e:
     print("matplotlib setup skipped:", _e)
 try:
@@ -77,6 +87,9 @@ try:
         except Exception:
             pass
     if _ip is not None and not getattr(_ip, "_matopt_close_registered", False):
+        # Close leftovers before the next cell so %matplotlib inline cannot
+        # recapture them, and again after so they do not linger.
+        _ip.events.register("pre_run_cell", _matopt_close_figures)
         _ip.events.register("post_run_cell", _matopt_close_figures)
         _ip._matopt_close_registered = True
 except Exception:
@@ -120,6 +133,7 @@ class KernelSession:
         self.last_used = time.time()
         self.started = False
         self.execution_count = 0
+        self._seen_figure_digests: set[str] = set()
 
     # ── lifecycle ───────────────────────────────────────────────────────
 
@@ -290,35 +304,48 @@ class KernelSession:
 
     # ── rich output handling ────────────────────────────────────────────
 
+    def _skip_duplicate_figure(self, digest: str) -> bool:
+        """Remember *digest*; return True if this exact figure was already saved."""
+        if digest in self._seen_figure_digests:
+            return True
+        self._seen_figure_digests.add(digest)
+        return False
+
+    def _save_image_bytes(self, raw: bytes, ext: str, res: ExecResult) -> bool:
+        digest = hashlib.sha256(raw).hexdigest()
+        if self._skip_duplicate_figure(digest):
+            return True
+        path = self.workspace.next_figure_path(ext)
+        path.write_bytes(raw)
+        art = self.workspace.artifact_for(path)
+        art.digest = digest
+        res.artifacts.append(art)
+        return True
+
     def _collect_display(self, data: dict, res: ExecResult) -> None:
         ws = self.workspace
         handled = False
         if "image/png" in data:
-            path = ws.next_figure_path(".png")
-            path.write_bytes(base64.b64decode(data["image/png"]))
-            res.artifacts.append(ws.artifact_for(path))
-            handled = True
+            handled = self._save_image_bytes(base64.b64decode(data["image/png"]), ".png", res)
         elif "image/svg+xml" in data:
-            path = ws.next_figure_path(".svg")
             svg = data["image/svg+xml"]
-            path.write_text(svg if isinstance(svg, str) else "".join(svg), encoding="utf-8")
-            res.artifacts.append(ws.artifact_for(path))
-            handled = True
+            text = svg if isinstance(svg, str) else "".join(svg)
+            handled = self._save_image_bytes(text.encode("utf-8"), ".svg", res)
         elif "image/jpeg" in data:
-            path = ws.next_figure_path(".jpg")
-            path.write_bytes(base64.b64decode(data["image/jpeg"]))
-            res.artifacts.append(ws.artifact_for(path))
-            handled = True
+            handled = self._save_image_bytes(base64.b64decode(data["image/jpeg"]), ".jpg", res)
         if PLOTLY_MIME in data:
             fig = data[PLOTLY_MIME]
             payload = json.dumps(fig, default=str)
-            path = ws.next_figure_path(".json", prefix="plot")
-            path.write_text(payload, encoding="utf-8")
-            art = ws.artifact_for(path)
-            art.kind = "plotly"
-            if len(payload) <= MAX_INLINE_PLOTLY:
-                art.data = fig
-            res.artifacts.append(art)
+            digest = hashlib.sha256(payload.encode("utf-8")).hexdigest()
+            if not self._skip_duplicate_figure("plotly:" + digest):
+                path = ws.next_figure_path(".json", prefix="plot")
+                path.write_text(payload, encoding="utf-8")
+                art = ws.artifact_for(path)
+                art.kind = "plotly"
+                art.digest = digest
+                if len(payload) <= MAX_INLINE_PLOTLY:
+                    art.data = fig
+                res.artifacts.append(art)
             handled = True
         if "text/html" in data and not handled:
             html = data["text/html"]

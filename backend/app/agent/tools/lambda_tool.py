@@ -19,6 +19,7 @@ from typing import Any, Optional
 from app.agent.events import Artifact, ToolResult
 from app.agent.lambda_bridge import LambdaExecContext, bind_lambda_exec_context
 from app.agent.tools.base import Tool, ToolContext, truncate_text
+from app.agent.workspace import is_internal_output
 from app.config import settings
 
 logger = logging.getLogger(__name__)
@@ -279,7 +280,7 @@ class LambdaDataAgentTool(Tool):
             artifacts: list[Artifact] = []
             seen: set[str] = set()
             for rel in ctx.workspace.changed_since(before):
-                if rel in seen:
+                if rel in seen or is_internal_output(rel):
                     continue
                 try:
                     artifacts.append(ctx.workspace.artifact_for(rel))

@@ -10,11 +10,11 @@ import base64
 import logging
 from typing import Any
 
-from app.agent.workspace import Workspace
+from app.agent.workspace import SANDBOX_NOTEBOOK, Workspace
 
 logger = logging.getLogger(__name__)
 
-NOTEBOOK_NAME = "analysis.ipynb"
+NOTEBOOK_NAME = SANDBOX_NOTEBOOK
 
 
 def append_analysis_cell(workspace: Workspace, code: str, result: Any) -> None:
@@ -29,7 +29,7 @@ def append_analysis_cell(workspace: Workspace, code: str, result: Any) -> None:
         logger.debug("nbformat unavailable; skip analysis.ipynb", exc_info=True)
         return
 
-    path = workspace.root / NOTEBOOK_NAME
+    path = workspace.root / SANDBOX_NOTEBOOK
     if path.exists():
         try:
             nb = nbformat.read(path, as_version=4)

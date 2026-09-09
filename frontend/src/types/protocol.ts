@@ -75,6 +75,7 @@ export interface Artifact {
     mime?: string;
     size?: number;
     data?: unknown;
+    digest?: string;
 }
 
 export interface ToolResult {

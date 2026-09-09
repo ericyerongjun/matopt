@@ -7,6 +7,7 @@ from typing import Any
 
 from app.agent.events import ToolResult
 from app.agent.tools.base import Tool, ToolContext, truncate_text
+from app.agent.workspace import is_internal_output
 
 _FENCE = re.compile(r"^\s*```[a-zA-Z0-9_+-]*\s*\n(.*?)\n?```\s*$", re.DOTALL)
 
@@ -44,7 +45,8 @@ class PythonTool(Tool):
         "matplotlib, plotly, seaborn, statsmodels, scikit-learn, networkx, math-verify. Use it for any computation, "
         "simulation, data analysis, symbolic algebra, numerical verification, or visualisation. "
         "Figures: matplotlib figures are captured automatically when the cell ends (or on plt.show()); "
-        "for interactive charts build a plotly figure and call fig.show(). Both are returned as artifacts. "
+        "identical figures are captured once. Plot each distinct claim once — do not re-run a plotting cell "
+        "only to tweak titles. For interactive charts build a plotly figure and call fig.show(). "
         "The last expression of the cell is displayed like in a notebook. Print intermediate values you need to see. "
         "Files you write under the workspace become downloadable artifacts. Long-running cells are interrupted after `timeout` seconds."
     )
@@ -91,7 +93,7 @@ class PythonTool(Tool):
         artifacts = list(res.artifacts)
         seen = {a.path for a in artifacts if a.path}
         for rel in ctx.workspace.changed_since(before):
-            if rel in seen:
+            if rel in seen or is_internal_output(rel):
                 continue
             try:
                 artifacts.append(ctx.workspace.artifact_for(rel))

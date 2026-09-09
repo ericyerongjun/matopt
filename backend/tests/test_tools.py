@@ -10,7 +10,8 @@ from app.agent.tools.math_tools import CheckEquivalenceTool
 from app.agent.tools.plan_tool import UpdatePlanTool
 from app.agent.tools.python_tool import PythonTool
 from app.agent.tools.shell_tool import ShellTool
-from app.agent.workspace import Workspace, WorkspaceError
+from app.agent.kernel import ExecResult, KernelSession
+from app.agent.workspace import Workspace, WorkspaceError, is_internal_output
 
 
 @pytest.fixture
@@ -97,5 +98,86 @@ async def test_python_tool_with_kernel(ws):
         assert r.ok and "fenced" in r.output
         nb = (ws.root / "analysis.ipynb").read_text(encoding="utf-8")
         assert "fenced" in nb
+        assert not any(a.path == "analysis.ipynb" for a in r.artifacts)
+        assert "analysis.ipynb" not in r.output
+    finally:
+        await kernels.shutdown_all()
+
+
+def test_internal_output_hides_sandbox_notebook():
+    assert is_internal_output("analysis.ipynb")
+    assert is_internal_output("./analysis.ipynb")
+    assert is_internal_output(".ipynb_checkpoints/analysis.ipynb")
+    assert not is_internal_output("notes/analysis.ipynb")
+    assert not is_internal_output("figures/fig_001.png")
+
+
+def test_collect_display_skips_identical_png_bytes(ws):
+    session = KernelSession("conv1", ws)
+    png = (
+        b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01"
+        b"\x08\x02\x00\x00\x00\x90wS\xde\x00\x00\x00\x0cIDATx\x9cc\xf8\x0f"
+        b"\x00\x00\x01\x01\x00\x05\x18\xd8N\x00\x00\x00\x00IEND\xaeB`\x82"
+    )
+    import base64
+
+    payload = {"image/png": base64.b64encode(png).decode("ascii")}
+    first, second = ExecResult(), ExecResult()
+    session._collect_display(payload, first)
+    session._collect_display(payload, second)
+    assert len(first.artifacts) == 1 and first.artifacts[0].kind == "image"
+    assert first.artifacts[0].digest
+    assert second.artifacts == []
+    assert len(list((ws.root / "figures").glob("*.png"))) == 1
+
+
+@pytest.mark.asyncio
+async def test_python_tool_hides_notebook_from_changed_files(ws, monkeypatch):
+    kernels = KernelPool(lambda cid: ws)
+    ctx, _ = make_ctx(ws, kernels)
+
+    async def fake_execute(self, code, timeout=120, on_stream=None, cancel=None):
+        (ws.root / "analysis.ipynb").write_text("{}", encoding="utf-8")
+        (ws.root / "notes.txt").write_text("ok", encoding="utf-8")
+        return ExecResult(status="ok", stdout="ok\n")
+
+    monkeypatch.setattr(KernelSession, "execute", fake_execute)
+    r = await PythonTool()(ctx, {"code": "print(1)"})
+    assert r.ok
+    assert any(a.path == "notes.txt" for a in r.artifacts)
+    assert not any(a.path == "analysis.ipynb" for a in r.artifacts)
+    assert "analysis.ipynb" not in r.output
+    await kernels.shutdown_all()
+
+
+@pytest.mark.asyncio
+async def test_kernel_does_not_recapture_leftover_or_identical_figures(ws):
+    kernels = KernelPool(lambda cid: ws)
+    ctx, _ = make_ctx(ws, kernels)
+    tool = PythonTool()
+    plot = (
+        "import matplotlib.pyplot as plt\n"
+        "plt.plot([1, 2], [3, 4])\n"
+        "plt.title('same')\n"
+        "plt.show()\n"
+    )
+    try:
+        first = await tool(ctx, {"code": plot})
+        assert first.ok
+        images = [a for a in first.artifacts if a.kind == "image"]
+        assert len(images) == 1
+        pngs = list((ws.root / "figures").glob("*.png"))
+        assert len(pngs) == 1
+
+        leftover = await tool(ctx, {"code": "print('no plot')"})
+        assert leftover.ok
+        assert not any(a.kind == "image" for a in leftover.artifacts)
+        assert len(list((ws.root / "figures").glob("*.png"))) == 1
+        assert "analysis.ipynb" not in leftover.output
+
+        again = await tool(ctx, {"code": plot})
+        assert again.ok
+        assert not any(a.kind == "image" for a in again.artifacts)
+        assert len(list((ws.root / "figures").glob("*.png"))) == 1
     finally:
         await kernels.shutdown_all()
