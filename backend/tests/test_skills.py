@@ -11,7 +11,7 @@ from app.agent.tools.base import ToolContext
 from app.agent.tools.router import ToolRouter
 from app.agent.tools.skill_tools import LoadSkillTool, SearchSkillsTool
 from app.agent.workspace import Workspace
-from app.config import REPO_ROOT
+from app.config import REPO_ROOT, default_skill_group_dirs
 from app.runtime import build_tools
 
 ANTHROPIC = REPO_ROOT / "skills" / "anthropic"
@@ -147,6 +147,16 @@ def test_materialize_fixture(tmp_path):
     ws = Workspace("c", tmp_path / "ws")
     dest = materialize_skill(skill, ws)
     assert (dest / "SKILL.md").read_text().startswith("---")
+
+
+def test_docker_layout_finds_skills_next_to_backend(tmp_path):
+    backend = tmp_path / "app"
+    for group in ("matopt", "lambda", "anthropic"):
+        (backend / "skills" / group).mkdir(parents=True)
+    found = [d for d in default_skill_group_dirs(Path("/"), backend) if d.is_dir()]
+    assert backend / "skills" / "matopt" in found
+    assert backend / "skills" / "lambda" in found
+    assert backend / "skills" / "anthropic" in found
 
 
 def test_tool_router_aliases():

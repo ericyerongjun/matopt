@@ -27,7 +27,8 @@ RUN mkdir -p /app/data/workspaces /app/data/lambda \
     && useradd -m matopt && chown -R matopt:matopt /app
 USER matopt
 
-ENV DATA_DIR=/app/data
+ENV DATA_DIR=/app/data \
+    SKILLS_DIRS=/app/skills/matopt,/app/skills/lambda,/app/skills/anthropic
 
 EXPOSE 8000
 
