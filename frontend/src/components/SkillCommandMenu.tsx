@@ -52,7 +52,6 @@ function groupCommands(commands: CommandInfo[]): { key: string; label: string; i
         buckets.set(key, list);
     }
     const groups: { key: string; label: string; items: CommandInfo[] }[] = [];
-    if (tools.length) groups.push({ key: "tools", label: "Tools", items: tools });
     const keys = [
         ...order.filter((k) => buckets.has(k)),
         ...[...buckets.keys()].filter((k) => !order.includes(k)).sort(),
@@ -64,6 +63,7 @@ function groupCommands(commands: CommandInfo[]): { key: string; label: string; i
             items: buckets.get(source) ?? [],
         });
     }
+    if (tools.length) groups.push({ key: "tools", label: "Tools", items: tools });
     return groups;
 }
 
