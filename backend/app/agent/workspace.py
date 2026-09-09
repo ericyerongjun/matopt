@@ -53,7 +53,10 @@ def file_digest(path: Path) -> Optional[str]:
 
 def is_internal_output(rel: str) -> bool:
     """True for sandbox bookkeeping files that should not become tool artifacts."""
-    norm = (rel or "").replace("\\", "/").lstrip("./")
+    norm = (rel or "").replace("\\", "/")
+    while norm.startswith("./"):
+        norm = norm[2:]
+    norm = norm.lstrip("/")
     if not norm:
         return False
     if norm == SANDBOX_NOTEBOOK:
