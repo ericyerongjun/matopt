@@ -56,6 +56,7 @@ interface Artifact {
   kind: "image" | "plotly" | "html" | "file" | "markdown" | "json" | "html_file";
   name: string; path?: string; url?: string; mime?: string; size?: number;
   data?: unknown;   // plotly: {data, layout, config?}; html: string (DataFrame table)
+  digest?: string;  // sha256 of image/plotly bytes (used to skip identical recaptures)
 }
 ```
 

@@ -15,6 +15,7 @@ it (``..``, absolute paths elsewhere, symlinks) raise ``WorkspaceError``.
 from __future__ import annotations
 
 import fnmatch
+import hashlib
 import mimetypes
 import os
 import re
@@ -28,12 +29,40 @@ from app.agent.events import Artifact
 IMAGE_EXT = {".png", ".jpg", ".jpeg", ".gif", ".svg", ".webp", ".bmp"}
 TEXT_EXT = {".txt", ".md", ".csv", ".json", ".tex", ".py", ".r", ".jl", ".yaml", ".yml", ".toml", ".html", ".xml", ".log", ".ipynb", ".sql", ".sh", ".js", ".ts"}
 INTERNAL_DIRS = {".ipynb_checkpoints", "__pycache__", ".git", ".matopt"}
+# Live notebook the kernel appends after every cell — not a user-facing artifact.
+SANDBOX_NOTEBOOK = "analysis.ipynb"
 
 _SAFE_NAME = re.compile(r"[^A-Za-z0-9._\- ()\[\]+]")
 
 
 class WorkspaceError(ValueError):
     pass
+
+
+def file_digest(path: Path) -> Optional[str]:
+    """SHA-256 of a file's bytes, or None if it cannot be read."""
+    try:
+        h = hashlib.sha256()
+        with Path(path).open("rb") as f:
+            for chunk in iter(lambda: f.read(1 << 16), b""):
+                h.update(chunk)
+        return h.hexdigest()
+    except OSError:
+        return None
+
+
+def is_internal_output(rel: str) -> bool:
+    """True for sandbox bookkeeping files that should not become tool artifacts."""
+    norm = (rel or "").replace("\\", "/")
+    while norm.startswith("./"):
+        norm = norm[2:]
+    norm = norm.lstrip("/")
+    if not norm:
+        return False
+    if norm == SANDBOX_NOTEBOOK:
+        return True
+    parts = norm.split("/")
+    return any(p in INTERNAL_DIRS or p.startswith(".") for p in parts)
 
 
 @dataclass(frozen=True)
@@ -142,7 +171,8 @@ class Workspace:
         else:
             kind = "file"
         size = p.stat().st_size if p.exists() else None
-        return Artifact(kind=kind, name=p.name, path=rel, url=self.url_for(rel), mime=mime, size=size)
+        digest = file_digest(p) if kind == "image" and p.exists() else None
+        return Artifact(kind=kind, name=p.name, path=rel, url=self.url_for(rel), mime=mime, size=size, digest=digest)
 
     # ── mutations ───────────────────────────────────────────────────────
 

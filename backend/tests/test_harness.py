@@ -3,7 +3,23 @@ import json
 
 import pytest
 
-from app.agent.harness import AgentHarness, RunRequest, _expand_parts, _parse_arguments
+from app.agent.events import ToolResult
+from app.agent.harness import (
+    REPEAT_LIMIT,
+    AgentHarness,
+    RunRequest,
+    TurnState,
+    _expand_parts,
+    _failure_fingerprint,
+    _next_consecutive_failures,
+    _parse_arguments,
+    _record_failures,
+)
+from app.agent.tools.base import ToolRegistry
+from app.agent.tools.file_tools import ListFilesTool
+from app.agent.tools.python_tool import PythonTool
+from app.agent.tools.router import ToolRouter
+from app.llm.base import ToolCallSpec
 from app.agent.kernel import KernelPool
 from app.agent.workspace import Workspace
 from app.config import settings
@@ -235,3 +251,61 @@ async def test_slash_tool_is_preferred(db):
     assert "python" in user and "plot sin(x)" in user
     schemas = provider.calls[0]  # stream sees tools via the call, not stored on messages
     assert "plot sin(x)" in json.dumps(provider.calls[0])
+
+
+def test_failure_fingerprint_and_repeat_block():
+    tools = ToolRegistry([PythonTool()])
+    router = ToolRouter()
+    state = TurnState()
+    res = ToolResult(ok=False, error="NameError: name 'UploadedFile' is not defined")
+    calls = [ToolCallSpec(id="1", name="python", arguments="{}")]
+    assert "NameError" in _failure_fingerprint("python", res)
+    newly = []
+    for _ in range(REPEAT_LIMIT):
+        newly = _record_failures(calls, [res], state, tools, router)
+    assert newly == ["python"]
+    assert "python" in state.blocked_tools
+    blocked = ToolResult(ok=False, error="blocked", meta={"blocked_repeat": True})
+    assert _record_failures(calls, [blocked], state, tools, router) == []
+
+
+def test_soft_success_does_not_reset_hard_failure_streak():
+    tools = ToolRegistry([PythonTool(), ListFilesTool()])
+    router = ToolRouter()
+    hard = [ToolCallSpec(id="p", name="python", arguments="{}")]
+    soft = [ToolCallSpec(id="l", name="list_files", arguments="{}")]
+    bad = [ToolResult(ok=False, error="NameError: x")]
+    ok = [ToolResult(ok=True, output=".")]
+    assert _next_consecutive_failures(2, soft, ok, tools, router) == 2
+    assert _next_consecutive_failures(2, hard, bad, tools, router) == 3
+    assert _next_consecutive_failures(2, hard, ok, tools, router) == 0
+
+
+@pytest.mark.asyncio
+async def test_identical_python_failures_are_blocked(db, monkeypatch):
+    from app.agent.kernel import KernelSession
+
+    provider = FakeProvider([
+        {"tool": "python", "args": {"code": "raise NameError('UploadedFile')"}},
+        {"tool": "python", "args": {"code": "raise NameError('UploadedFile')"}},
+        {"tool": "python", "args": {"code": "raise NameError('UploadedFile')"}},
+        {"tool": "python", "args": {"code": "raise NameError('UploadedFile')"}},
+        {"text": "stopped retrying"},
+    ])
+    harness, kernels = make_harness(db, provider)
+    executes = {"n": 0}
+    original = KernelSession.execute
+
+    async def wrapped(self, *args, **kwargs):
+        executes["n"] += 1
+        return await original(self, *args, **kwargs)
+
+    monkeypatch.setattr(KernelSession, "execute", wrapped)
+    try:
+        events = await collect(harness, RunRequest(conversation_id=None, text="keep failing"))
+    finally:
+        await kernels.shutdown_all()
+    results = [e for e in events if e["type"] == "tool_result"]
+    assert executes["n"] == REPEAT_LIMIT
+    assert any((e.get("meta") or {}).get("blocked_repeat") for e in results)
+    assert any(e["type"] == "done" for e in events)

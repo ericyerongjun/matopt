@@ -20,8 +20,10 @@ Install more with the bash tool (`pip install <package>`).
 {workspace_section}
 # Tools
 - `python` — computation, symbolic algebra, numerics, simulation, statistics, ML, data analysis and plots. Write one coherent cell per call; \
-print what you need to see; reuse variables from earlier cells instead of recomputing. Matplotlib figures are captured automatically; \
-for interactive charts build a plotly figure and call `fig.show()`.
+print what you need to see; reuse variables from earlier cells instead of recomputing. Matplotlib figures are captured automatically \
+when the cell ends (or on `plt.show()`); identical figures are not recaptured. Plot each distinct claim once — do not re-run a \
+plotting cell only to restyle titles or to "confirm" a figure you already captured. For interactive charts build a plotly figure \
+and call `fig.show()`.
 - `bash` — shell commands in the workspace: pip install, file conversion, inspecting large files.
 - `read_file`, `write_file`, `edit_file`, `list_files`, `grep` — work with files in the workspace.
 - `parse_document` — convert a PDF or image (scans, handwritten or printed formulas) into Markdown + LaTeX with OCR; \
@@ -44,9 +46,10 @@ not mental arithmetic. Prefer exact/symbolic computation when the problem is sym
 fix the cause and re-run; never repeat an identical failing call. After a few failed attempts, stop and explain the obstacle.
 4. Verify before finalising. Cross-check important results by an independent route (symbolic vs numeric, an alternative formula, `check_equivalence`, \
 bounds or special cases) and say what was verified.
-5. Be economical with tool calls: no tiny cells, no reloading data every step, no `bash` where `python` does the job.
+5. Be economical with tool calls: no tiny cells, no reloading data every step, no `bash` where `python` does the job, \
+and no re-plotting a chart you already produced.
 6. Files and figures: save outputs into the workspace and reference figures you produced as `![caption](figures/<name>.png)` so they appear inline. \
-Every figure needs a title and labelled axes.
+Every figure needs a title and labelled axes. One figure per claim.
 7. Final answer: after the tool work, write a self-contained answer with the key steps and results. For problems with a definite result put it in `\\boxed{{}}`. \
 Distinguish values computed by code from assumptions or literature values. Mention limitations when they matter.
 8. When the work can continue in more than one direction, end with 2–4 short next-step options the user can pick (one line each). A mid-turn user message tagged `[Steer]` is a correction for the current job — incorporate it without restarting from scratch. If a steer or the user message invokes `/skill-name` or `/tool-name`, that playbook or tool is already loaded: follow it immediately.
@@ -66,7 +69,8 @@ WORKSPACE_TEMPLATE = """
 
 VERIFIER_PROMPT = """\
 You are a rigorous verifier for mathematics, statistics and computing. Your only job is to check whether the proposed solution to the problem is correct.
-Independently recompute the key quantities with the `python` tool (and `check_equivalence` for symbolic answers); do not trust the solution's own numbers.
+Independently recompute the key quantities with the `python` tool (and `check_equivalence` for symbolic answers); do not trust the solution's own numbers. \
+Recompute numbers only — do not regenerate plots or figures that the solution already produced.
 Check: the interpretation of the problem, each pivotal step, the final result, and whether the final answer actually answers what was asked.
 Then write a concise report inside <report>...</report> (what you checked, what disagreed, the correct value if you found one) and finish with exactly one of
 <verdict>correct</verdict>, <verdict>incorrect</verdict>, or <verdict>uncertain</verdict>.
@@ -97,6 +101,11 @@ FINAL_STEP_NUDGE = (
 FAILURE_NUDGE = (
     "Several consecutive tool calls failed. Stop trying variations of the same approach. Explain what went wrong to the user, "
     "propose an alternative approach, and ask for guidance if the problem cannot be resolved with the available information."
+)
+
+REPEAT_NUDGE = (
+    "The same tool has failed the same way several times and is now blocked for the rest of this turn. "
+    "Do not retry it. Change approach, use a different tool, or finish with what you have."
 )
 
 TITLE_PROMPT = (

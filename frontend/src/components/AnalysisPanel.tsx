@@ -7,6 +7,7 @@ import React, { useMemo, useState } from "react";
 import { Check, ChevronDown, ChevronRight, Loader2, PanelRightClose, ShieldAlert } from "lucide-react";
 import type { AssistantContent, ChatMessage, Part, PlanStep } from "../types/protocol";
 import { isAssistantContent } from "../types/protocol";
+import { selectOutputArtifacts } from "../services/outputArtifacts";
 import { ArtifactView, type ToolPart } from "./ToolCallCard";
 import "./AnalysisPanel.css";
 
@@ -63,9 +64,7 @@ export default function AnalysisPanel({ messages, conversationId, open, onToggle
     const { tools, monitors, plan } = collect(messages);
     const groups = useMemo(() => groupTools(tools), [tools]);
     const running = tools.some((t) => t.status === "running");
-    const artifacts = tools.flatMap((t) => t.result?.artifacts ?? []).filter((a) =>
-        ["image", "plotly", "html", "html_file"].includes(String(a.kind))
-    );
+    const artifacts = useMemo(() => selectOutputArtifacts(messages), [messages]);
     const flagged = monitors.filter((m) => m.level !== "ok");
     const [openKey, setOpenKey] = useState<string | null>(null);
 
@@ -181,7 +180,7 @@ export default function AnalysisPanel({ messages, conversationId, open, onToggle
                         <h3>Output</h3>
                         <div className="agent-pane__arts">
                             {artifacts.map((art, i) => (
-                                <div key={`${art.name}-${i}`} className="agent-pane__art">
+                                <div key={art.digest || art.path || `${art.name}-${i}`} className="agent-pane__art">
                                     <ArtifactView artifact={art} conversationId={conversationId} />
                                 </div>
                             ))}
