@@ -58,8 +58,8 @@ export default function ChatPage() {
     });
 
     const handleSend = useCallback(
-        (text: string, attached: File[] = [], skillNames: string[] = []) => {
-            void chat.sendMessage(text, attached, skillNames);
+        (text: string, attached: File[] = [], skillNames: string[] = [], toolNames: string[] = []) => {
+            void chat.sendMessage(text, attached, skillNames, toolNames);
         },
         [chat.sendMessage]
     );
@@ -87,7 +87,7 @@ export default function ChatPage() {
             disabled={false}
             loading={chat.streaming}
             showDisclaimer={!showWelcome}
-            skills={skillCatalog.skills}
+            commands={skillCatalog.commands}
             webSearch={webSearch}
             onWebSearchChange={(on) => {
                 setWebSearch(on);

@@ -27,6 +27,7 @@ export interface ChatStreamBody {
     verify?: boolean;
     temperature?: number;
     skills?: string[];
+    tools?: string[];
     web_search?: boolean;
 }
 
@@ -134,9 +135,16 @@ export function applyEvent(state: StreamState, event: StreamEvent): StreamState 
         const names = Array.isArray(event.names) ? event.names.map(String) : [];
         if (!names.length) return state;
         const parts = [...state.parts];
-        if (!parts.some((p) => p.type === "skills")) {
-            parts.unshift({ type: "skills", names, auto: Boolean(event.auto) });
+        const existing = parts.find((p) => p.type === "skills");
+        if (existing && existing.type === "skills") {
+            const merged = [...existing.names];
+            for (const name of names) if (!merged.includes(name)) merged.push(name);
+            return {
+                ...state,
+                parts: parts.map((p) => (p === existing ? { ...existing, names: merged, auto: Boolean(event.auto) && existing.auto } : p)),
+            };
         }
+        parts.unshift({ type: "skills", names, auto: Boolean(event.auto) });
         return { ...state, parts };
     }
 

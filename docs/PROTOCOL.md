@@ -76,8 +76,9 @@ A `skills` SSE event (`{names, auto}`) is emitted when the router auto-activates
 
 `GET /api/skills` → `{skills: [{name, description, source, license, files}]}`.
 `GET /api/skills/{name}` → full `SKILL.md` body plus metadata.
+`GET /api/tools` → `{tools: [{name, description, kind, source}]}` for the composer `/` menu (hides `load_skill` / `search_skills`).
 
-Skill folders live in `skills/matopt/` and `skills/anthropic/` (Agent Skills spec). The harness scores the user message and attachments, injects up to two matching `SKILL.md` bodies, and copies the folder into the conversation workspace at `skills/<name>/`.
+Skill folders live in `skills/matopt/`, `skills/lambda/`, and `skills/anthropic/` (Agent Skills spec). LAMBDA data work is split like Anthropic's catalog: `/lambda-eda`, `/lambda-report`, `/lambda-slides`, `/lambda-notebook`, `/lambda-data-agent`. The harness scores the user message and attachments, injects up to two matching `SKILL.md` bodies, and copies the folder into the conversation workspace at `skills/<name>/`. Docker images copy that tree to `/app/skills` (compose also bind-mounts it).
 
 ## LAMBDA data agent
 
@@ -138,11 +139,11 @@ The reasoning slider shows only the stops in `model.reasoning_levels` (ordered a
 `POST /api/chat/stream` with
 ```ts
 { conversation_id?: string; message: string; attachments?: Attachment[]; provider?: string; model?: string;
-  reasoning?: string; verify?: boolean; temperature?: number; skills?: string[]; web_search?: boolean }
+  reasoning?: string; verify?: boolean; temperature?: number; skills?: string[]; tools?: string[]; web_search?: boolean }
 ```
-`skills` force-activates those playbooks for the turn (even when auto-activate is off). Leading `/skill-name` tokens in `message` do the same and are stripped before the LLM sees the prompt.
-`web_search: true` advertises `web_search` / `web_fetch` (open metasearch: `ddgs`, or SearXNG / Tavily / Brave when configured).
-`POST /api/chat/{id}/steer` `{message}` folds a correction into the running turn at the next tool boundary (Claude/Astra-style mid-turn steering).
+`skills` force-activates those playbooks for the turn (even when auto-activate is off). `tools` prefers those native tools. Leading `/skill-name` and `/tool-name` tokens in `message` do the same and are stripped before the LLM sees the prompt (`/web-search` maps to `web_search`).
+`web_search: true` advertises `web_search` / `web_fetch` (open metasearch: `ddgs`, or SearXNG / Tavily / Brave when configured). Slash-invoking those tools also turns them on for the turn.
+`POST /api/chat/{id}/steer` `{message, skills?, tools?}` folds a correction into the running turn at the next tool boundary (Claude/Astra-style mid-turn steering). Slash skills in a steer are materialised immediately — same as a first-prompt `/frontend-design`.
 
 Response: `text/event-stream`; each frame is `data: <json>\n\n` with a `type` field. Errors before streaming: HTTP 400 (no provider configured), 409 (run already in progress).
 `POST /api/chat/{conversation_id}/stop` cancels (kernel interrupted, partial turn persisted, stream ends with `stopped`).

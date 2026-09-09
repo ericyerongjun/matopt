@@ -55,15 +55,26 @@ export function useChat(options: Options) {
     const optionsRef = useRef(options);
     optionsRef.current = options;
 
-    const sendMessage = useCallback(async (text: string, files: File[] = [], skillNames: string[] = []) => {
+    const sendMessage = useCallback(async (text: string, files: File[] = [], skillNames: string[] = [], toolNames: string[] = []) => {
         const opts = optionsRef.current;
         const trimmed = text.trim();
         if (!trimmed) return;
         if (abortRef.current) {
             const cid = cidRef.current || opts.activeId;
             if (cid) {
+                const userMsg: ChatMessage = {
+                    id: uid("u_"),
+                    conversation_id: cid,
+                    seq: overlayRef.current.length + 1,
+                    role: "user",
+                    content: { text: trimmed, attachments: [] } satisfies UserContent,
+                    created_at: Date.now() / 1000,
+                };
+                overlayRef.current = [...overlayRef.current, userMsg];
+                setOverlay({ cid, messages: overlayRef.current });
+                if (opts.activeId === cid) opts.setMessages(overlayRef.current);
                 try {
-                    await steerRun(cid, trimmed);
+                    await steerRun(cid, trimmed, { skills: skillNames, tools: toolNames });
                 } catch (err: unknown) {
                     setStreamError(err instanceof Error ? err.message : "Could not steer");
                 }
@@ -163,7 +174,8 @@ export function useChat(options: Options) {
                     reasoning: opts.reasoning,
                     verify: opts.verify,
                     skills: skillNames.length ? skillNames : undefined,
-                    web_search: Boolean(opts.webSearch),
+                    tools: toolNames.length ? toolNames : undefined,
+                    web_search: Boolean(opts.webSearch) || toolNames.includes("web_search") || toolNames.includes("web_fetch"),
                 },
                 (event) => {
                     const next = applyEvent(state, event);

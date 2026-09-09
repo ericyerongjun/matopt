@@ -1,4 +1,6 @@
-# ── Backend Dockerfile (standalone, no frontend) ────────────────────────
+# Build from the repository root:
+#   docker build -f backend/Dockerfile .
+# docker compose does this automatically.
 FROM python:3.12-slim
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -14,11 +16,12 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 WORKDIR /app
 
-COPY requirements.txt ./
+COPY backend/requirements.txt ./
 RUN pip install --no-cache-dir --upgrade pip \
     && pip install --no-cache-dir -r requirements.txt
 
-COPY . .
+COPY backend/ ./
+COPY skills ./skills
 
 RUN mkdir -p /app/data/workspaces /app/data/lambda \
     && useradd -m matopt && chown -R matopt:matopt /app

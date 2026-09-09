@@ -106,10 +106,16 @@ class ToolRouter:
             hint += f" Available: {', '.join(candidates)}."
         return None, hint
 
-    def schemas(self, registry: ToolRegistry, query: str, plan: Optional[RoutePlan] = None) -> list[dict]:
+    def schemas(
+        self,
+        registry: ToolRegistry,
+        query: str,
+        plan: Optional[RoutePlan] = None,
+        preferred_tools: Optional[list[str]] = None,
+    ) -> list[dict]:
         """JSON schemas to send the model this turn, native tools first."""
         q_tokens = set(tokenize(query or ""))
-        preferred: list[str] = []
+        preferred: list[str] = list(preferred_tools or [])
         if plan is not None:
             for s in plan.activate:
                 preferred.extend(s.allowed_tools)

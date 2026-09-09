@@ -107,6 +107,7 @@ class Settings(BaseSettings):
     def skill_directories(self) -> list[Path]:
         dirs = [
             REPO_ROOT / "skills" / "matopt",
+            REPO_ROOT / "skills" / "lambda",
             REPO_ROOT / "skills" / "anthropic",
             Path.home() / ".matopt" / "skills",
         ]

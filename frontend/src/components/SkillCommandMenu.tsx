@@ -1,57 +1,74 @@
 /**
- * Slash-command palette for skills — Cursor / Claude / ChatGPT style.
+ * Slash-command palette for skills and tools — Cursor / Claude / Codex style.
  * Opened when the composer is `/` plus an optional filter token.
  */
 
 import React, { useEffect, useMemo, useRef } from "react";
-import { sourceLabel, skillIntro, type SkillInfo } from "../services/skills";
+import { commandToken, skillIntro, sourceLabel, type CommandInfo } from "../services/skills";
 import "./SkillCommandMenu.css";
 
 interface Props {
-    skills: SkillInfo[];
+    commands: CommandInfo[];
     query: string;
     activeIndex: number;
     onActiveIndexChange: (index: number) => void;
-    onSelect: (skill: SkillInfo) => void;
+    onSelect: (command: CommandInfo) => void;
     onClose: () => void;
 }
 
-export function filterSkills(skills: SkillInfo[], query: string): SkillInfo[] {
-    const q = query.trim().toLowerCase();
-    if (!q) return skills;
-    const scored = skills.map((skill) => {
-        const name = skill.name.toLowerCase();
-        const hay = `${skill.name} ${skill.description}`.toLowerCase();
+export function filterCommands(commands: CommandInfo[], query: string): CommandInfo[] {
+    const q = query.trim().toLowerCase().replace(/_/g, "-");
+    if (!q) return commands;
+    const scored = commands.map((command) => {
+        const name = command.name.toLowerCase();
+        const hyphen = name.replace(/_/g, "-");
+        const hay = `${command.name} ${command.description}`.toLowerCase();
         let score = 0;
-        if (name === q) score = 3;
-        else if (name.startsWith(q)) score = 2;
-        else if (name.includes(q) || hay.includes(q)) score = 1;
-        return { skill, score };
+        if (name === q || hyphen === q) score = 3;
+        else if (name.startsWith(q) || hyphen.startsWith(q)) score = 2;
+        else if (name.includes(q) || hyphen.includes(q) || hay.includes(q)) score = 1;
+        return { command, score };
     });
     return scored
         .filter((row) => row.score > 0)
-        .sort((a, b) => b.score - a.score || a.skill.name.localeCompare(b.skill.name))
-        .map((row) => row.skill);
+        .sort((a, b) => b.score - a.score || a.command.name.localeCompare(b.command.name))
+        .map((row) => row.command);
 }
 
-function groupSkills(skills: SkillInfo[]): { source: string; items: SkillInfo[] }[] {
-    const order = ["matopt", "anthropic"];
-    const buckets = new Map<string, SkillInfo[]>();
+/** @deprecated use filterCommands */
+export function filterSkills(commands: CommandInfo[], query: string): CommandInfo[] {
+    return filterCommands(commands, query);
+}
+
+function groupCommands(commands: CommandInfo[]): { key: string; label: string; items: CommandInfo[] }[] {
+    const tools = commands.filter((c) => c.kind === "tool");
+    const skills = commands.filter((c) => c.kind === "skill");
+    const order = ["matopt", "lambda", "anthropic"];
+    const buckets = new Map<string, CommandInfo[]>();
     for (const skill of skills) {
         const key = skill.source || "local";
         const list = buckets.get(key) ?? [];
         list.push(skill);
         buckets.set(key, list);
     }
+    const groups: { key: string; label: string; items: CommandInfo[] }[] = [];
+    if (tools.length) groups.push({ key: "tools", label: "Tools", items: tools });
     const keys = [
         ...order.filter((k) => buckets.has(k)),
         ...[...buckets.keys()].filter((k) => !order.includes(k)).sort(),
     ];
-    return keys.map((source) => ({ source, items: buckets.get(source) ?? [] }));
+    for (const source of keys) {
+        groups.push({
+            key: source,
+            label: sourceLabel(source, "skill"),
+            items: buckets.get(source) ?? [],
+        });
+    }
+    return groups;
 }
 
 export default function SkillCommandMenu({
-    skills,
+    commands,
     query,
     activeIndex,
     onActiveIndexChange,
@@ -59,9 +76,8 @@ export default function SkillCommandMenu({
     onClose,
 }: Props) {
     const listRef = useRef<HTMLDivElement>(null);
-    const matches = useMemo(() => filterSkills(skills, query), [skills, query]);
-    const groups = useMemo(() => groupSkills(matches), [matches]);
-    const flat = matches;
+    const matches = useMemo(() => filterCommands(commands, query), [commands, query]);
+    const groups = useMemo(() => groupCommands(matches), [matches]);
 
     useEffect(() => {
         const node = listRef.current?.querySelector<HTMLElement>(`[data-skill-index="${activeIndex}"]`);
@@ -82,33 +98,38 @@ export default function SkillCommandMenu({
     let cursor = 0;
 
     return (
-        <div className="skill-menu" ref={listRef} role="listbox" aria-label="Skills">
+        <div className="skill-menu" ref={listRef} role="listbox" aria-label="Skills and tools">
             <div className="skill-menu__header">
-                <span>Skills</span>
-                <span className="skill-menu__hint">Type to filter · Enter to use</span>
+                <span>Skills & tools</span>
+                <span className="skill-menu__hint">Type to filter · Enter to run</span>
             </div>
-            {flat.length === 0 ? (
-                <div className="skill-menu__empty">No skills match “{query}”.</div>
+            {matches.length === 0 ? (
+                <div className="skill-menu__empty">No commands match “{query}”.</div>
             ) : (
                 groups.map((group) => (
-                    <div key={group.source} className="skill-menu__group">
-                        <div className="skill-menu__group-label">{sourceLabel(group.source)}</div>
-                        {group.items.map((skill) => {
+                    <div key={group.key} className="skill-menu__group">
+                        <div className="skill-menu__group-label">{group.label}</div>
+                        {group.items.map((command) => {
                             const index = cursor++;
                             const active = index === activeIndex;
                             return (
                                 <button
-                                    key={skill.name}
+                                    key={`${command.kind}:${command.name}`}
                                     type="button"
                                     role="option"
                                     aria-selected={active}
                                     data-skill-index={index}
                                     className={`skill-menu__item ${active ? "skill-menu__item--active" : ""}`}
                                     onMouseEnter={() => onActiveIndexChange(index)}
-                                    onClick={() => onSelect(skill)}
+                                    onClick={() => onSelect(command)}
                                 >
-                                    <span className="skill-menu__name">/{skill.name}</span>
-                                    <span className="skill-menu__intro">{skillIntro(skill.description)}</span>
+                                    <span className="skill-menu__name">
+                                        <span className={`skill-menu__kind skill-menu__kind--${command.kind}`}>
+                                            {command.kind === "tool" ? "tool" : "skill"}
+                                        </span>
+                                        {commandToken(command.name)}
+                                    </span>
+                                    <span className="skill-menu__intro">{skillIntro(command.description)}</span>
                                 </button>
                             );
                         })}

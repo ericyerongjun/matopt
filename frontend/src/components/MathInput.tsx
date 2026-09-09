@@ -1,22 +1,29 @@
 /**
- * ChatGPT-style composer: plus, slash skills, field, model/effort, circular send.
+ * ChatGPT-style composer: plus, slash skills/tools, field, model/effort, circular send.
  */
 
 import React, { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { ArrowUp, Globe, Plus, Slash, Square, X } from "lucide-react";
-import SkillCommandMenu, { filterSkills } from "./SkillCommandMenu";
-import { parseSlashSkillTokens, type SkillInfo } from "../services/skills";
+import SkillCommandMenu, { filterCommands } from "./SkillCommandMenu";
+import {
+    commandToken,
+    parseSlashCommands,
+    type CommandInfo,
+    type SkillInfo,
+} from "../services/skills";
 import "./MathInput.css";
 import "./SkillCommandMenu.css";
 
 interface Props {
-    onSubmit: (text: string, files: File[], skills?: string[]) => void;
+    onSubmit: (text: string, files: File[], skills?: string[], tools?: string[]) => void;
     onStop?: () => void;
     disabled?: boolean;
     loading?: boolean;
     placeholder?: string;
     toolbar?: ReactNode;
     showDisclaimer?: boolean;
+    commands?: CommandInfo[];
+    /** @deprecated pass `commands` */
     skills?: SkillInfo[];
     externalSkill?: SkillInfo | null;
     externalKey?: number;
@@ -25,16 +32,27 @@ interface Props {
     onWebSearchChange?: (on: boolean) => void;
 }
 
-const SLASH_TOKEN = /^\/([a-z0-9-]*)$/i;
+const SLASH_TOKEN = /^\/([a-z0-9][-_a-z0-9]*)?$/i;
+
+function asCommands(commands: CommandInfo[] | undefined, skills: SkillInfo[] | undefined): CommandInfo[] {
+    if (commands && commands.length) return commands;
+    return (skills || []).map((skill) => ({
+        kind: "skill" as const,
+        name: skill.name,
+        description: skill.description,
+        source: skill.source,
+    }));
+}
 
 export default function MathInput({
     onSubmit,
     onStop,
     disabled = false,
     loading = false,
-    placeholder = loading ? "Steer this turn…" : "Ask anything or type / for a skill",
+    placeholder = loading ? "Steer this turn…" : "Ask anything or type / for a skill or tool",
     toolbar,
     showDisclaimer = true,
+    commands,
     skills = [],
     externalSkill = null,
     externalKey = 0,
@@ -42,18 +60,19 @@ export default function MathInput({
     webSearch = false,
     onWebSearchChange,
 }: Props) {
+    const catalog = useMemo(() => asCommands(commands, skills), [commands, skills]);
     const [value, setValue] = useState("");
     const [files, setFiles] = useState<File[]>([]);
-    const [pinned, setPinned] = useState<SkillInfo[]>([]);
+    const [pinned, setPinned] = useState<CommandInfo[]>([]);
     const [dragOver, setDragOver] = useState(false);
     const [activeIndex, setActiveIndex] = useState(0);
     const textareaRef = useRef<HTMLTextAreaElement>(null);
     const fileRef = useRef<HTMLInputElement>(null);
 
     const slashMatch = value.match(SLASH_TOKEN);
-    const slashOpen = Boolean(slashMatch) && skills.length > 0 && !disabled;
-    const slashQuery = slashMatch ? slashMatch[1] : "";
-    const matches = useMemo(() => filterSkills(skills, slashQuery), [skills, slashQuery]);
+    const slashOpen = Boolean(slashMatch) && catalog.length > 0 && !disabled;
+    const slashQuery = slashMatch ? slashMatch[1] || "" : "";
+    const matches = useMemo(() => filterCommands(catalog, slashQuery), [catalog, slashQuery]);
 
     useEffect(() => {
         setActiveIndex(0);
@@ -75,8 +94,8 @@ export default function MathInput({
         });
     }, []);
 
-    const pinSkill = useCallback((skill: SkillInfo) => {
-        setPinned((prev) => (prev.some((s) => s.name === skill.name) ? prev : [...prev, skill]));
+    const pinCommand = useCallback((command: CommandInfo) => {
+        setPinned((prev) => (prev.some((c) => c.kind === command.kind && c.name === command.name) ? prev : [...prev, command]));
         setValue("");
         requestAnimationFrame(() => textareaRef.current?.focus());
     }, []);
@@ -86,25 +105,48 @@ export default function MathInput({
 
     useEffect(() => {
         if (!externalSkill) return;
-        pinSkill(externalSkill);
+        pinCommand({
+            kind: "skill",
+            name: externalSkill.name,
+            description: externalSkill.description,
+            source: externalSkill.source,
+        });
         consumeRef.current?.();
-    }, [externalSkill, externalKey, pinSkill]);
+    }, [externalSkill, externalKey, pinCommand]);
 
-    const handleSubmit = useCallback(() => {
-        if (disabled) return;
-        const parsed = parseSlashSkillTokens(value, skills.map((s) => s.name));
-        const names = [...pinned.map((s) => s.name)];
-        for (const n of parsed.names) if (!names.includes(n)) names.push(n);
-        const rest = parsed.rest.trim();
-        const prefix = names.map((n) => `/${n}`).join(" ");
-        const message = [prefix, rest].filter(Boolean).join(" ");
-        if (!message) return;
-        onSubmit(message, files, names);
-        setValue("");
-        setFiles([]);
-        setPinned([]);
-        if (textareaRef.current) textareaRef.current.style.height = "auto";
-    }, [value, files, disabled, loading, onSubmit, pinned, skills]);
+    const submitWith = useCallback(
+        (raw: string, extra: CommandInfo[] = []) => {
+            if (disabled) return;
+            const known = {
+                skills: catalog.filter((c) => c.kind === "skill").map((c) => c.name),
+                tools: catalog.filter((c) => c.kind === "tool").map((c) => c.name),
+            };
+            const parsed = parseSlashCommands(raw, known);
+            const skillNames = [...pinned.filter((c) => c.kind === "skill").map((c) => c.name)];
+            const toolNames = [...pinned.filter((c) => c.kind === "tool").map((c) => c.name)];
+            for (const command of extra) {
+                if (command.kind === "skill" && !skillNames.includes(command.name)) skillNames.push(command.name);
+                if (command.kind === "tool" && !toolNames.includes(command.name)) toolNames.push(command.name);
+            }
+            for (const n of parsed.skills) if (!skillNames.includes(n)) skillNames.push(n);
+            for (const n of parsed.tools) if (!toolNames.includes(n)) toolNames.push(n);
+            const rest = parsed.rest.trim();
+            const prefix = [
+                ...skillNames.map((n) => commandToken(n)),
+                ...toolNames.map((n) => commandToken(n)),
+            ].join(" ");
+            const message = [prefix, rest].filter(Boolean).join(" ");
+            if (!message) return;
+            onSubmit(message, files, skillNames, toolNames);
+            setValue("");
+            setFiles([]);
+            setPinned([]);
+            if (textareaRef.current) textareaRef.current.style.height = "auto";
+        },
+        [catalog, disabled, files, onSubmit, pinned]
+    );
+
+    const handleSubmit = useCallback(() => submitWith(value), [submitWith, value]);
 
     const canSend = (value.trim().length > 0 || pinned.length > 0) && !disabled;
     const showStop = loading && !canSend;
@@ -126,16 +168,26 @@ export default function MathInput({
                 setValue("");
                 return;
             }
-            if (e.key === "Enter" && !e.shiftKey) {
-                e.preventDefault();
-                const skill = matches[activeIndex];
-                if (skill) pinSkill(skill);
-                return;
-            }
             if (e.key === "Tab") {
                 e.preventDefault();
-                const skill = matches[activeIndex];
-                if (skill) pinSkill(skill);
+                const command = matches[activeIndex];
+                if (command) pinCommand(command);
+                return;
+            }
+            if (e.key === "Enter" && !e.shiftKey) {
+                e.preventDefault();
+                const command = matches[activeIndex];
+                if (!command) {
+                    handleSubmit();
+                    return;
+                }
+                const typed = slashQuery.toLowerCase().replace(/_/g, "-");
+                const name = command.name.toLowerCase().replace(/_/g, "-");
+                if (typed && typed === name) {
+                    submitWith(value, [command]);
+                    return;
+                }
+                pinCommand(command);
                 return;
             }
         }
@@ -165,24 +217,39 @@ export default function MathInput({
             >
                 {slashOpen && (
                     <SkillCommandMenu
-                        skills={skills}
+                        commands={catalog}
                         query={slashQuery}
                         activeIndex={activeIndex}
                         onActiveIndexChange={setActiveIndex}
-                        onSelect={pinSkill}
+                        onSelect={(command) => {
+                            const typed = slashQuery.toLowerCase().replace(/_/g, "-");
+                            const name = command.name.toLowerCase().replace(/_/g, "-");
+                            if (typed && typed === name && pinned.length === 0) {
+                                submitWith(`/${command.name}`, [command]);
+                                return;
+                            }
+                            pinCommand(command);
+                        }}
                         onClose={() => setValue((v) => (SLASH_TOKEN.test(v) ? "" : v))}
                     />
                 )}
                 <div className="chat-input__main">
                     {(files.length > 0 || pinned.length > 0) && (
                         <div className="chat-input__chips">
-                            {pinned.map((skill) => (
-                                <span key={skill.name} className="skill-chip">
-                                    /{skill.name}
+                            {pinned.map((command) => (
+                                <span
+                                    key={`${command.kind}:${command.name}`}
+                                    className={`skill-chip ${command.kind === "tool" ? "skill-chip--tool" : ""}`}
+                                >
+                                    {commandToken(command.name)}
                                     <button
                                         type="button"
-                                        onClick={() => setPinned((prev) => prev.filter((s) => s.name !== skill.name))}
-                                        aria-label={`Remove ${skill.name}`}
+                                        onClick={() =>
+                                            setPinned((prev) =>
+                                                prev.filter((c) => !(c.kind === command.kind && c.name === command.name))
+                                            )
+                                        }
+                                        aria-label={`Remove ${command.name}`}
                                     >
                                         <X size={12} />
                                     </button>
@@ -231,9 +298,9 @@ export default function MathInput({
                                 textareaRef.current?.focus();
                             }}
                             disabled={disabled}
-                            title="Skills"
+                            title="Skills and tools"
                             type="button"
-                            aria-label="Browse skills"
+                            aria-label="Browse skills and tools"
                             aria-expanded={slashOpen}
                         >
                             <Slash size={18} />

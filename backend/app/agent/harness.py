@@ -38,7 +38,7 @@ from app.agent.prompts import (
 )
 from app.agent.monitor import inspect_tool_call, next_step_options
 from app.agent.skills.loader import SkillRegistry
-from app.agent.skills.slash import default_slash_prompt, split_slash_skills
+from app.agent.skills.slash import default_slash_prompt, split_slash_commands
 from app.agent.skills.materialize import materialize_skill
 from app.agent.skills.router import RoutePlan, SkillRouter
 from app.agent.tools.base import ToolContext, ToolRegistry, truncate_text
@@ -67,7 +67,15 @@ class RunRequest:
     verify: bool = False
     temperature: Optional[float] = None
     skills: list[str] = field(default_factory=list)
+    tools: list[str] = field(default_factory=list)
     web_search: bool = False
+
+
+@dataclass
+class SteerNote:
+    text: str
+    skills: list[str] = field(default_factory=list)
+    tools: list[str] = field(default_factory=list)
 
 
 @dataclass
@@ -95,7 +103,7 @@ class AgentHarness:
         )
         self.tool_router = tool_router or ToolRouter()
         self._active: dict[str, asyncio.Event] = {}     # conversation_id -> cancel flag
-        self._steer: dict[str, asyncio.Queue[str]] = {}
+        self._steer: dict[str, asyncio.Queue[SteerNote]] = {}
 
     # ── public API ──────────────────────────────────────────────────────
 
@@ -109,24 +117,70 @@ class AgentHarness:
         flag.set()
         return True
 
-    def enqueue_steer(self, conversation_id: str, text: str) -> bool:
+    def enqueue_steer(
+        self,
+        conversation_id: str,
+        text: str,
+        skills: Optional[list[str]] = None,
+        tools: Optional[list[str]] = None,
+    ) -> bool:
         """Queue a mid-turn correction (Claude/Astra-style fold at the next tool boundary)."""
         q = self._steer.get(conversation_id)
         if q is None or not (text or "").strip():
             return False
-        q.put_nowait(text.strip())
+        q.put_nowait(SteerNote(text=text.strip(), skills=list(skills or []), tools=list(tools or [])))
         return True
 
-    async def _drain_steer(self, conversation_id: str, history: list, emit: EmitFn) -> bool:
+    def _parse_slash(self, text: str, extra_skills: Optional[list[str]] = None,
+                     extra_tools: Optional[list[str]] = None) -> tuple[str, list[str], list[str]]:
+        rest, skills, tools = split_slash_commands(text, self.skills.names(), self.tools.names())
+        forced_skills = list(dict.fromkeys([*(extra_skills or []), *skills]))
+        forced_tools = list(dict.fromkeys([*(extra_tools or []), *tools]))
+        return rest, forced_skills, forced_tools
+
+    def _resolve_tools(self, names: list[str]) -> list[str]:
+        resolved: list[str] = []
+        for name in names:
+            tool, _ = self.tool_router.resolve(self.tools, name)
+            if tool is not None and tool.name not in resolved:
+                resolved.append(tool.name)
+        return resolved
+
+    async def _drain_steer(
+        self,
+        conversation_id: str,
+        history: list,
+        emit: EmitFn,
+        ctx: ToolContext,
+        state: TurnState,
+        route: Optional[RoutePlan] = None,
+    ) -> bool:
         q = self._steer.get(conversation_id)
-        texts: list[str] = []
+        notes: list[SteerNote] = []
         while q is not None and not q.empty():
-            texts.append(q.get_nowait())
-        if not texts:
+            notes.append(q.get_nowait())
+        if not notes:
             return False
-        joined = "\n".join(texts)
-        history.append({"role": "user", "content": f"[Steer] {joined}"})
-        await emit(ev("steer_applied", text=joined))
+        for note in notes:
+            rest, skill_names, tool_names = self._parse_slash(note.text, note.skills, note.tools)
+            tool_names = self._resolve_tools(tool_names)
+            llm_text = rest.strip() or default_slash_prompt(skill_names, tool_names) or note.text
+            if skill_names:
+                await self._force_skills(skill_names, ctx, emit, state, route, history)
+            if tool_names:
+                preferred = list(ctx.state.get("tools") or [])
+                for name in tool_names:
+                    if name not in preferred:
+                        preferred.append(name)
+                ctx.state["tools"] = preferred
+                if any(n in {"web_search", "web_fetch"} for n in tool_names):
+                    ctx.state["web_search"] = True
+            prefix = default_slash_prompt(skill_names, tool_names)
+            block = f"{prefix}\n\n{llm_text}".strip() if prefix and prefix not in llm_text else llm_text
+            history.append({"role": "user", "content": f"[Steer] {block}"})
+            stored = note.text.strip()
+            self.db.add_message(conversation_id, "user", {"text": stored, "attachments": []})
+            await emit(ev("steer_applied", text=stored, skills=skill_names, tools=tool_names))
         return True
 
     async def run(self, req: RunRequest) -> AsyncIterator[Event]:
@@ -181,10 +235,21 @@ class AgentHarness:
             workspace = Workspace(cid, self.settings.workspace_dir)
             prior_messages = self.db.list_messages(cid)
             original_text = req.text
-            slash_rest, slash_names = split_slash_skills(req.text, self.skills.names())
-            forced = list(dict.fromkeys([*(req.skills or []), *slash_names]))
-            llm_text = slash_rest.strip() or default_slash_prompt(forced) or req.text
-            req = dataclasses.replace(req, text=llm_text, skills=forced)
+            slash_rest, slash_skills, slash_tools = self._parse_slash(req.text, req.skills, req.tools)
+            slash_tools = self._resolve_tools(slash_tools)
+            hint = default_slash_prompt(slash_skills, slash_tools)
+            rest = slash_rest.strip()
+            if rest and hint:
+                llm_text = f"{hint}\n\n{rest}"
+            else:
+                llm_text = rest or hint or req.text
+            req = dataclasses.replace(
+                req,
+                text=llm_text,
+                skills=slash_skills,
+                tools=slash_tools,
+                web_search=bool(req.web_search or any(n in {"web_search", "web_fetch"} for n in slash_tools)),
+            )
             self.db.add_message(cid, "user", {"text": original_text, "attachments": req.attachments})
             await emit(ev("conversation", conversation_id=cid, title=conv["title"]))
 
@@ -198,6 +263,8 @@ class AgentHarness:
             )
             route = self._route_turn(req, workspace)
             await self._activate_skills(route, ctx, emit, forced=bool(req.skills), state=state)
+            if req.tools:
+                ctx.state["tools"] = list(req.tools)
             options = ChatOptions(model=model.id, reasoning=level, temperature=req.temperature, max_tokens=self.settings.max_output_tokens or None)
             system_prompt = self._system_prompt(workspace, route)
             history = [{"role": "system", "content": system_prompt}]
@@ -326,6 +393,58 @@ class AgentHarness:
             await emit(ev("status", message="Loaded skill" + ("s" if len(names) > 1 else "") + ": " + ", ".join(names)))
             await emit(ev("skills", names=names, auto=not forced))
 
+    async def _force_skills(
+        self,
+        names: list[str],
+        ctx: ToolContext,
+        emit: EmitFn,
+        state: TurnState,
+        route: Optional[RoutePlan],
+        history: list,
+    ) -> None:
+        """Activate slash-invoked skills mid-turn: materialise, inject bodies, refresh system prompt."""
+        if not names:
+            return
+        plan = route or RoutePlan()
+        seen = {s.name for s in plan.activate}
+        added = []
+        for name in names:
+            skill = self.skills.get(name)
+            if skill is None:
+                continue
+            if skill.name not in seen:
+                plan.activate.append(skill)
+                seen.add(skill.name)
+            added.append(skill)
+        if not added:
+            return
+        await self._activate_skills(RoutePlan(activate=added), ctx, emit, forced=True, state=state)
+        loaded = list(ctx.state.get("skills") or [])
+        for skill in added:
+            if skill.name not in loaded:
+                loaded.append(skill.name)
+        ctx.state["skills"] = loaded
+        if route is not None:
+            route.activate = plan.activate
+        if history and history[0].get("role") == "system":
+            history[0] = {"role": "system", "content": self._system_prompt(ctx.workspace, route or plan)}
+        bodies = []
+        for skill in added:
+            body = skill.body
+            if len(body) > 12_000:
+                body = body[:12_000] + "\n\n… [truncated; read skills/" + skill.name + "/SKILL.md]"
+            bodies.append(f"### Skill `{skill.name}`\n\n{body}")
+        if bodies:
+            history.append({
+                "role": "user",
+                "content": (
+                    "The user invoked "
+                    + ", ".join(f"`/{s.name}`" for s in added)
+                    + ". Follow these skill instructions for the rest of this turn.\n\n"
+                    + "\n\n".join(bodies)
+                ),
+            })
+
     def _replay(self, messages: list[dict], provider: LLMProvider) -> list[dict]:
         """Rebuild LLM history from stored messages; recent turns keep full tool detail."""
         out: list[dict] = []
@@ -357,13 +476,21 @@ class AgentHarness:
                           web_search: bool = False) -> str:
         consecutive_failures = 0
         last_text = ""
-        schemas = self.tool_router.schemas(tools, query, route)
-        if not web_search:
-            schemas = [s for s in schemas if (s.get("function") or {}).get("name") not in {"web_search", "web_fetch"}]
+
+        def current_schemas() -> list[dict]:
+            search_on = bool(web_search or ctx.state.get("web_search"))
+            preferred = list(ctx.state.get("tools") or [])
+            out = self.tool_router.schemas(tools, query, route, preferred_tools=preferred)
+            if not search_on:
+                out = [s for s in out if (s.get("function") or {}).get("name") not in {"web_search", "web_fetch"}]
+            return out
+
+        schemas = current_schemas()
         for step in range(max_steps):
             if ctx.cancel.is_set():
                 raise Stopped()
-            await self._drain_steer(ctx.conversation_id, history, emit)
+            if await self._drain_steer(ctx.conversation_id, history, emit, ctx, state, route):
+                schemas = current_schemas()
             last_step = step == max_steps - 1
             if last_step:
                 history.append({"role": "user", "content": FINAL_STEP_NUDGE})
@@ -381,7 +508,8 @@ class AgentHarness:
             results = await self._execute_calls(calls, tools, ctx, emit, state)
             for call, res in zip(calls, results):
                 history.append(provider.tool_message(call.id, call.name, _tool_message_text(res)))
-            await self._drain_steer(ctx.conversation_id, history, emit)
+            if await self._drain_steer(ctx.conversation_id, history, emit, ctx, state, route):
+                schemas = current_schemas()
             if all(not r.ok for r in results):
                 consecutive_failures += 1
             else:
@@ -549,7 +677,7 @@ class AgentHarness:
 
 def _heuristic_title(text: str) -> str:
     cleaned = re.sub(r"\$[^$]*\$", "math", text or "").replace("\n", " ").strip()
-    cleaned = re.sub(r"^(?:/[a-z0-9]+(?:-[a-z0-9]+)*\s*)+", "", cleaned, flags=re.I).strip()
+    cleaned = re.sub(r"^(?:/[a-z0-9]+(?:[-_][a-z0-9]+)*\s*)+", "", cleaned, flags=re.I).strip()
     return (cleaned[:60] + "…") if len(cleaned) > 60 else (cleaned or "New chat")
 
 
