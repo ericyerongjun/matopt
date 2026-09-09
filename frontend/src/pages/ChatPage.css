@@ -126,7 +126,10 @@
     flex-shrink: 0;
     display: flex;
     justify-content: center;
-    overflow: hidden;
+    /* Slash palette sits above the composer; hidden overflow clips it. */
+    overflow: visible;
+    position: relative;
+    z-index: 20;
     background: linear-gradient(to top, var(--color-paper) 70%, rgba(255, 255, 255, 0));
 }
 
