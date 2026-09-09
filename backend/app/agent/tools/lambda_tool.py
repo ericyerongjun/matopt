@@ -3,21 +3,25 @@
 
 MatOpt's kernel can already load CSVs; this tool is for LAMBDA's own loop:
 inspect data, execute analysis code, charts, LaTeX/PDF reports, notebooks, PPT.
-It calls LAMBDA's ``stream_chat_response`` and copies artifacts back.
+It calls LAMBDA's ``stream_chat_response`` and binds that loop to this
+conversation's Jupyter kernel and workspace.
 """
 
 from __future__ import annotations
 
 import json
+import logging
 import mimetypes
 import shutil
-import time
 from pathlib import Path
 from typing import Any, Optional
 
 from app.agent.events import Artifact, ToolResult
+from app.agent.lambda_bridge import LambdaExecContext, bind_lambda_exec_context
 from app.agent.tools.base import Tool, ToolContext, truncate_text
 from app.config import settings
+
+logger = logging.getLogger(__name__)
 
 SKIP_DIR_PARTS = {".skills", ".lambda_skills", "__pycache__", ".ipynb_checkpoints"}
 COPY_EXT = {
@@ -61,6 +65,114 @@ def _copy_lambda_outputs(src: Path, dest: Path) -> list[Path]:
         shutil.copy2(path, target)
         copied.append(target)
     return copied
+
+
+def _load_prior_lambda_id(matopt_cid: str, ctx_state: dict) -> Optional[str]:
+    prior = ctx_state.get("lambda_conversation_id")
+    if prior:
+        return str(prior)
+    try:
+        from app.runtime import get_runtime
+
+        conv = get_runtime().db.get_conversation(matopt_cid)
+        meta = (conv or {}).get("meta") or {}
+        stored = meta.get("lambda_conversation_id")
+        return str(stored) if stored else None
+    except Exception:  # noqa: BLE001
+        logger.debug("could not read lambda_conversation_id from meta", exc_info=True)
+        return None
+
+
+def _persist_lambda_id(matopt_cid: str, hash_id: str, ctx_state: dict) -> None:
+    ctx_state["lambda_conversation_id"] = hash_id
+    try:
+        from app.runtime import get_runtime
+
+        rt = get_runtime()
+        conv = rt.db.get_conversation(matopt_cid)
+        meta = dict((conv or {}).get("meta") or {})
+        if meta.get("lambda_conversation_id") == hash_id:
+            return
+        meta["lambda_conversation_id"] = hash_id
+        rt.db.update_conversation(matopt_cid, meta=meta)
+    except Exception:  # noqa: BLE001
+        logger.debug("could not persist lambda_conversation_id", exc_info=True)
+
+
+def ensure_lambda_conversation(db: Any, user: Any, title: str, prior_hash: Optional[str]) -> str:
+    """Create or reuse a LAMBDA conversation and return its hash id."""
+    from lambda_app.core.config import settings as ls
+    from lambda_app.core.hashid import decode_id, encode_id
+    from lambda_app.models.models import Conversation
+
+    if prior_hash:
+        numeric = decode_id(prior_hash)
+        if numeric:
+            existing = db.query(Conversation).filter(
+                Conversation.id == numeric,
+                Conversation.user_id == user.id,
+            ).first()
+            if existing is not None:
+                return prior_hash
+    conv = Conversation(
+        user_id=user.id,
+        title=(title or "MatOpt analysis")[:50],
+        model=ls.DEFAULT_MODEL,
+    )
+    db.add(conv)
+    db.commit()
+    db.refresh(conv)
+    return encode_id(conv.id)
+
+
+def _register_workspace_uploads(
+    uploads: Path,
+    user_id: int,
+    db: Any,
+    dest_dir: Path,
+    conversation_id: Optional[str] = None,
+) -> list[int]:
+    from lambda_app.models.models import UploadedFile
+
+    if not uploads.is_dir():
+        return []
+    dest_dir.mkdir(parents=True, exist_ok=True)
+    ids: list[int] = []
+    for path in sorted(uploads.iterdir()):
+        if not path.is_file():
+            continue
+        existing = None
+        if conversation_id:
+            existing = db.query(UploadedFile).filter(
+                UploadedFile.user_id == user_id,
+                UploadedFile.conversation_id == conversation_id,
+                UploadedFile.original_name == path.name,
+            ).first()
+        dest = dest_dir / f"matopt_{path.name}"
+        shutil.copy2(path, dest)
+        mime, _ = mimetypes.guess_type(path.name)
+        if existing is not None:
+            existing.file_path = str(dest)
+            existing.file_size = dest.stat().st_size
+            existing.mime_type = mime or existing.mime_type
+            existing.filename = dest.name
+            db.commit()
+            ids.append(existing.id)
+            continue
+        rec = UploadedFile(
+            user_id=user_id,
+            conversation_id=conversation_id,
+            filename=dest.name,
+            original_name=path.name,
+            file_path=str(dest),
+            file_size=dest.stat().st_size,
+            mime_type=mime or "application/octet-stream",
+        )
+        db.add(rec)
+        db.commit()
+        db.refresh(rec)
+        ids.append(rec.id)
+    return ids
 
 
 class LambdaDataAgentTool(Tool):
@@ -108,7 +220,6 @@ class LambdaDataAgentTool(Tool):
         from lambda_app.core.config import settings as ls
         from lambda_app.core.database import SessionLocal
         from lambda_app.core.hashid import decode_id
-        from lambda_app.models.models import UploadedFile
         from lambda_app.models.schemas import ChatRequest
 
         text = (message or "").strip()
@@ -118,59 +229,80 @@ class LambdaDataAgentTool(Tool):
         db = SessionLocal()
         try:
             user = get_current_user(db)
-            file_ids = _register_workspace_uploads(ctx.workspace.root / "uploads", user.id, db, UPLOADS_DIR)
-            prior = ctx.state.get("lambda_conversation_id")
+            prior = _load_prior_lambda_id(ctx.conversation_id, ctx.state)
+            hash_id = ensure_lambda_conversation(db, user, text or "MatOpt analysis", prior)
+            _persist_lambda_id(ctx.conversation_id, hash_id, ctx.state)
+            numeric_id = decode_id(hash_id)
+            session_key = str(numeric_id) if numeric_id else None
+            file_ids = _register_workspace_uploads(
+                ctx.workspace.root / "uploads",
+                user.id,
+                db,
+                UPLOADS_DIR,
+                conversation_id=session_key,
+            )
             req = ChatRequest(
                 message=text,
-                conversation_id=prior,
+                conversation_id=hash_id,
                 files=file_ids or None,
                 analysis_mode="autonomous_exploration" if autonomous else None,
                 language=(language or "").strip() or None,
             )
+            kernel = ctx.kernels.get(ctx.conversation_id) if ctx.kernels is not None else None
+            exec_ctx = LambdaExecContext(
+                conversation_id=ctx.conversation_id,
+                workspace_root=ctx.workspace.root,
+                kernel=kernel,
+                sandbox_session_id=f"matopt-{ctx.conversation_id}",
+            )
+            before = ctx.workspace.snapshot()
             chunks: list[str] = []
-            hash_id: Optional[str] = prior
             error: Optional[str] = None
-            async for frame in stream_chat_response(req, user, db):
-                if ctx.cancel.is_set():
-                    return ToolResult(ok=False, output="".join(chunks), error="Cancelled.")
-                for event in _parse_sse_frame(frame):
-                    kind = event.get("type")
-                    if kind == "delta":
-                        delta = event.get("content") or ""
-                        chunks.append(delta)
-                        await ctx.progress(delta)
-                    elif kind == "status":
-                        await ctx.progress((event.get("content") or "") + "\n")
-                    elif kind == "conversation_created":
-                        hash_id = event.get("conversation_id") or hash_id
-                    elif kind == "error":
-                        error = event.get("content") or "LAMBDA error"
-            if hash_id:
-                ctx.state["lambda_conversation_id"] = hash_id
+            with bind_lambda_exec_context(exec_ctx):
+                async for frame in stream_chat_response(req, user, db):
+                    if ctx.cancel.is_set():
+                        return ToolResult(ok=False, output="".join(chunks), error="Cancelled.")
+                    for event in _parse_sse_frame(frame):
+                        kind = event.get("type")
+                        if kind == "delta":
+                            delta = event.get("content") or ""
+                            chunks.append(delta)
+                            await ctx.progress(delta)
+                        elif kind == "status":
+                            await ctx.progress((event.get("content") or "") + "\n")
+                        elif kind == "conversation_created":
+                            hash_id = event.get("conversation_id") or hash_id
+                            _persist_lambda_id(ctx.conversation_id, hash_id, ctx.state)
+                        elif kind == "error":
+                            error = event.get("content") or "LAMBDA error"
 
-            numeric_id = decode_id(hash_id) if hash_id else None
-            lambda_ws = Path(ls.LOCAL_WORKSPACE_ROOT).resolve() / str(numeric_id or "")
-            dest = ctx.workspace.resolve("lambda_output")
-            copied = _copy_lambda_outputs(lambda_ws, dest) if numeric_id else []
-            artifacts = []
-            for path in copied:
-                rel = ctx.workspace.relpath(path)
-                mime, _ = mimetypes.guess_type(path.name)
-                kind = "image" if path.suffix.lower() in {".png", ".jpg", ".jpeg", ".gif", ".webp", ".svg", ".bmp"} else "file"
-                artifacts.append(
-                    Artifact(
-                        kind=kind,
-                        name=path.name,
-                        path=rel,
-                        url=ctx.workspace.url_for(path),
-                        mime=mime,
-                        size=path.stat().st_size,
-                    )
-                )
+            artifacts: list[Artifact] = []
+            seen: set[str] = set()
+            for rel in ctx.workspace.changed_since(before):
+                if rel in seen:
+                    continue
+                try:
+                    artifacts.append(ctx.workspace.artifact_for(rel))
+                    seen.add(rel)
+                except Exception:  # noqa: BLE001
+                    continue
+
+            # Legacy fallback: copy anything LAMBDA wrote into its own workspace.
+            if numeric_id and exec_ctx.kernel is None:
+                lambda_ws = Path(ls.LOCAL_WORKSPACE_ROOT).resolve() / str(numeric_id)
+                dest = ctx.workspace.resolve("lambda_output")
+                for path in _copy_lambda_outputs(lambda_ws, dest):
+                    rel = ctx.workspace.relpath(path)
+                    if rel in seen:
+                        continue
+                    artifacts.append(ctx.workspace.artifact_for(path))
+                    seen.add(rel)
+
             output = "".join(chunks).strip() or "(LAMBDA finished with no text.)"
-            if copied:
-                listing = "\n".join(f"- {ctx.workspace.relpath(p)}" for p in copied[:40])
-                output = f"{output}\n\nCopied artifacts to `lambda_output/`:\n{listing}"
+            if artifacts:
+                listing = "\n".join(f"- {a.path}" for a in artifacts[:40] if a.path)
+                if listing:
+                    output = f"{output}\n\nWorkspace artifacts:\n{listing}"
             output = truncate_text(output, settings.tool_max_output_chars, "lambda output")
             return ToolResult(
                 ok=error is None,
@@ -182,34 +314,8 @@ class LambdaDataAgentTool(Tool):
                     "files_forwarded": len(file_ids),
                     "artifact_count": len(artifacts),
                     "autonomous": bool(autonomous),
+                    "sandbox_session_id": exec_ctx.sandbox_session_id,
                 },
             )
         finally:
             db.close()
-
-
-def _register_workspace_uploads(uploads: Path, user_id: int, db: Any, dest_dir: Path) -> list[int]:
-    if not uploads.is_dir():
-        return []
-    dest_dir.mkdir(parents=True, exist_ok=True)
-    ids: list[int] = []
-    for path in sorted(uploads.iterdir()):
-        if not path.is_file():
-            continue
-        stamp = time.strftime("%Y%m%d_%H%M%S")
-        dest = dest_dir / f"matopt_{stamp}_{path.name}"
-        shutil.copy2(path, dest)
-        mime, _ = mimetypes.guess_type(path.name)
-        rec = UploadedFile(
-            user_id=user_id,
-            filename=dest.name,
-            original_name=path.name,
-            file_path=str(dest),
-            file_size=dest.stat().st_size,
-            mime_type=mime or "application/octet-stream",
-        )
-        db.add(rec)
-        db.commit()
-        db.refresh(rec)
-        ids.append(rec.id)
-    return ids

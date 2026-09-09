@@ -346,7 +346,16 @@ async def stream_chat_response(
         synced_files = []
         sync_error = None
 
-        sandbox_session_id = f"user-{user.id}"
+        try:
+            from app.agent.lambda_bridge import get_lambda_exec_context
+
+            _bridge = get_lambda_exec_context()
+        except Exception:
+            _bridge = None
+        if _bridge is not None and _bridge.sandbox_session_id:
+            sandbox_session_id = _bridge.sandbox_session_id
+        else:
+            sandbox_session_id = f"user-{user.id}-conv-{conversation_id}"
         session_id_str = str(conversation_id)
         should_sync_files = bool(request.files) or not agent_service.is_session_sync_current(
             session_id_str,
@@ -361,6 +370,7 @@ async def stream_chat_response(
                     db,
                     user.id,
                     sandbox_session_id=sandbox_session_id,
+                    file_ids=request.files,
                 )
             except Exception as e:
                 sync_error = e

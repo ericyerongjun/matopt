@@ -15,6 +15,7 @@ import shutil
 from typing import Dict, Any, List, Optional, Tuple
 from pathlib import Path
 from urllib.parse import unquote
+from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
 from lambda_app.core.config import settings
@@ -59,8 +60,13 @@ class SandboxFileManager:
 
     def _local_workspace(self, session_id: str) -> Path:
         workspace = Path(settings.LOCAL_WORKSPACE_ROOT).resolve() / str(session_id)
-        workspace.mkdir(parents=True, exist_ok=True)
-        return workspace
+        try:
+            from app.agent.lambda_bridge import resolve_local_workspace
+
+            return resolve_local_workspace(session_id, workspace)
+        except Exception:
+            workspace.mkdir(parents=True, exist_ok=True)
+            return workspace
 
     def _local_skills_dir(self, session_id: str) -> Path:
         return self._local_workspace(session_id) / ".skills"
@@ -168,6 +174,7 @@ class SandboxFileManager:
         db: Session,
         user_id: int,
         sandbox_session_id: str = None,
+        file_ids: Optional[List[int]] = None,
     ) -> List[Dict[str, str]]:
         """
         Sync all uploaded files for a session from OSS to Sandbox.
@@ -180,11 +187,18 @@ class SandboxFileManager:
         sandbox_session_id = sandbox_session_id or session_id
         await self.prepare_workspace_for_session(session_id, sandbox_session_id)
         
-        # Query uploaded files for this session from database
+        # Query uploaded files for this session from database. Also accept
+        # explicit file ids from the MatOpt bridge so uploads registered
+        # before conversation_id was set are still synced.
+        filters = [
+            (UploadedFile.conversation_id == session_id) |
+            (UploadedFile.filename.like(f"%/{session_id}/%"))
+        ]
+        if file_ids:
+            filters.append(UploadedFile.id.in_(list(file_ids)))
         db_files = db.query(UploadedFile).filter(
             UploadedFile.user_id == user_id,
-            (UploadedFile.conversation_id == session_id) | 
-            (UploadedFile.filename.like(f"%/{session_id}/%"))
+            or_(*filters),
         ).all()
         print(f"[SYNC] Found {len(db_files)} files to sync for session {session_id}")
 

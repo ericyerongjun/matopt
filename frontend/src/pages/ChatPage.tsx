@@ -11,6 +11,7 @@ import { useSkills } from "../hooks/useSkills";
 import { useWorkspaceFiles } from "../hooks/useWorkspaceFiles";
 import { exportConversation, restartKernel } from "../services/conversations";
 import { uploadFiles } from "../services/files";
+import { shouldShowWelcome } from "../services/newChat";
 import {
     AnalysisPanel,
     FilesPanel,
@@ -77,7 +78,12 @@ export default function ChatPage() {
         chat.streaming && chat.overlay && convos.activeId === chat.overlay.cid
             ? chat.overlay.messages
             : convos.messages;
-    const showWelcome = !convos.activeId && messages.length === 0 && !chat.streaming;
+    const showWelcome = shouldShowWelcome({
+        activeId: convos.activeId,
+        messageCount: messages.length,
+        streaming: chat.streaming,
+        detached: chat.detached,
+    });
     const error = convos.error || chat.streamError || llm.error;
 
     const composer = (
@@ -119,7 +125,10 @@ export default function ChatPage() {
             <Sidebar
                 conversations={convos.conversations}
                 activeId={convos.activeId}
-                onNewChat={convos.newChat}
+                onNewChat={() => {
+                    void chat.abandon();
+                    convos.newChat();
+                }}
                 onSelect={convos.select}
                 onDelete={(id) => void convos.remove(id)}
                 onRename={(id, title) => void convos.rename(id, title)}

@@ -95,5 +95,7 @@ async def test_python_tool_with_kernel(ws):
         assert not r.ok and "NameError" in r.output
         r = await tool(ctx, {"code": "```python\nprint('fenced')\n```"})
         assert r.ok and "fenced" in r.output
+        nb = (ws.root / "analysis.ipynb").read_text(encoding="utf-8")
+        assert "fenced" in nb
     finally:
         await kernels.shutdown_all()

@@ -37,9 +37,12 @@ class AgentService:
         db, 
         user_id: int,
         sandbox_session_id: str = None,
+        file_ids: List[int] = None,
     ) -> List[Dict[str, str]]:
         """Sync all uploaded files for a session to sandbox."""
-        return await self.file_manager.sync_session_files(session_id, db, user_id, sandbox_session_id)
+        return await self.file_manager.sync_session_files(
+            session_id, db, user_id, sandbox_session_id, file_ids=file_ids,
+        )
 
     def is_session_sync_current(self, session_id: str, sandbox_session_id: str) -> bool:
         """Check whether uploaded files are already synced for the current sandbox generation."""
@@ -98,7 +101,10 @@ class AgentService:
         return files_text
 
     def _local_workspace(self, session_id: str):
-        return self.local_code_service.workspace_for_session(session_id)
+        from app.agent.lambda_bridge import resolve_local_workspace
+
+        fallback = self.local_code_service.workspace_for_session(session_id)
+        return resolve_local_workspace(session_id, fallback)
 
     def _resolve_local_path(self, path: str, session_id: str):
         workspace = self._local_workspace(session_id).resolve()
@@ -327,6 +333,34 @@ if '_image_paths' in globals() and _image_paths:
                 "success": False,
                 "output": "No code provided",
                 "error": "Missing code parameter"
+            }
+
+        from app.agent.lambda_bridge import get_lambda_exec_context, run_python_on_kernel
+
+        bridge = get_lambda_exec_context()
+        if bridge is not None and bridge.kernel is not None:
+            before_files = await self._snapshot_workspace_files(session_id)
+            result = await run_python_on_kernel(code, timeout=input_data.get("timeout"))
+            await self._scan_and_upload_files(
+                session_id,
+                input_data.get("user_id"),
+                input_data.get("db"),
+                result,
+                before_files=before_files,
+                sandbox_session_id=sandbox_session_id,
+            )
+            output = result.get("stdout", "")
+            if result.get("stderr"):
+                output += ("\n" if output else "") + f"[STDERR] {result['stderr']}"
+            stdout = result.get("stdout", "")
+            return {
+                "success": result.get("success", False),
+                "output": self._replace_local_paths_with_urls(output, result),
+                "stdout": self._replace_local_paths_with_urls(stdout, result),
+                "stderr": result.get("stderr", ""),
+                "error": result.get("error"),
+                "images": result.get("images", []),
+                "generated_files": result.get("generated_files", []),
             }
 
         if settings.CODE_EXECUTION_MODE == "local":

@@ -99,6 +99,11 @@ FAILURE_NUDGE = (
     "propose an alternative approach, and ask for guidance if the problem cannot be resolved with the available information."
 )
 
+REPEAT_NUDGE = (
+    "The same tool has failed the same way several times and is now blocked for the rest of this turn. "
+    "Do not retry it. Change approach, use a different tool, or finish with what you have."
+)
+
 TITLE_PROMPT = (
     "Write a short title (max 6 words, no quotes, no trailing period) for a conversation that starts with the message below. "
     "Use the same language as the message.\n\nMessage:\n{message}"

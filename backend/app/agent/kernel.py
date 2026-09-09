@@ -67,6 +67,20 @@ try:
     import sympy as sp
 except Exception:
     pass
+try:
+    from IPython import get_ipython as _gi
+    _ip = _gi()
+    def _matopt_close_figures(_evt=None):
+        try:
+            import matplotlib.pyplot as _plt
+            _plt.close("all")
+        except Exception:
+            pass
+    if _ip is not None and not getattr(_ip, "_matopt_close_registered", False):
+        _ip.events.register("post_run_cell", _matopt_close_figures)
+        _ip._matopt_close_registered = True
+except Exception:
+    pass
 del _os, _sys, _warnings
 '''
 
@@ -175,6 +189,12 @@ class KernelSession:
             self.execution_count += 1
             result = await self._execute_raw(code, timeout=timeout, on_stream=on_stream, cancel=cancel)
             self.last_used = time.time()
+            try:
+                from app.agent.notebook import append_analysis_cell
+
+                append_analysis_cell(self.workspace, code, result)
+            except Exception:  # noqa: BLE001
+                logger.debug("analysis.ipynb append failed", exc_info=True)
             return result
 
     async def _execute_raw(

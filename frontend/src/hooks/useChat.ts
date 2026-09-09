@@ -10,6 +10,7 @@
 import { useCallback, useRef, useState, type Dispatch, type SetStateAction } from "react";
 import { fetchFollowUps } from "../services/followups";
 import { steerRun, stopRun } from "../services/conversations";
+import { shouldRebindActiveId, shouldSteerExistingRun } from "../services/newChat";
 import { textFromAssistant, isAssistantContent } from "../types/protocol";
 import { uploadFiles } from "../services/files";
 import {
@@ -52,6 +53,9 @@ export function useChat(options: Options) {
     const abortRef = useRef<AbortController | null>(null);
     const cidRef = useRef<string | null>(null);
     const overlayRef = useRef<ChatMessage[]>([]);
+    const detachedRef = useRef(false);
+    const runGenRef = useRef(0);
+    const [detached, setDetached] = useState(false);
     const optionsRef = useRef(options);
     optionsRef.current = options;
 
@@ -59,7 +63,7 @@ export function useChat(options: Options) {
         const opts = optionsRef.current;
         const trimmed = text.trim();
         if (!trimmed) return;
-        if (abortRef.current) {
+        if (shouldSteerExistingRun({ hasActiveStream: Boolean(abortRef.current), detached: detachedRef.current })) {
             const cid = cidRef.current || opts.activeId;
             if (cid) {
                 const userMsg: ChatMessage = {
@@ -82,8 +86,11 @@ export function useChat(options: Options) {
             return;
         }
 
+        detachedRef.current = false;
+        setDetached(false);
         setStreamError(null);
         setStatusLine(null);
+        const runGen = ++runGenRef.current;
 
         let cid = opts.activeId;
         try {
@@ -140,6 +147,7 @@ export function useChat(options: Options) {
             let state: StreamState = { ...emptyStreamState(), conversationId: cid, messageId: assistantId };
 
             const patchAssistant = (next: StreamState) => {
+                if (detachedRef.current) return;
                 state = next;
                 setStatusLine(next.statusLine);
                 overlayRef.current = overlayRef.current.map((m) =>
@@ -158,8 +166,12 @@ export function useChat(options: Options) {
                 if (optionsRef.current.activeId === streamCid) {
                     optionsRef.current.setMessages(overlayRef.current);
                 }
-                if (next.conversationId && !optionsRef.current.activeId) {
-                    optionsRef.current.setActiveId(next.conversationId);
+                if (shouldRebindActiveId({
+                    detached: detachedRef.current,
+                    incomingConversationId: next.conversationId,
+                    activeId: optionsRef.current.activeId,
+                })) {
+                    optionsRef.current.setActiveId(next.conversationId ?? null);
                     cidRef.current = next.conversationId;
                 }
             };
@@ -184,6 +196,8 @@ export function useChat(options: Options) {
                 },
                 abort.signal
             );
+
+            if (detachedRef.current || runGenRef.current !== runGen) return;
 
             const last = [...overlayRef.current].reverse().find((m) => m.role === "assistant");
             if (last && isAssistantContent(last.content) && !last.content.parts.some((p) => p.type === "options")) {
@@ -215,10 +229,12 @@ export function useChat(options: Options) {
                 setStreamError(msg);
             }
         } finally {
-            abortRef.current = null;
-            cidRef.current = null;
-            setStreaming(false);
-            setStatusLine(null);
+            if (runGenRef.current === runGen) {
+                abortRef.current = null;
+                cidRef.current = null;
+                setStreaming(false);
+                setStatusLine(null);
+            }
         }
     }, []);
 
@@ -234,5 +250,25 @@ export function useChat(options: Options) {
         }
     }, []);
 
-    return { sendMessage, stop, streaming, statusLine, streamError, setStreamError, overlay };
+    const abandon = useCallback(async () => {
+        runGenRef.current += 1;
+        detachedRef.current = true;
+        setDetached(true);
+        const cid = cidRef.current;
+        abortRef.current?.abort();
+        abortRef.current = null;
+        cidRef.current = null;
+        setStreaming(false);
+        setStatusLine(null);
+        setOverlay(null);
+        if (cid) {
+            try {
+                await stopRun(cid);
+            } catch {
+                /* stream will end anyway */
+            }
+        }
+    }, []);
+
+    return { sendMessage, stop, abandon, streaming, detached, statusLine, streamError, setStreamError, overlay };
 }

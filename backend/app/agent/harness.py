@@ -30,6 +30,7 @@ from app.agent.events import Event, ToolResult, ev, keepalive
 from app.agent.prompts import (
     FAILURE_NUDGE,
     FINAL_STEP_NUDGE,
+    REPEAT_NUDGE,
     REVISION_TEMPLATE,
     TITLE_PROMPT,
     VERIFIER_PROMPT,
@@ -78,6 +79,13 @@ class SteerNote:
     tools: list[str] = field(default_factory=list)
 
 
+REPEAT_LIMIT = 3
+SOFT_SUCCESS_TOOLS = frozenset({
+    "list_files", "read_file", "grep", "bash", "web_search", "web_fetch",
+    "update_plan", "search_skills", "load_skill",
+})
+
+
 @dataclass
 class TurnState:
     parts: list[dict] = field(default_factory=list)
@@ -86,6 +94,9 @@ class TurnState:
     tool_calls: int = 0
     phase: str = "answer"
     plan: list = field(default_factory=list)
+    failure_counts: dict[str, int] = field(default_factory=dict)
+    blocked_tools: set[str] = field(default_factory=set)
+    repeat_nudge_sent: bool = False
 
 
 class AgentHarness:
@@ -508,12 +519,15 @@ class AgentHarness:
             results = await self._execute_calls(calls, tools, ctx, emit, state)
             for call, res in zip(calls, results):
                 history.append(provider.tool_message(call.id, call.name, _tool_message_text(res)))
+            newly_blocked = _record_failures(calls, results, state, tools, self.tool_router)
+            if newly_blocked and not state.repeat_nudge_sent:
+                history.append({"role": "user", "content": REPEAT_NUDGE})
+                state.repeat_nudge_sent = True
             if await self._drain_steer(ctx.conversation_id, history, emit, ctx, state, route):
                 schemas = current_schemas()
-            if all(not r.ok for r in results):
-                consecutive_failures += 1
-            else:
-                consecutive_failures = 0
+            consecutive_failures = _next_consecutive_failures(
+                consecutive_failures, calls, results, tools, self.tool_router,
+            )
             if consecutive_failures >= self.settings.agent_max_consecutive_failures:
                 history.append({"role": "user", "content": FAILURE_NUDGE})
                 consecutive_failures = 0
@@ -580,6 +594,19 @@ class AgentHarness:
         async def run_one(call: ToolCallSpec, args: Optional[dict], err: Optional[str]) -> ToolResult:
             started = time.monotonic()
             tool, resolve_err = self.tool_router.resolve(tools, call.name)
+            resolved_name = tool.name if tool is not None else call.name
+            if resolved_name in state.blocked_tools:
+                res = ToolResult(
+                    ok=False,
+                    output="",
+                    error=(
+                        f"Blocked: `{resolved_name}` failed the same way "
+                        f"{REPEAT_LIMIT} times this turn. Do not retry it."
+                    ),
+                    meta={"blocked_repeat": True},
+                )
+                res.meta.setdefault("duration_ms", int((time.monotonic() - started) * 1000))
+                return res
             if err is not None:
                 res = ToolResult(ok=False, output="", error=f"Could not parse tool arguments as JSON: {err}")
             elif tool is None:
@@ -703,6 +730,62 @@ def _parse_arguments(raw: str) -> tuple[Optional[dict], Optional[str]]:
     if not isinstance(obj, dict):
         return None, "arguments must be a JSON object"
     return obj, None
+
+
+def _failure_fingerprint(name: str, res: ToolResult) -> str:
+    error = (res.error or "").strip() or (res.output or "").strip()
+    first_line = error.splitlines()[0].strip() if error else "unknown"
+    error_name = str((res.meta or {}).get("error_name") or "")
+    if not error_name and first_line:
+        error_name = first_line.split(":", 1)[0].strip()
+    return f"{name}|{error_name}|{first_line[:240]}"
+
+
+def _resolved_name(call: ToolCallSpec, tools: ToolRegistry, router: ToolRouter) -> str:
+    tool, _ = router.resolve(tools, call.name)
+    return tool.name if tool is not None else call.name
+
+
+def _record_failures(
+    calls: list[ToolCallSpec],
+    results: list[ToolResult],
+    state: TurnState,
+    tools: ToolRegistry,
+    router: ToolRouter,
+) -> list[str]:
+    newly: list[str] = []
+    for call, res in zip(calls, results):
+        if res.ok or (res.meta or {}).get("blocked_repeat"):
+            continue
+        name = _resolved_name(call, tools, router)
+        fp = _failure_fingerprint(name, res)
+        state.failure_counts[fp] = state.failure_counts.get(fp, 0) + 1
+        if state.failure_counts[fp] >= REPEAT_LIMIT and name not in state.blocked_tools:
+            state.blocked_tools.add(name)
+            newly.append(name)
+    return newly
+
+
+def _next_consecutive_failures(
+    current: int,
+    calls: list[ToolCallSpec],
+    results: list[ToolResult],
+    tools: ToolRegistry,
+    router: ToolRouter,
+) -> int:
+    """Count streaks of hard-tool failures; list/read/bash successes do not reset."""
+    hard: list[ToolResult] = []
+    for call, res in zip(calls, results):
+        if _resolved_name(call, tools, router) in SOFT_SUCCESS_TOOLS:
+            continue
+        hard.append(res)
+    if not hard:
+        return current
+    if all(not r.ok for r in hard):
+        return current + 1
+    if any(r.ok for r in hard):
+        return 0
+    return current
 
 
 def _tool_message_text(res: ToolResult) -> str:
