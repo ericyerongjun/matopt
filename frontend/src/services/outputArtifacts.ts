@@ -1,5 +1,5 @@
-import type { Artifact, ChatMessage, Part } from "../types/protocol";
-import { isAssistantContent } from "../types/protocol";
+import type { Artifact, ChatMessage, Part } from "../types/protocol.ts";
+import { isAssistantContent } from "../types/protocol.ts";
 
 const OUTPUT_KINDS = new Set(["image", "plotly", "html", "html_file"]);
 

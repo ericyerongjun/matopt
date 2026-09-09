@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import type { Artifact, AssistantContent, ChatMessage, Part } from "../types/protocol";
+import type { Artifact, AssistantContent, ChatMessage, Part } from "../types/protocol.ts";
 import { selectOutputArtifacts } from "./outputArtifacts.ts";
 
 function assistant(parts: Part[], id = "a1"): ChatMessage {
