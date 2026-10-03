@@ -281,6 +281,91 @@ def test_soft_success_does_not_reset_hard_failure_streak():
     assert _next_consecutive_failures(2, hard, ok, tools, router) == 0
 
 
+def test_system_prompt_has_math_conventions():
+    from app.agent.prompts import build_system_prompt
+
+    prompt = build_system_prompt("files", "", [], skills_catalog="", skills_active="")
+    assert "# Mathematics and data-science conventions" in prompt
+    assert "np.random.seed" in prompt
+    assert "{" not in prompt.split("# Mathematics and data-science conventions")[1].split("# How to work")[0]
+    assert "# How to work" in prompt
+
+
+@pytest.mark.asyncio
+async def test_math_skill_forces_verification(db, monkeypatch):
+    from app.agent.skills.loader import SkillRegistry, load_skill_dir
+    from app.config import REPO_ROOT
+
+    monkeypatch.setattr(settings, "auto_verify_skills", True)
+    skill = load_skill_dir(REPO_ROOT / "skills" / "matopt" / "sympy-compute", source="matopt")
+    registry = SkillRegistry([skill])
+    provider = FakeProvider([
+        {"text": "The answer is $\\boxed{x^2 + 2x + 1}$."},
+        {"text": "<report>recomputed, agrees</report>\n<verdict>correct</verdict>"},
+    ])
+    kernels = KernelPool(lambda cid: Workspace(cid, settings.workspace_dir))
+    harness = AgentHarness(db, kernels, settings, FakeRegistry(provider), build_tools(registry), skills=registry)
+    try:
+        events = await collect(harness, RunRequest(conversation_id=None, text="/sympy-compute expand (x+1)^2",
+                                                   skills=["sympy-compute"], verify=False))
+    finally:
+        await kernels.shutdown_all()
+    assert any(e["type"] == "phase" and e["phase"] == "verify" for e in events)
+    cid = events[0]["conversation_id"]
+    parts = db.list_messages(cid)[-1]["content"]["parts"]
+    assert any(p["type"] == "verification" and p["verdict"] == "correct" for p in parts)
+
+
+@pytest.mark.asyncio
+async def test_math_skill_forced_verification_can_be_disabled(db, monkeypatch):
+    from app.agent.skills.loader import SkillRegistry, load_skill_dir
+    from app.config import REPO_ROOT
+
+    monkeypatch.setattr(settings, "auto_verify_skills", False)
+    skill = load_skill_dir(REPO_ROOT / "skills" / "matopt" / "sympy-compute", source="matopt")
+    registry = SkillRegistry([skill])
+    provider = FakeProvider([{"text": "done"}])
+    kernels = KernelPool(lambda cid: Workspace(cid, settings.workspace_dir))
+    harness = AgentHarness(db, kernels, settings, FakeRegistry(provider), build_tools(registry), skills=registry)
+    try:
+        events = await collect(harness, RunRequest(conversation_id=None, text="/sympy-compute expand (x+1)^2",
+                                                   skills=["sympy-compute"], verify=False))
+    finally:
+        await kernels.shutdown_all()
+    assert not any(e["type"] == "phase" and e["phase"] == "verify" for e in events)
+    assert len(provider.calls) == 1
+
+
+@pytest.mark.asyncio
+async def test_auto_verify_boxed_runs_one_round(db, monkeypatch):
+    monkeypatch.setattr(settings, "auto_verify_boxed", True)
+    provider = FakeProvider([
+        {"text": "The answer is $\\boxed{42}$."},
+        {"text": "<report>recomputed 6*7</report>\n<verdict>correct</verdict>"},
+    ])
+    harness, kernels = make_harness(db, provider)
+    try:
+        events = await collect(harness, RunRequest(conversation_id=None, text="What is 6*7?", verify=False))
+    finally:
+        await kernels.shutdown_all()
+    rounds = [e["round"] for e in events if e["type"] == "phase" and e["phase"] == "verify"]
+    assert rounds == [1]
+    assert any(e["type"] == "verification" and e["verdict"] == "correct" for e in events)
+
+
+@pytest.mark.asyncio
+async def test_auto_verify_boxed_off_by_default(db, monkeypatch):
+    monkeypatch.setattr(settings, "auto_verify_boxed", False)
+    provider = FakeProvider([{"text": "The answer is $\\boxed{42}$."}])
+    harness, kernels = make_harness(db, provider)
+    try:
+        events = await collect(harness, RunRequest(conversation_id=None, text="What is 6*7?", verify=False))
+    finally:
+        await kernels.shutdown_all()
+    assert not any(e["type"] == "phase" and e["phase"] == "verify" for e in events)
+    assert len(provider.calls) == 1
+
+
 @pytest.mark.asyncio
 async def test_identical_python_failures_are_blocked(db, monkeypatch):
     from app.agent.kernel import KernelSession

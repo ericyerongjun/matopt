@@ -31,6 +31,58 @@
     flex-direction: column;
 }
 
+.chat-input__quotes {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding: 8px 4px 0;
+    max-height: 148px;
+    overflow-y: auto;
+}
+
+.chat-input__quote {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    background: var(--color-ash);
+    border-left: 3px solid var(--oai-gray-300);
+    border-radius: var(--radius-sm);
+    padding: 8px 8px 8px 10px;
+}
+
+.chat-input__quote-text {
+    flex: 1;
+    min-width: 0;
+    margin: 0;
+    font-size: 0.8rem;
+    line-height: 1.45;
+    color: var(--text-secondary);
+    white-space: pre-wrap;
+    word-break: break-word;
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+.chat-input__quote-remove {
+    flex-shrink: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 20px;
+    height: 20px;
+    border: none;
+    border-radius: var(--radius-full);
+    background: none;
+    color: var(--text-muted);
+}
+
+.chat-input__quote-remove:hover {
+    background: var(--color-surface-hover);
+    color: var(--text-primary);
+}
+
 .chat-input__chips {
     display: flex;
     flex-wrap: wrap;

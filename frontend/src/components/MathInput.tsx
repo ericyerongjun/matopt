@@ -11,6 +11,7 @@ import {
     type CommandInfo,
     type SkillInfo,
 } from "../services/skills";
+import type { QuoteRef } from "../services/quote";
 import "./MathInput.css";
 import "./SkillCommandMenu.css";
 
@@ -30,6 +31,9 @@ interface Props {
     onExternalSkillConsumed?: () => void;
     webSearch?: boolean;
     onWebSearchChange?: (on: boolean) => void;
+    /** Passages quoted from the thread; shown above the field until sent. */
+    quotes?: QuoteRef[];
+    onRemoveQuote?: (index: number) => void;
 }
 
 const SLASH_TOKEN = /^\/([a-z0-9][-_a-z0-9]*)?$/i;
@@ -59,6 +63,8 @@ export default function MathInput({
     onExternalSkillConsumed,
     webSearch = false,
     onWebSearchChange,
+    quotes = [],
+    onRemoveQuote,
 }: Props) {
     const catalog = useMemo(() => asCommands(commands, skills), [commands, skills]);
     const [value, setValue] = useState("");
@@ -84,6 +90,12 @@ export default function MathInput({
         ta.style.height = "auto";
         ta.style.height = `${Math.min(ta.scrollHeight, 200)}px`;
     }, [value]);
+
+    const quoteKey = quotes.map((quote) => quote.text).join("\u0000");
+    useEffect(() => {
+        if (!quoteKey) return;
+        textareaRef.current?.focus();
+    }, [quoteKey]);
 
     const addFiles = useCallback((list: FileList | File[]) => {
         const next = Array.from(list);
@@ -136,19 +148,19 @@ export default function MathInput({
                 ...toolNames.map((n) => commandToken(n)),
             ].join(" ");
             const message = [prefix, rest].filter(Boolean).join(" ");
-            if (!message) return;
+            if (!message && quotes.length === 0) return;
             onSubmit(message, files, skillNames, toolNames);
             setValue("");
             setFiles([]);
             setPinned([]);
             if (textareaRef.current) textareaRef.current.style.height = "auto";
         },
-        [catalog, disabled, files, onSubmit, pinned]
+        [catalog, disabled, files, onSubmit, pinned, quotes.length]
     );
 
     const handleSubmit = useCallback(() => submitWith(value), [submitWith, value]);
 
-    const canSend = (value.trim().length > 0 || pinned.length > 0) && !disabled;
+    const canSend = (value.trim().length > 0 || pinned.length > 0 || quotes.length > 0) && !disabled;
     const showStop = loading && !canSend;
 
     const onKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
@@ -234,6 +246,24 @@ export default function MathInput({
                     />
                 )}
                 <div className="chat-input__main">
+                    {quotes.length > 0 && (
+                        <div className="chat-input__quotes">
+                            {quotes.map((quote, index) => (
+                                <div key={`${index}-${quote.text.slice(0, 24)}`} className="chat-input__quote">
+                                    <blockquote className="chat-input__quote-text">{quote.text}</blockquote>
+                                    <button
+                                        type="button"
+                                        className="chat-input__quote-remove"
+                                        onClick={() => onRemoveQuote?.(index)}
+                                        aria-label="Remove quote"
+                                        title="Remove quote"
+                                    >
+                                        <X size={12} />
+                                    </button>
+                                </div>
+                            ))}
+                        </div>
+                    )}
                     {(files.length > 0 || pinned.length > 0) && (
                         <div className="chat-input__chips">
                             {pinned.map((command) => (
@@ -276,7 +306,9 @@ export default function MathInput({
                         value={value}
                         onChange={(e) => setValue(e.target.value)}
                         onKeyDown={onKeyDown}
-                        placeholder={loading ? "Steer this turn…" : placeholder}
+                        placeholder={
+                            loading ? "Steer this turn…" : quotes.length > 0 ? "Ask about the quoted passage…" : placeholder
+                        }
                         disabled={disabled}
                     />
                 </div>

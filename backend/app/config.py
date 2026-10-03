@@ -72,6 +72,8 @@ class Settings(BaseSettings):
     verify_rounds: int = 2
     verify_max_steps: int = 10
     verify_reasoning: Optional[str] = None         # override slider level for the verifier
+    auto_verify_skills: bool = True                # force verification when a correctness-critical skill is active
+    auto_verify_boxed: bool = False                # verify once when the answer contains \boxed{...} and verify is off
 
     # ── Tools ───────────────────────────────────────────────────────────
     tool_timeout: int = 120

@@ -12,6 +12,42 @@
     height: 0;
 }
 
+/* Sticky dock: keeps the jump-to-bottom button pinned to the bottom of the
+   scrollport instead of scrolling away with the thread content. */
+.thread__scroll-dock {
+    position: sticky;
+    bottom: 16px;
+    height: 0;
+    overflow: visible;
+    display: flex;
+    align-items: flex-end;
+    justify-content: flex-end;
+    padding-right: 16px;
+    z-index: 5;
+    pointer-events: none;
+}
+
+.thread__scroll-btn {
+    pointer-events: auto;
+    width: 36px;
+    height: 36px;
+    padding: 0;
+    border-radius: 50%;
+    border: 1px solid var(--oai-gray-300);
+    background: var(--color-paper);
+    color: var(--text-primary);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+    transition: background var(--transition-fast);
+}
+
+.thread__scroll-btn:hover {
+    background: var(--color-surface-hover);
+}
+
 .thread__inner {
     display: flex;
     flex-direction: column;
@@ -64,6 +100,25 @@
 .thread__body--user {
     white-space: pre-wrap;
     word-break: break-word;
+}
+
+.thread__quote {
+    margin: 0 0 8px;
+    padding: 6px 10px;
+    border-left: 3px solid var(--oai-gray-300);
+    border-radius: var(--radius-sm);
+    background: color-mix(in srgb, var(--color-graphite-ink) 7%, transparent);
+    font-size: 0.85rem;
+    line-height: 1.5;
+    color: var(--text-secondary);
+    white-space: pre-wrap;
+    word-break: break-word;
+    max-height: 7.5em;
+    overflow: hidden;
+}
+
+.thread__quote:last-child {
+    margin-bottom: 0;
 }
 
 .thread__attachments {

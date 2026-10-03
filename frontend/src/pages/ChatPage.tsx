@@ -12,6 +12,7 @@ import { useWorkspaceFiles } from "../hooks/useWorkspaceFiles";
 import { exportConversation, restartKernel } from "../services/conversations";
 import { uploadFiles } from "../services/files";
 import { shouldShowWelcome } from "../services/newChat";
+import { composeQuotedMessage, type QuoteRef, type QuoteSource } from "../services/quote";
 import {
     AnalysisPanel,
     FilesPanel,
@@ -40,6 +41,14 @@ export default function ChatPage() {
         }
     });
     const menuRef = useRef<HTMLDivElement>(null);
+    const [quotes, setQuotes] = useState<QuoteRef[]>([]);
+
+    const addQuote = useCallback((text: string, source: QuoteSource) => {
+        setQuotes((prev) => (prev.some((quote) => quote.text === text) ? prev : [...prev, { text, source }]));
+    }, []);
+    const removeQuote = useCallback((index: number) => {
+        setQuotes((prev) => prev.filter((_, i) => i !== index));
+    }, []);
 
     const chat = useChat({
         activeId: convos.activeId,
@@ -60,9 +69,11 @@ export default function ChatPage() {
 
     const handleSend = useCallback(
         (text: string, attached: File[] = [], skillNames: string[] = [], toolNames: string[] = []) => {
-            void chat.sendMessage(text, attached, skillNames, toolNames);
+            const body = quotes.length ? composeQuotedMessage(quotes, text) : text;
+            void chat.sendMessage(body, attached, skillNames, toolNames);
+            setQuotes([]);
         },
-        [chat.sendMessage]
+        [chat.sendMessage, quotes]
     );
 
     useEffect(() => {
@@ -90,6 +101,8 @@ export default function ChatPage() {
         <MathInput
             onSubmit={handleSend}
             onStop={() => void chat.stop()}
+            quotes={quotes}
+            onRemoveQuote={removeQuote}
             disabled={false}
             loading={chat.streaming}
             showDisclaimer={!showWelcome}
@@ -127,9 +140,13 @@ export default function ChatPage() {
                 activeId={convos.activeId}
                 onNewChat={() => {
                     void chat.abandon();
+                    setQuotes([]);
                     convos.newChat();
                 }}
-                onSelect={convos.select}
+                onSelect={(id) => {
+                    setQuotes([]);
+                    convos.select(id);
+                }}
                 onDelete={(id) => void convos.remove(id)}
                 onRename={(id, title) => void convos.rename(id, title)}
                 collapsed={sidebarCollapsed}
@@ -238,6 +255,7 @@ export default function ChatPage() {
                                             streaming={chat.streaming}
                                             onPickOption={(text) => void chat.sendMessage(text)}
                                             onOpenWork={() => setWorkOpen(true)}
+                                            onQuote={addQuote}
                                         />
                                     </div>
                                     {error && (

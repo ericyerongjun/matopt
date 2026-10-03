@@ -85,6 +85,15 @@ SOFT_SUCCESS_TOOLS = frozenset({
     "update_plan", "search_skills", "load_skill",
 })
 
+# Skills whose answers are correctness-critical: an unverified result is not
+# acceptable, so verification is switched on even when the client did not ask.
+VERIFY_SKILLS = frozenset({
+    "sympy-compute", "statistical-inference", "numerical-optimization",
+    "math-verification", "ml-experiment",
+})
+
+BOXED_RE = re.compile(r"\\boxed\b")
+
 
 @dataclass
 class TurnState:
@@ -274,6 +283,10 @@ class AgentHarness:
             )
             route = self._route_turn(req, workspace)
             await self._activate_skills(route, ctx, emit, forced=bool(req.skills), state=state)
+            if getattr(self.settings, "auto_verify_skills", True) and not req.verify:
+                activated = set(ctx.state.get("skills") or []) | {s.name for s in route.activate}
+                if activated & VERIFY_SKILLS:
+                    req = dataclasses.replace(req, verify=True)
             if req.tools:
                 ctx.state["tools"] = list(req.tools)
             options = ChatOptions(model=model.id, reasoning=level, temperature=req.temperature, max_tokens=self.settings.max_output_tokens or None)
@@ -290,8 +303,13 @@ class AgentHarness:
                     max_steps=self.settings.agent_max_steps, query=req.text, route=route,
                     web_search=bool(req.web_search),
                 )
-                if req.verify and final_text.strip() and not cancel.is_set():
-                    final_text = await self._verify_and_revise(provider, options, history, ctx, state, emit, req.text, final_text)
+                auto_boxed = (not req.verify and getattr(self.settings, "auto_verify_boxed", False)
+                              and bool(BOXED_RE.search(final_text)))
+                if (req.verify or auto_boxed) and final_text.strip() and not cancel.is_set():
+                    final_text = await self._verify_and_revise(
+                        provider, options, history, ctx, state, emit, req.text, final_text,
+                        rounds=None if req.verify else 1,
+                    )
                 choices = next_step_options(ctx.state.get("plan") or state.plan, final_text)
                 if choices:
                     state.parts.append({"type": "options", "items": choices})
@@ -656,10 +674,11 @@ class AgentHarness:
     # ── verification ────────────────────────────────────────────────────
 
     async def _verify_and_revise(self, provider, options, history, ctx: ToolContext, state: TurnState, emit: EmitFn,
-                                 problem: str, solution: str) -> str:
+                                 problem: str, solution: str, rounds: Optional[int] = None) -> str:
         verifier_tools = ToolRegistry([t for t in self.tools if t.name in ("python", "check_equivalence", "read_file", "list_files")])
+        total = self.settings.verify_rounds if rounds is None else max(1, rounds)
         current = solution
-        for round_no in range(1, self.settings.verify_rounds + 1):
+        for round_no in range(1, total + 1):
             if ctx.cancel.is_set():
                 raise Stopped()
             state.phase = "verify"

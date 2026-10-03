@@ -2,12 +2,14 @@
  * ChatGPT-style thread: user bubbles, assistant prose, results — never source.
  */
 
-import React, { useLayoutEffect, useRef, type ReactNode } from "react";
-import { Copy } from "lucide-react";
+import React, { useCallback, useLayoutEffect, useRef, useState, type ReactNode } from "react";
+import { ArrowDown, Copy } from "lucide-react";
 import type { AssistantContent, ChatMessage, Part } from "../types/protocol";
 import { isAssistantContent, isUserContent, textFromAssistant } from "../types/protocol";
 import { commandToken, parseSlashCommands } from "../services/skills";
+import { splitQuotedMessage, type QuoteSource } from "../services/quote";
 import MarkdownRenderer from "./MarkdownRenderer";
+import QuoteContextMenu from "./QuoteContextMenu";
 import { hasDisplayArtifact, type ToolPart } from "./ToolCallCard";
 import "./MessageList.css";
 
@@ -17,6 +19,21 @@ interface Props {
     streaming?: boolean;
     onPickOption?: (text: string) => void;
     onOpenWork?: () => void;
+    onQuote?: (text: string, source: QuoteSource) => void;
+}
+
+interface QuoteMenuState {
+    x: number;
+    y: number;
+    text: string;
+    source: QuoteSource;
+}
+
+/** Role of the row a selection was made in, for the quote prompt. */
+function rowSource(node: Node | null): QuoteSource {
+    const element = node ? (node.nodeType === Node.ELEMENT_NODE ? (node as Element) : node.parentElement) : null;
+    const row = element?.closest(".thread__row");
+    return row?.classList.contains("thread__row--assistant") ? "assistant" : "user";
 }
 
 function ThinkingLabel({ streaming }: { streaming: boolean }) {
@@ -125,9 +142,11 @@ function AssistantFooter({ content }: { content: AssistantContent }) {
     );
 }
 
-export default function MessageList({ messages, conversationId, streaming, onPickOption, onOpenWork }: Props) {
+export default function MessageList({ messages, conversationId, streaming, onPickOption, onOpenWork, onQuote }: Props) {
     const rootRef = useRef<HTMLDivElement>(null);
     const pinnedRef = useRef(true);
+    const [quoteMenu, setQuoteMenu] = useState<QuoteMenuState | null>(null);
+    const [atBottom, setAtBottom] = useState(true);
 
     const stick = () => {
         const el = rootRef.current;
@@ -135,9 +154,34 @@ export default function MessageList({ messages, conversationId, streaming, onPic
         el.scrollTop = el.scrollHeight;
     };
 
+    const scrollToBottom = () => {
+        const el = rootRef.current;
+        if (!el) return;
+        pinnedRef.current = true;
+        setAtBottom(true);
+        el.scrollTo({ top: el.scrollHeight, behavior: "smooth" });
+    };
+
+    const closeQuoteMenu = useCallback(() => setQuoteMenu(null), []);
+
+    /** Right-click on a selection offers "Quote"; without one the native menu stays. */
+    const handleContextMenu = (event: React.MouseEvent<HTMLDivElement>) => {
+        const selection = window.getSelection();
+        if (!selection || selection.isCollapsed || selection.rangeCount === 0) return;
+        const text = selection.toString().trim();
+        if (!text) return;
+        const range = selection.getRangeAt(0);
+        const start = range.commonAncestorContainer;
+        const element = start.nodeType === Node.ELEMENT_NODE ? (start as Element) : start.parentElement;
+        if (!element || !rootRef.current?.contains(element)) return;
+        event.preventDefault();
+        setQuoteMenu({ x: event.clientX, y: event.clientY, text, source: rowSource(start) });
+    };
+
     useLayoutEffect(() => {
         if (streaming) pinnedRef.current = true;
         stick();
+        if (pinnedRef.current) setAtBottom(true);
     }, [messages, streaming]);
 
     useLayoutEffect(() => {
@@ -153,10 +197,13 @@ export default function MessageList({ messages, conversationId, streaming, onPic
         <div
             className="thread"
             ref={rootRef}
+            onContextMenu={handleContextMenu}
             onScroll={() => {
                 const el = rootRef.current;
                 if (!el) return;
-                pinnedRef.current = el.scrollHeight - el.scrollTop - el.clientHeight < 72;
+                const distance = el.scrollHeight - el.scrollTop - el.clientHeight;
+                pinnedRef.current = distance < 72;
+                setAtBottom(distance < 72);
             }}
         >
             <div className="thread__inner">
@@ -171,6 +218,31 @@ export default function MessageList({ messages, conversationId, streaming, onPic
                     />
                 ))}
             </div>
+            {!atBottom && (
+                <div className="thread__scroll-dock">
+                    <button
+                        type="button"
+                        className="thread__scroll-btn"
+                        onClick={scrollToBottom}
+                        aria-label="Scroll to bottom"
+                        title="Scroll to bottom"
+                    >
+                        <ArrowDown size={18} />
+                    </button>
+                </div>
+            )}
+            {quoteMenu && (
+                <QuoteContextMenu
+                    x={quoteMenu.x}
+                    y={quoteMenu.y}
+                    onClose={closeQuoteMenu}
+                    onCopy={() => void navigator.clipboard.writeText(quoteMenu.text)}
+                    onQuote={() => {
+                        onQuote?.(quoteMenu.text, quoteMenu.source);
+                        closeQuoteMenu();
+                    }}
+                />
+            )}
         </div>
     );
 }
@@ -191,6 +263,7 @@ function MessageRow({
     if (msg.role === "user" && isUserContent(msg.content)) {
         const parsed = parseSlashCommands(msg.content.text);
         const names = [...parsed.skills, ...parsed.tools];
+        const quoted = splitQuotedMessage(parsed.rest);
         return (
             <div className="thread__row thread__row--user">
                 <div className="thread__message">
@@ -204,7 +277,18 @@ function MessageRow({
                                 ))}
                             </div>
                         )}
-                        {parsed.rest ? <p>{parsed.rest}</p> : null}
+                        {quoted
+                            ? quoted.quotes.map((quote, i) => (
+                                  <blockquote key={`quote-${i}`} className="thread__quote">
+                                      {quote.text}
+                                  </blockquote>
+                              ))
+                            : null}
+                        {quoted ? (
+                            quoted.question ? <p>{quoted.question}</p> : null
+                        ) : parsed.rest ? (
+                            <p>{parsed.rest}</p>
+                        ) : null}
                         {msg.content.attachments?.length > 0 && (
                             <div className="thread__attachments">
                                 {msg.content.attachments.map((a) => (

@@ -9,7 +9,7 @@
  * to the $…$ / $$…$$ form that remark-math expects.
  */
 
-import React, { isValidElement, useEffect, useRef, useMemo, memo, type ReactNode } from "react";
+import React, { isValidElement, useEffect, useRef, useMemo, memo, useState, type ReactNode } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import remarkMath from "remark-math";
@@ -43,6 +43,38 @@ const KATEX_OPTIONS = {
 interface Props {
     content: string;
     conversationId?: string | null;
+}
+
+/** Fenced code block with a copy affordance in the top-right corner. */
+function CodeBlock({ language, code }: { language: string; code: string }) {
+    const [copied, setCopied] = useState(false);
+
+    const copy = () => {
+        void navigator.clipboard
+            .writeText(code)
+            .then(() => {
+                setCopied(true);
+                window.setTimeout(() => setCopied(false), 1200);
+            })
+            .catch(() => undefined);
+    };
+
+    return (
+        <div className="code-block">
+            <button
+                type="button"
+                className="code-block__copy"
+                onClick={copy}
+                title="Copy code"
+                aria-label="Copy code"
+            >
+                {copied ? "Copied" : "Copy"}
+            </button>
+            <SyntaxHighlighter language={language} PreTag="div">
+                {code}
+            </SyntaxHighlighter>
+        </div>
+    );
 }
 
 function MarkdownRenderer({ content, conversationId }: Props) {
@@ -95,11 +127,7 @@ function MarkdownRenderer({ content, conversationId }: Props) {
 
                         // Syntax-highlighted code blocks
                         if (lang) {
-                            return (
-                                <SyntaxHighlighter language={lang} PreTag="div">
-                                    {codeString}
-                                </SyntaxHighlighter>
-                            );
+                            return <CodeBlock language={lang} code={codeString} />;
                         }
 
                         // Inline code
