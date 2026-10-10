@@ -1,4 +1,5 @@
 /** Types that mirror docs/PROTOCOL.md (REST + SSE). */
+import type { UISurface } from "./ui";
 
 export type ProviderId = string;
 export type ReasoningLevel = "off" | "low" | "medium" | "high" | "max";
@@ -102,6 +103,9 @@ export interface Usage {
 
 export type Part =
     | { type: "text"; text: string; phase?: Phase }
+    | { type: "result_block"; block: ResultBlock }
+    | { type: "ui"; surface: UISurface }
+    | { type: "artifact"; artifact: Artifact }
     | { type: "reasoning"; text: string; phase?: Phase }
     | {
           type: "tool_call";
@@ -120,6 +124,106 @@ export type Part =
     | { type: "options"; items: string[] }
     | { type: "monitor"; level: string; summary: string; tool?: string };
 
+/** Explicit public events. These never contain model reasoning, tool arguments or stdout. */
+export type ActivityStatus = "queued" | "running" | "completed" | "failed" | "cancelled" | "paused";
+export type ActivityPhase = "work" | "check" | "final";
+export interface ActivityOutput {
+    kind: "file" | "source" | "artifact" | "ui";
+    label: string;
+    url?: string;
+    path?: string;
+    surface_id?: string;
+}
+export interface ActivityItem {
+    id: string;
+    parent_id: string | null;
+    seq: number;
+    kind: "phase" | "tool" | "agent" | "control";
+    phase: ActivityPhase;
+    label: string;
+    purpose: string;
+    status: ActivityStatus;
+    started_at: number | null;
+    updated_at: number;
+    finished_at: number | null;
+    summary?: string;
+    tool?: string;
+    attempt: number;
+    progress?: { completed: number; total?: number; unit?: string };
+    outputs: ActivityOutput[];
+}
+export interface ProgressUpdate {
+    id: string;
+    seq: number;
+    text: string;
+    created_at: number;
+    phase: ActivityPhase;
+    item_id?: string;
+}
+
+/** Deliberately published result content; never inferred from internal model text. */
+export interface ResultBlock {
+    id: string;
+    revision: number;
+    kind: "markdown" | "source";
+    status: "provisional" | "accepted" | "superseded" | "withdrawn";
+    content: string;
+    evidence_refs: string[];
+    created_at: number;
+}
+
+export function readResultBlock(value: unknown): ResultBlock | undefined {
+    if (!value || typeof value !== "object" || Array.isArray(value)) return undefined;
+    const block = value as Record<string, unknown>;
+    if (typeof block.id !== "string" || !block.id || block.id.length > 160
+        || !Number.isSafeInteger(block.revision) || Number(block.revision) < 1
+        || !["markdown", "source"].includes(String(block.kind))
+        || !["provisional", "accepted", "superseded", "withdrawn"].includes(String(block.status))
+        || typeof block.content !== "string" || block.content.length > 50_000
+        || typeof block.created_at !== "number" || !Number.isFinite(block.created_at) || block.created_at < 0
+        || !Array.isArray(block.evidence_refs) || block.evidence_refs.length > 50
+        || !block.evidence_refs.every((ref) => typeof ref === "string" && ref.length <= 500)) return undefined;
+    return { id: block.id, revision: Number(block.revision), kind: block.kind as ResultBlock["kind"],
+        status: block.status as ResultBlock["status"], content: block.content,
+        evidence_refs: [...block.evidence_refs] as string[], created_at: block.created_at };
+}
+
+export function readPublicProgress(value: unknown): ProgressUpdate | undefined {
+    if (!value || typeof value !== "object" || Array.isArray(value)) return undefined;
+    const update = value as Record<string, unknown>;
+    if (typeof update.id !== "string" || !update.id || typeof update.text !== "string"
+        || !["work", "check", "final"].includes(String(update.phase))) return undefined;
+    return { id: update.id, text: update.text.slice(0, 1000), seq: typeof update.seq === "number" && Number.isSafeInteger(update.seq) && update.seq >= 0 ? update.seq : 0,
+        created_at: typeof update.created_at === "number" && Number.isFinite(update.created_at) && update.created_at >= 0 ? update.created_at : 0,
+        phase: update.phase as ProgressUpdate["phase"], ...(typeof update.item_id === "string" ? { item_id: update.item_id } : {}) };
+}
+
+export function readPublicMilestones(value: unknown): ProgressUpdate[] {
+    const updates = new Map<string, ProgressUpdate>();
+    for (const raw of Array.isArray(value) ? value : []) {
+        const update = readPublicProgress(raw);
+        if (update && (!updates.has(update.id) || updates.get(update.id)!.seq < update.seq)) updates.set(update.id, update);
+    }
+    return [...updates.values()].sort((a, b) => a.seq - b.seq).slice(-12);
+}
+
+/** Public progress contains safe summaries, never model reasoning or tool payloads. */
+export interface WorkSummary {
+    status: "running" | "paused" | "complete" | "stopped" | "error";
+    tool_count: number;
+    verification: {
+        status: "not_requested" | "skipped" | "correct" | "incorrect" | "uncertain" | "limit_reached" | "error";
+        rounds: number;
+    };
+    steps: Array<{ label: string; status: "running" | "complete" | "error" }>;
+    duration_ms?: number;
+    items?: ActivityItem[];
+    current_progress?: ProgressUpdate | null;
+    milestones?: ProgressUpdate[];
+    started_at?: number;
+    finished_at?: number;
+}
+
 export interface AssistantContent {
     parts: Part[];
     model: string;
@@ -129,6 +233,12 @@ export interface AssistantContent {
     status: MessageStatus;
     plan: PlanStep[];
     stats: { llm_calls: number; tool_calls: number };
+    presentation?: "final";
+    work?: WorkSummary;
+    /** Explicitly selected prior drafts for older conversations with partial corrections. */
+    earlier_drafts?: string[];
+    /** Controlled explanation when an older result cannot be safely consolidated. */
+    notice?: string;
 }
 
 export interface ChatMessage {
@@ -168,8 +278,7 @@ export function isAssistantContent(c: ChatMessage["content"]): c is AssistantCon
 
 export function textFromAssistant(content: AssistantContent): string {
     return content.parts
-        .filter((p): p is Extract<Part, { type: "text" }> => p.type === "text")
-        .map((p) => p.text)
+        .flatMap((p) => p.type === "text" && p.phase !== "verify" ? [p.text] : p.type === "ui" ? [p.surface.fallback] : [])
         .join("\n\n")
         .trim();
 }

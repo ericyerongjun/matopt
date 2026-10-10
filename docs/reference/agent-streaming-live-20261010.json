@@ -1,0 +1,51 @@
+{
+  "conversation_id": "c_fc1d9aa569604d65",
+  "run_id": "r_f527a7f0e225469a",
+  "checks": {
+    "complete": true,
+    "partial_before_final": true,
+    "more_work_after_partial": true,
+    "real_final_deltas": true,
+    "reconnect_exercised": true,
+    "no_duplicate_sequence": true,
+    "canonical_reload_matches": true,
+    "calculation_results_present": true,
+    "multimodal_ocr_exercised": true,
+    "no_private_event_types": true
+  },
+  "event_counts": {
+    "conversation": 2,
+    "run_state": 3,
+    "message_start": 1,
+    "activity": 27,
+    "progress": 15,
+    "work": 17,
+    "usage": 9,
+    "result_block": 4,
+    "final_start": 1,
+    "text_delta": 399,
+    "message_end": 1,
+    "done": 1
+  },
+  "first_partial_ms": 5969,
+  "first_final_token_ms": 17665,
+  "completed_ms": 18980,
+  "verification": {
+    "status": "correct",
+    "rounds": 1
+  },
+  "scope": "Single synthetic integration run with explicit partial publication; not an autonomous quality benchmark.",
+  "date": "2026-10-10",
+  "image_manifest": "sha256:71a73b4580455e4a89247e2fa22268ebe32a74bc2ef316125dbe6904e87422f9",
+  "source_sha256": {
+    "backend/app/agent/harness.py": "e3c067a3cea4522aef5b3c32b81d8e6e3fe38166957c92340b898e1e3dd79b52",
+    "backend/app/agent/results.py": "d6fa89d6c601bb8221074cdbdf6f83641b2b1abbae86a6bef24caacf906b0ab6",
+    "backend/app/agent/runs.py": "f132843245f69b36cdb1dfbe0eae38521d9785bff9e2e4910da52864ccb3ccad",
+    "backend/app/agent/session/repair.py": "d0ece1b7b2526eb7cf69030c7bfecfc43effc30ea41c33e24a85f283ea8ab65f",
+    "backend/app/agent/execution.py": "809ca4590dd88e7341011aa364e9f8433a43a6fce6cc6d667d1d34447e38b266",
+    "backend/app/agent/prompts.py": "6b9b564a61f6df050bd710f3db5d2763421f344722f9c6359fa576652303010f",
+    "frontend/src/services/stream.ts": "50026f2528131368c1917fe309a4c61f7a7756b0194c998766124a4fd3030b31",
+    "frontend/src/components/MessageList.tsx": "f84690dcc64f7e86c123ae11841a508063157e75d98fac53d14a5ec94c233c89",
+    "scripts/verify_live_agent.py": "a953fb5e65dd2005ce32708b5bff2e1ef5f8239590be39045ed931e774d42e9c"
+  }
+}

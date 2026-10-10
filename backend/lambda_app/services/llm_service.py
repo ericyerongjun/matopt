@@ -1,21 +1,24 @@
 import openai
 import json
+from contextlib import aclosing
 from typing import List, Dict, Any, AsyncGenerator
 from lambda_app.core.config import settings
+from app.llm.catalog import MAX_OUTPUT_TOKENS, MODEL_ID, PROVIDER_ID, canonical_model
+from app.agent.budget import BudgetExhausted
+from app.agent.lambda_bridge import controlled_items, model_attempt
 
 
 class LLMService:
     def __init__(self):
         self.client = openai.AsyncOpenAI(
-            api_key=settings.OPENAI_API_KEY or "not-configured",
-            base_url=settings.OPENAI_BASE_URL
+            api_key=settings.DEEPSEEK_API_KEY or "not-configured",
+            base_url=settings.DEEPSEEK_BASE_URL,
+            max_retries=0,
         )
-        self.default_model = settings.DEFAULT_MODEL
+        self.default_model = MODEL_ID
 
     def _normalize_model(self, model: str) -> str:
-        if model in {"deepseek/deepseek-v4-pro", "deepseek-v4-pro"}:
-            return "deepseek-v4-pro"
-        return model
+        return canonical_model(model)
 
     def _client_for_model(self, model: str):
         normalized_model = self._normalize_model(model)
@@ -72,7 +75,7 @@ class LLMService:
             "total_tokens": total_tokens,
             "raw": raw,
         }
-    
+
     async def stream_chat(
         self,
         messages: List[Dict[str, Any]],
@@ -83,7 +86,7 @@ class LLMService:
         try:
             model = self._normalize_model(model or self.default_model)
             client, provider_model = self._client_for_model(model)
-            
+
             # Define tools for the model - MUST include session_id for persistence
             tools = [
                 {
@@ -317,116 +320,148 @@ class LLMService:
                     }
                 }
             ]
-            
+
             create_kwargs = {
                 "model": provider_model,
                 "messages": messages,
                 "tools": tools,
                 "tool_choice": "auto",
                 "stream": True,
+                "reasoning_effort": "high",
+                "extra_body": {"thinking": {"type": "enabled"}},
             }
 
-            # Request streaming usage when the provider supports the OpenAI
-            # stream_options contract; fall back for compatible gateways that
-            # reject the option.
-            try:
-                stream = await client.chat.completions.create(
-                    **create_kwargs,
-                    stream_options={"include_usage": True},
-                )
-            except Exception as exc:
-                message = str(exc)
-                if "stream_options" not in message and "include_usage" not in message:
-                    raise
-                stream = await client.chat.completions.create(**create_kwargs)
-            
-            tool_calls = []
-            content = ""
-            reasoning_content = ""
-            usage_summary = None
-            
-            async for chunk in stream:
-                chunk_usage = self._usage_to_dict(getattr(chunk, "usage", None))
-                if chunk_usage:
-                    usage_summary = chunk_usage
+            async with aclosing(self._stream_completion(client, create_kwargs)) as completion:
+                async for item in completion:
+                    yield item
 
-                # Skip if no choices
-                if not chunk.choices:
-                    continue
-                    
-                delta = chunk.choices[0].delta
-                
-                # Handle thinking/reasoning content. Some providers require the
-                # accumulated thinking to be passed back with tool-call history.
-                reasoning_delta = self._get_delta_extra_text(delta, "reasoning_content", "thinking") if delta else ""
-                if reasoning_delta:
-                    reasoning_content += reasoning_delta
-                    yield {
-                        "type": "reasoning",
-                        "content": reasoning_delta
-                    }
-                
-                # Handle content
-                if delta and delta.content:
-                    content += delta.content
-                    yield {
-                        "type": "delta",
-                        "content": delta.content
-                    }
-                
-                # Handle tool calls
-                if delta and delta.tool_calls:
-                    for tc in delta.tool_calls:
-                        index = tc.index if tc.index is not None else 0
-                        while index >= len(tool_calls):
-                            tool_calls.append({
-                                "id": "",
-                                "type": "function",
-                                "function": {
-                                    "name": "",
-                                    "arguments": ""
-                                }
-                            })
-                        
-                        if tc.id:
-                            tool_calls[index]["id"] = tc.id
-                        if tc.function.name:
-                            tool_calls[index]["function"]["name"] = tc.function.name
-                        if tc.function.arguments:
-                            tool_calls[index]["function"]["arguments"] += tc.function.arguments
-            
-            for idx, tool_call in enumerate(tool_calls):
-                if not tool_call["id"]:
-                    tool_call["id"] = f"tool_{idx}"
-                if not tool_call["function"]["name"]:
-                    continue
-                try:
-                    json.loads(tool_call["function"]["arguments"] or "{}")
-                except json.JSONDecodeError as exc:
-                    yield {
-                        "type": "error",
-                        "content": f"Incomplete tool arguments for {tool_call['function']['name']}: {exc}"
-                    }
-                    return
-                yield {
-                    "type": "tool_call",
-                    "tool_call": tool_call
-                }
-            
-            yield {
-                "type": "done",
-                "content": content,
-                "tool_calls": tool_calls,
-                "thinking": reasoning_content,
-                "usage": usage_summary
-            }
-            
+        except BudgetExhausted:
+            raise
         except Exception as e:
             yield {
                 "type": "error",
                 "content": str(e)
             }
-    
+
+    async def _stream_completion(self, client, create_kwargs):
+        async with model_attempt(provider=PROVIDER_ID, model=create_kwargs["model"]) as attempt:
+            stream = None
+            try:
+                stream = await attempt.wait(lambda: client.chat.completions.create(
+                    **create_kwargs, stream_options={"include_usage": True},
+                ))
+                tool_calls = []
+                content = ""
+                reasoning_content = ""
+                usage_summary = None
+                incomplete_reason = None
+
+                async for chunk in controlled_items(stream, attempt.context):
+                    attempt.observe_usage(getattr(chunk, "usage", None))
+                    chunk_usage = self._usage_to_dict(getattr(chunk, "usage", None))
+                    if chunk_usage:
+                        usage_summary = chunk_usage
+
+                    # Skip if no choices
+                    if not chunk.choices:
+                        continue
+
+                    finish_reason = getattr(chunk.choices[0], "finish_reason", None)
+                    if finish_reason == "length":
+                        # Keep the text already produced, but never execute calls
+                        # from an unfinished response. The usage receipt may be
+                        # in a later, choices-empty chunk, so drain it first.
+                        incomplete_reason = finish_reason
+                    if finish_reason in {"error", "aborted", "insufficient_system_resource"}:
+                        attempt.outcome = "error"
+                        attempt.provider_finished = True
+                        yield {"type": "error", "content": f"DeepSeek ended the stream with {finish_reason}",
+                               "usage": usage_summary}
+                        return
+
+                    delta = chunk.choices[0].delta
+
+                    # Handle thinking/reasoning content. Some providers require the
+                    # accumulated thinking to be passed back with tool-call history.
+                    reasoning_delta = self._get_delta_extra_text(delta, "reasoning_content", "thinking") if delta else ""
+                    if reasoning_delta:
+                        reasoning_content += reasoning_delta
+                        yield {
+                            "type": "reasoning",
+                            "content": reasoning_delta
+                        }
+
+                    # Handle content
+                    if delta and delta.content:
+                        content += delta.content
+                        yield {
+                            "type": "delta",
+                            "content": delta.content
+                        }
+
+                    # Handle tool calls
+                    if delta and delta.tool_calls:
+                        for tc in delta.tool_calls:
+                            index = tc.index if tc.index is not None else 0
+                            while index >= len(tool_calls):
+                                tool_calls.append({
+                                    "id": "",
+                                    "type": "function",
+                                    "function": {
+                                        "name": "",
+                                        "arguments": ""
+                                    }
+                                })
+
+                            if tc.id:
+                                tool_calls[index]["id"] = tc.id
+                            if tc.function.name:
+                                tool_calls[index]["function"]["name"] = tc.function.name
+                            if tc.function.arguments:
+                                tool_calls[index]["function"]["arguments"] += tc.function.arguments
+
+                attempt.provider_finished = True
+                if incomplete_reason is not None:
+                    attempt.outcome = "error"
+                    yield {
+                        "type": "error",
+                        "content": "The delegated model reached its output limit before completing the response.",
+                        "incomplete": True,
+                        "finish_reason": incomplete_reason,
+                        "usage": usage_summary,
+                    }
+                    return
+                for idx, tool_call in enumerate(tool_calls):
+                    if not tool_call["id"]:
+                        tool_call["id"] = f"tool_{idx}"
+                    if not tool_call["function"]["name"]:
+                        continue
+                    try:
+                        json.loads(tool_call["function"]["arguments"] or "{}")
+                    except json.JSONDecodeError as exc:
+                        attempt.outcome = "error"
+                        yield {
+                            "type": "error",
+                            "content": f"Incomplete tool arguments for {tool_call['function']['name']}: {exc}"
+                        }
+                        return
+                    yield {
+                        "type": "tool_call",
+                        "tool_call": tool_call
+                    }
+
+                yield {
+                    "type": "done",
+                    "content": content,
+                    "tool_calls": tool_calls,
+                    "thinking": reasoning_content,
+                    "usage": usage_summary
+                }
+            finally:
+                close = getattr(stream, "close", None)
+                if close is not None:
+                    await close()
+
     async def chat(
         self,
         messages: List[Dict[str, Any]],
@@ -438,29 +473,38 @@ class LLMService:
         try:
             model = self._normalize_model(model or self.default_model)
             client, provider_model = self._client_for_model(model)
-            
-            response = await client.chat.completions.create(
-                model=provider_model,
-                messages=messages,
-                temperature=temperature,
-                max_tokens=max_tokens
-            )
-            
-            return response.choices[0].message.content
+            if type(max_tokens) is not int or not 1 <= max_tokens <= MAX_OUTPUT_TOKENS:
+                raise ValueError(f"max_tokens must be between 1 and {MAX_OUTPUT_TOKENS}.")
+
+            async with model_attempt(provider=PROVIDER_ID, model=provider_model) as attempt:
+                response = await attempt.wait(lambda: client.chat.completions.create(
+                    model=provider_model,
+                    messages=messages,
+                    temperature=temperature,
+                    max_tokens=max_tokens,
+                    reasoning_effort="none",
+                    extra_body={"thinking": {"type": "disabled"}},
+                ))
+                attempt.provider_finished = True
+                attempt.observe_usage(getattr(response, "usage", None))
+                return response.choices[0].message.content
+        except BudgetExhausted:
+            raise
         except Exception as e:
             return f"Error: {str(e)}"
-    
+
     def generate_title(self, first_message: str) -> str:
         """Generate a title for a conversation based on the first message."""
         try:
             import openai as sync_openai
             client = sync_openai.OpenAI(
-                api_key=settings.OPENAI_API_KEY or "not-configured",
-                base_url=settings.OPENAI_BASE_URL
+                api_key=settings.DEEPSEEK_API_KEY or "not-configured",
+                base_url=settings.DEEPSEEK_BASE_URL,
+                max_retries=0,
             )
-            
+
             response = client.chat.completions.create(
-                model=self.default_model,
+                model=MODEL_ID,
                 messages=[
                     {
                         "role": "system",
@@ -472,9 +516,11 @@ class LLMService:
                     }
                 ],
                 temperature=0.3,
-                max_tokens=20
+                max_tokens=20,
+                reasoning_effort="none",
+                extra_body={"thinking": {"type": "disabled"}},
             )
-            
+
             return response.choices[0].message.content.strip() or "New Conversation"
         except Exception:
             # Fallback to truncated message

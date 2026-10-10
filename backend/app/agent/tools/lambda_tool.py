@@ -9,16 +9,18 @@ conversation's Jupyter kernel and workspace.
 
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 import mimetypes
 import shutil
 from pathlib import Path
+from contextlib import aclosing
 from typing import Any, Optional
 
 from app.agent.events import Artifact, ToolResult
-from app.agent.lambda_bridge import LambdaExecContext, bind_lambda_exec_context
-from app.agent.tools.base import Tool, ToolContext, truncate_text
+from app.agent.lambda_bridge import LambdaExecContext, bind_lambda_exec_context, controlled_items
+from app.agent.tools.base import Tool, ToolContext, output_bound_bytes, truncate_text
 from app.agent.workspace import is_internal_output
 from app.config import settings
 
@@ -178,20 +180,34 @@ def _register_workspace_uploads(
 
 class LambdaDataAgentTool(Tool):
     name = "lambda_data_agent"
+    # Runs a whole autonomous analysis agent: it executes code through the
+    # conversation kernel (unsandboxed, like `python`), writes reports and
+    # notebooks into both workspaces, copies uploads into LAMBDA's own upload
+    # directory and creates rows in LAMBDA's database. Effects leave the
+    # conversation workspace, so the honest scope is `system`, not `workspace`.
+    destructive = False
+    concurrent_safe = False
+    side_effect_scope = "system"
+    risk_level = "high"
+    needs_approval = True
+    timeout_ms = 900_000
+    max_output_bytes = output_bound_bytes(settings.tool_max_output_chars)
     ui_kind = "code"
     description = (
         "Run LAMBDA, MatOpt's data-analysis agent (original AMA-CMFAI/LAMBDA backend). "
-        "Use for tabular EDA, charts, modeling, autonomous dataset exploration, "
-        "LaTeX/PDF reports, Jupyter notebooks, and PowerPoint decks. "
-        "Workspace uploads are forwarded automatically. Prefer this over ad-hoc python "
-        "when the user wants a full data-analysis report rather than a single statistic."
+        "Use for substantial specialized EDA, chart/report, modeling, notebook, or PowerPoint "
+        "workflows, autonomous exploration, or an explicit user request for LAMBDA. "
+        "Use native python and file tools by default for short bounded calculations, single "
+        "statistics, table inspections, and file edits. Specify a clear delegated deliverable "
+        "and completion evidence. Workspace uploads are forwarded automatically. Delegation "
+        "shares the parent run's model/tool limits and deadline; it does not reset them."
     )
     parameters = {
         "type": "object",
         "properties": {
             "message": {
                 "type": "string",
-                "description": "Analysis request in natural language. May be empty when autonomous is true.",
+                "description": "Scoped analysis request: inputs, question, expected deliverable/output paths, and completion evidence. May be empty when autonomous is true and the user explicitly requested full exploration.",
             },
             "autonomous": {
                 "type": "boolean",
@@ -255,27 +271,46 @@ class LambdaDataAgentTool(Tool):
                 workspace_root=ctx.workspace.root,
                 kernel=kernel,
                 sandbox_session_id=f"matopt-{ctx.conversation_id}",
+                run_budget=ctx.state.get("run_budget"),
+                cancel=ctx.cancel,
+                control_boundary=ctx.state.get("control_boundary"),
+                record_model_call=ctx.state.get("lambda_record_call"),
+                tool_context=ctx,
             )
             before = ctx.workspace.snapshot()
             chunks: list[str] = []
             error: Optional[str] = None
+            incomplete = False
+            incomplete_reason: Optional[str] = None
+            completed_tool_results: list[dict] = []
             with bind_lambda_exec_context(exec_ctx):
-                async for frame in stream_chat_response(req, user, db):
-                    if ctx.cancel.is_set():
-                        return ToolResult(ok=False, output="".join(chunks), error="Cancelled.")
-                    for event in _parse_sse_frame(frame):
-                        kind = event.get("type")
-                        if kind == "delta":
-                            delta = event.get("content") or ""
-                            chunks.append(delta)
-                            await ctx.progress(delta)
-                        elif kind == "status":
-                            await ctx.progress((event.get("content") or "") + "\n")
-                        elif kind == "conversation_created":
-                            hash_id = event.get("conversation_id") or hash_id
-                            _persist_lambda_id(ctx.conversation_id, hash_id, ctx.state)
-                        elif kind == "error":
-                            error = event.get("content") or "LAMBDA error"
+                async with asyncio.timeout(self.timeout_ms / 1000), aclosing(
+                    controlled_items(stream_chat_response(req, user, db), exec_ctx)
+                ) as frames:
+                    async for frame in frames:
+                        for event in _parse_sse_frame(frame):
+                            kind = event.get("type")
+                            if event.get("incomplete") is True:
+                                incomplete = True
+                                incomplete_reason = event.get("finish_reason")
+                                error = error or "LAMBDA returned an incomplete response."
+                            if kind == "delta":
+                                delta = event.get("content") or ""
+                                chunks.append(delta)
+                                await ctx.progress(delta)
+                            elif kind == "status":
+                                await ctx.progress((event.get("content") or "") + "\n")
+                            elif kind == "conversation_created":
+                                hash_id = event.get("conversation_id") or hash_id
+                                _persist_lambda_id(ctx.conversation_id, hash_id, ctx.state)
+                            elif kind == "error":
+                                error = event.get("content") or "LAMBDA error"
+                            elif kind == "tool_result" and isinstance(event.get("result"), dict):
+                                completed_tool_results.append({
+                                    "tool": event.get("tool_name"),
+                                    "call_id": event.get("tool_call_id"),
+                                    "result": event["result"],
+                                })
 
             artifacts: list[Artifact] = []
             seen: set[str] = set()
@@ -299,7 +334,16 @@ class LambdaDataAgentTool(Tool):
                     artifacts.append(ctx.workspace.artifact_for(path))
                     seen.add(rel)
 
-            output = "".join(chunks).strip() or "(LAMBDA finished with no text.)"
+            output = "".join(chunks).strip() or (
+                "(LAMBDA stopped before producing text.)" if incomplete else "(LAMBDA finished with no text.)"
+            )
+            if incomplete and completed_tool_results:
+                # These are private tool receipts for the parent, not a claim of
+                # a completed answer. Preserve useful work if synthesis was cut
+                # short; normal public output remains the parent's responsibility.
+                output += "\n\nCompleted tool receipts (response incomplete):\n" + json.dumps(
+                    completed_tool_results, ensure_ascii=False, default=str,
+                )
             if artifacts:
                 listing = "\n".join(f"- {a.path}" for a in artifacts[:40] if a.path)
                 if listing:
@@ -316,6 +360,7 @@ class LambdaDataAgentTool(Tool):
                     "artifact_count": len(artifacts),
                     "autonomous": bool(autonomous),
                     "sandbox_session_id": exec_ctx.sandbox_session_id,
+                    **({"incomplete": True, "finish_reason": incomplete_reason} if incomplete else {}),
                 },
             )
         finally:

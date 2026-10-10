@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 from typing import AsyncGenerator
+from contextlib import aclosing
 from datetime import datetime
 import json
 import asyncio
@@ -20,6 +21,9 @@ from lambda_app.services.llm_service import LLMService
 from lambda_app.services.agent_service import AgentService
 from lambda_app.services.sandbox_file_manager import SANDBOX_SKILLS_DIR, SANDBOX_WORK_DIR
 from lambda_app.api.v1.files import extract_oss_object_name
+from app.llm.catalog import PROVIDER_ID
+from app.agent.budget import BudgetExhausted
+from app.agent.lambda_bridge import get_lambda_exec_context, reap_tasks
 
 router = APIRouter()
 llm_service = LLMService()
@@ -175,8 +179,8 @@ def redact_workspace_path(path: str) -> str:
 def user_facing_model_error(language: str = "en") -> str:
     """Return a concise model-provider error without exposing API internals."""
     if language == "zh":
-        return "当前模型暂不可用，请切换其他模型后重试。"
-    return "This model is temporarily unavailable. Please switch to another model and try again."
+        return "DeepSeek V4.1 Flash 暂不可用，请稍后重试。"
+    return "DeepSeek V4.1 Flash is temporarily unavailable. Please try again later."
 
 
 def should_inline_tool_results(model: str) -> bool:
@@ -197,6 +201,7 @@ def supports_multimodal_observations(model: str) -> bool:
 
 def model_display_name(model: str) -> str:
     names = {
+        "deepseek-flash": "DeepSeek V4.1 Flash",
         "claude-sonnet-4-6": "Claude Sonnet 4.6",
         "openai/gpt-5.3-codex": "GPT 5.3 Codex",
         "deepseek-v4-pro": "DeepSeek V4 Pro",
@@ -216,6 +221,30 @@ def strip_internal_message_markers(content: str) -> str:
     return content.strip()
 
 
+def _usage_with_reasoning(usage_event: dict, reasoning: str) -> dict:
+    """Retain new thoughts alongside usage without changing legacy DB rows."""
+    metadata = usage_event.get("metadata") or {}
+    copied = dict(metadata) if isinstance(metadata, dict) else {"provider_usage": metadata}
+    copied["matopt_reasoning_content"] = reasoning
+    return {**usage_event, "metadata": copied}
+
+
+def _persisted_reasoning(records) -> dict[int, str]:
+    """Read completed requests in ID order; legacy rows have no thought field."""
+    fragments: dict[int, list[str]] = {}
+    for record in records:
+        if record.message_id is None:
+            continue
+        try:
+            metadata = json.loads(record.metadata_json or "{}")
+        except (TypeError, ValueError):
+            continue
+        reasoning = metadata.get("matopt_reasoning_content") if isinstance(metadata, dict) else None
+        if isinstance(reasoning, str):
+            fragments.setdefault(record.message_id, []).append(reasoning)
+    return {mid: "".join(thoughts) for mid, thoughts in fragments.items()}
+
+
 async def stream_with_keepalive(source, interval: float = 5.0):
     """Yield items from an async iterator while emitting keepalive events."""
     queue = asyncio.Queue()
@@ -225,6 +254,8 @@ async def stream_with_keepalive(source, interval: float = 5.0):
         try:
             async for item in source:
                 await queue.put(item)
+        except (BudgetExhausted, asyncio.CancelledError) as exc:
+            await queue.put(exc)
         except Exception as e:
             await queue.put({"type": "error", "content": str(e)})
         finally:
@@ -240,10 +271,14 @@ async def stream_with_keepalive(source, interval: float = 5.0):
                 continue
             if item is sentinel:
                 break
+            if isinstance(item, BaseException):
+                raise item
             yield item
     finally:
-        if not producer.done():
-            producer.cancel()
+        await reap_tasks(producer)
+        close = getattr(source, "aclose", None)
+        if close is not None:
+            await close()
 
 
 
@@ -254,6 +289,9 @@ async def stream_chat_response(
 ) -> AsyncGenerator[str, None]:
     """Stream chat response with multi-step tool execution (ReAct pattern)."""
     try:
+        _bridge = get_lambda_exec_context()
+        if _bridge is not None:
+            await _bridge.checkpoint()
         # Get or create conversation
         conversation_id = None
         if request.conversation_id:
@@ -274,7 +312,7 @@ async def stream_chat_response(
             conversation = Conversation(
                 user_id=user.id,
                 title=initial_title[:50] + "..." if len(initial_title) > 50 else initial_title,
-                model=request.model or settings.DEFAULT_MODEL
+                model=llm_service._normalize_model(request.model or settings.DEFAULT_MODEL)
             )
             db.add(conversation)
             db.commit()
@@ -282,6 +320,10 @@ async def stream_chat_response(
             conversation_id = conversation.id
             yield f"data: {json.dumps({'type': 'conversation_created', 'conversation_id': encode_id(conversation_id)})}\n\n"
         
+        # Resolve saved legacy selections before history shaping or dispatch.
+        # Usage rows already stored in this conversation keep their old labels.
+        model = llm_service._normalize_model(request.model or conversation.model or settings.DEFAULT_MODEL)
+
         # Read uploaded files if any
         file_contents = []
         uploaded_files_list = []
@@ -346,12 +388,6 @@ async def stream_chat_response(
         synced_files = []
         sync_error = None
 
-        try:
-            from app.agent.lambda_bridge import get_lambda_exec_context
-
-            _bridge = get_lambda_exec_context()
-        except Exception:
-            _bridge = None
         if _bridge is not None and _bridge.sandbox_session_id:
             sandbox_session_id = _bridge.sandbox_session_id
         else:
@@ -372,15 +408,25 @@ async def stream_chat_response(
                     sandbox_session_id=sandbox_session_id,
                     file_ids=request.files,
                 )
+            except BudgetExhausted:
+                raise
             except Exception as e:
                 sync_error = e
 
         if should_sync_files:
             sync_task = asyncio.create_task(do_sync())
-            while not sync_task.done():
-                await asyncio.sleep(5)
-                if not sync_task.done():
-                    yield f"data: {json.dumps({'type': 'keepalive', 'timestamp': time.time()})}\n\n"
+            try:
+                while not sync_task.done():
+                    try:
+                        if _bridge is not None:
+                            await _bridge.wait(lambda: asyncio.shield(sync_task), timeout=5.0)
+                        else:
+                            await asyncio.wait_for(asyncio.shield(sync_task), timeout=5.0)
+                    except asyncio.TimeoutError:
+                        yield f"data: {json.dumps({'type': 'keepalive', 'timestamp': time.time()})}\n\n"
+                sync_task.result()
+            finally:
+                await reap_tasks(sync_task)
 
             if sync_error:
                 raise sync_error
@@ -667,12 +713,17 @@ When you receive an error from tool execution:
 - The system will automatically display all generated files and images"""
 
         # Build conversation history
-        model = request.model or conversation.model or settings.DEFAULT_MODEL
         inline_tool_history = should_inline_tool_results(model)
         omit_persisted_tool_calls = inline_tool_history or is_deepseek_model(model)
         messages = db.query(Message).filter(
             Message.conversation_id == conversation_id
         ).order_by(Message.created_at.asc()).all()
+        assistant_ids = [message.id for message in messages if message.role == "assistant"]
+        prior_usage = db.query(UsageRecord).filter(
+            UsageRecord.conversation_id == conversation_id,
+            UsageRecord.message_id.in_(assistant_ids),
+        ).order_by(UsageRecord.id.asc()).all() if assistant_ids else []
+        prior_reasoning = _persisted_reasoning(prior_usage)
         
         formatted_messages = [{"role": "system", "content": system_prompt}]
         for msg in messages:
@@ -684,7 +735,7 @@ When you receive an error from tool execution:
                 msg_content = strip_internal_message_markers(msg_content)
 
             msg_role = msg.role
-            if inline_tool_history and msg.role == "tool":
+            if omit_persisted_tool_calls and msg.role == "tool":
                 msg_role = "user"
                 msg_content = f"Tool result:\n{msg_content}"
 
@@ -692,6 +743,10 @@ When you receive an error from tool execution:
                 "role": msg_role,
                 "content": msg_content,
             }
+            if msg_role == "assistant":
+                # Legacy rows have no thoughts to recover. New request usage
+                # stores them separately from the rendered assistant answer.
+                formatted_message["reasoning_content"] = prior_reasoning.get(msg.id, "")
             if msg.tool_call_id and not omit_persisted_tool_calls:
                 formatted_message["tool_call_id"] = msg.tool_call_id
             if msg.tool_calls and not omit_persisted_tool_calls:
@@ -705,6 +760,8 @@ When you receive an error from tool execution:
         all_tool_results = []  # Accumulate all tool results
         usage_events = []
         usage_request_id = str(uuid.uuid4())
+        incomplete = False
+        incomplete_reason = None
         
         # Set file/session context for agent. The actual sandbox container is
         # user-scoped so each user has at most one active OpenSandbox container.
@@ -724,54 +781,66 @@ When you receive an error from tool execution:
             full_chunk_content = ""
             llm_stream_error = None
             
-            async for chunk in stream_with_keepalive(llm_service.stream_chat(formatted_messages, model)):
-                if chunk["type"] == "delta":
-                    response_chunks.append(chunk["content"])
-                    full_response += chunk["content"]
-                    full_chunk_content += chunk["content"]
-                    yield f"data: {json.dumps(chunk)}\n\n"
-                elif chunk["type"] == "keepalive":
-                    yield f"data: {json.dumps(chunk)}\n\n"
-                elif chunk["type"] == "reasoning":
-                    # Stream reasoning content
-                    reasoning_chunks.append(chunk["content"])
-                    assistant_thinking += chunk["content"]
-                    yield f"data: {json.dumps(chunk)}\n\n"
-                elif chunk["type"] == "done":
-                    if chunk.get("usage"):
-                        llm_usage = chunk["usage"]
-                    if chunk.get("thinking"):
-                        assistant_thinking = chunk["thinking"]
-                    if chunk.get("content") and not response_chunks:
+            async with aclosing(stream_with_keepalive(llm_service.stream_chat(formatted_messages, model))) as completion:
+                async for chunk in completion:
+                    if chunk["type"] == "delta":
                         response_chunks.append(chunk["content"])
                         full_response += chunk["content"]
                         full_chunk_content += chunk["content"]
-                        yield f"data: {json.dumps({'type': 'delta', 'content': chunk['content']})}\n\n"
-                elif chunk["type"] == "tool_call":
-                    tool_calls_buffer.append(chunk["tool_call"])
-                    all_tool_calls.append(chunk["tool_call"])
-                    yield f"data: {json.dumps({'type': 'tool_call', 'tool_call': chunk['tool_call'], 'step': step})}\n\n"
-                elif chunk["type"] == "error":
-                    llm_stream_error = chunk.get("content", "LLM stream error")
-                    print(f"LLM stream error after {len(all_tool_results)} tool result(s): {llm_stream_error}")
-                    friendly_error = user_facing_model_error(request.language)
-                    if all_tool_results:
-                        notice = (
-                            f"\n\n{friendly_error}"
+                        yield f"data: {json.dumps(chunk)}\n\n"
+                    elif chunk["type"] == "keepalive":
+                        yield f"data: {json.dumps(chunk)}\n\n"
+                    elif chunk["type"] == "reasoning":
+                        # Stream reasoning content
+                        reasoning_chunks.append(chunk["content"])
+                        assistant_thinking += chunk["content"]
+                        yield f"data: {json.dumps(chunk)}\n\n"
+                    elif chunk["type"] == "done":
+                        if chunk.get("usage"):
+                            llm_usage = chunk["usage"]
+                        if chunk.get("thinking"):
+                            assistant_thinking = chunk["thinking"]
+                        if chunk.get("content") and not response_chunks:
+                            response_chunks.append(chunk["content"])
+                            full_response += chunk["content"]
+                            full_chunk_content += chunk["content"]
+                            yield f"data: {json.dumps({'type': 'delta', 'content': chunk['content']})}\n\n"
+                    elif chunk["type"] == "tool_call":
+                        tool_calls_buffer.append(chunk["tool_call"])
+                        all_tool_calls.append(chunk["tool_call"])
+                        yield f"data: {json.dumps({'type': 'tool_call', 'tool_call': chunk['tool_call'], 'step': step})}\n\n"
+                    elif chunk["type"] == "error":
+                        if chunk.get("usage"):
+                            llm_usage = chunk["usage"]
+                        llm_stream_error = chunk.get("content", "LLM stream error")
+                        print(f"LLM stream error after {len(all_tool_results)} tool result(s): {llm_stream_error}")
+                        incomplete = chunk.get("incomplete") is True
+                        incomplete_reason = chunk.get("finish_reason") if incomplete else None
+                        friendly_error = (
+                            "The response reached its output limit and is incomplete. Completed work has been retained."
+                            if incomplete_reason == "length" else user_facing_model_error(request.language)
                         )
-                    else:
-                        notice = f"\n\n{friendly_error}"
-                    full_response += notice
-                    full_chunk_content += notice
-                    yield f"data: {json.dumps({'type': 'delta', 'content': notice})}\n\n"
-                    break
+                        error_event = {'type': 'error', 'content': friendly_error}
+                        if incomplete:
+                            error_event.update(incomplete=True, finish_reason=incomplete_reason)
+                        yield f"data: {json.dumps(error_event)}\n\n"
+                        if all_tool_results:
+                            notice = (
+                                f"\n\n{friendly_error}"
+                            )
+                        else:
+                            notice = f"\n\n{friendly_error}"
+                        full_response += notice
+                        full_chunk_content += notice
+                        yield f"data: {json.dumps({'type': 'delta', 'content': notice})}\n\n"
+                        break
 
-            usage_events.append(normalize_usage_event(
+            usage_events.append(_usage_with_reasoning(normalize_usage_event(
                 llm_usage,
                 model,
                 prompt_snapshot,
                 "".join(response_chunks) + assistant_thinking + full_chunk_content,
-            ))
+            ), assistant_thinking))
 
             if llm_stream_error:
                 break
@@ -849,25 +918,30 @@ When you receive an error from tool execution:
                 # Execute tool with timeout and periodic keepalive
                 # For potentially long operations, we need to keep the connection alive
                 # Create task for tool execution
-                tool_task = asyncio.create_task(agent_service.execute_tool(tool_name, tool_args))
+                tool_task = asyncio.create_task(agent_service.execute_tool(
+                    tool_name, tool_args, call_id=f"lambda_tool_{usage_request_id}_{step}_{tc['id']}",
+                ))
                 
                 # Wait for completion with periodic keepalive
-                while not tool_task.done():
-                    try:
-                        # Wait up to 5 seconds for the task to complete
-                        result = await asyncio.wait_for(asyncio.shield(tool_task), timeout=5.0)
-                        break
-                    except asyncio.TimeoutError:
-                        # Send keepalive to prevent connection timeout
-                        yield f"data: {json.dumps({'type': 'keepalive', 'timestamp': asyncio.get_event_loop().time()})}\n\n"
-                else:
-                    # Task completed in the last iteration
-                    result = tool_task.result()
+                try:
+                    while not tool_task.done():
+                        try:
+                            if _bridge is not None:
+                                result = await _bridge.wait(lambda: asyncio.shield(tool_task), timeout=5.0)
+                            else:
+                                result = await asyncio.wait_for(asyncio.shield(tool_task), timeout=5.0)
+                            break
+                        except asyncio.TimeoutError:
+                            yield f"data: {json.dumps({'type': 'keepalive', 'timestamp': asyncio.get_event_loop().time()})}\n\n"
+                    else:
+                        result = tool_task.result()
+                finally:
+                    await reap_tasks(tool_task)
                 
                 # For write_file, scan and register the newly created file
                 if tool_name == "write_file" and result.get("success"):
                     file_path = tool_args.get("path", "")
-                    if file_path:
+                    if file_path and agent_service.is_visible_generated_file(file_path):
                         filename = file_path.split("/")[-1]
                         oss_url = await agent_service.file_manager.upload_generated_file(
                             str(conversation_id),
@@ -1109,7 +1183,7 @@ When you receive an error from tool execution:
                 message_id=final_message.id,
                 request_id=usage_request_id,
                 model=usage_event["model"],
-                provider=usage_event["model"].split("/", 1)[0] if "/" in usage_event["model"] else None,
+                provider=PROVIDER_ID,
                 prompt_tokens=usage_event["prompt_tokens"],
                 completion_tokens=usage_event["completion_tokens"],
                 reasoning_tokens=usage_event["reasoning_tokens"],
@@ -1119,8 +1193,13 @@ When you receive an error from tool execution:
             ))
         db.commit()
         
-        yield f"data: {json.dumps({'type': 'done', 'generated_files': all_generated_files})}\n\n"
+        done_event = {'type': 'done', 'generated_files': all_generated_files}
+        if incomplete:
+            done_event.update(incomplete=True, finish_reason=incomplete_reason)
+        yield f"data: {json.dumps(done_event)}\n\n"
                 
+    except BudgetExhausted:
+        raise
     except Exception as e:
         import traceback
         error_msg = f"{str(e)}\n{traceback.format_exc()}"

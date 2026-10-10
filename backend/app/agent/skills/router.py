@@ -25,6 +25,10 @@ from app.agent.skills.loader import Skill, SkillRegistry
 TOKEN_RE = re.compile(r"[a-z0-9]+(?:\.[a-z0-9]+)?", re.I)
 EXT_RE = re.compile(r"\.(pdf|docx?|dotx|pptx?|potx|xlsx?|xlsm|csv|tsv|gif|png|jpe?g|html?)\b", re.I)
 NEGATIVE_RE = re.compile(r"do not (?:trigger|use)\b.*", re.I | re.S)
+DELEGATION_RE = re.compile(
+    r"\b(?:(?:run|use|call|ask|invoke)\s+(?:the\s+)?lambda(?![-\w])|run the data agent|"
+    r"autonomous exploration|full analysis pipeline)\b", re.I,
+)
 STOP = {
     "the", "a", "an", "to", "of", "and", "or", "for", "with", "when", "use", "this", "that",
     "skill", "skills", "any", "from", "into", "your", "user", "using", "should", "than",
@@ -64,9 +68,11 @@ EXT_TO_SKILLS: dict[str, tuple[str, ...]] = {
     ".xlsx": ("xlsx",),
     ".xls": ("xlsx",),
     ".xlsm": ("xlsx",),
-    ".csv": ("lambda-eda", "lambda-data-agent", "statistical-inference"),
-    ".tsv": ("lambda-eda", "lambda-data-agent", "statistical-inference"),
-    ".parquet": ("lambda-eda", "lambda-data-agent"),
+    # A table attachment can suggest an EDA playbook, but is not a request to
+    # start a delegated analysis pipeline. That requires task/explicit cues.
+    ".csv": ("lambda-eda", "statistical-inference"),
+    ".tsv": ("lambda-eda", "statistical-inference"),
+    ".parquet": ("lambda-eda",),
     ".gif": ("slack-gif-creator",),
 }
 
@@ -142,6 +148,10 @@ class SkillRouter:
 
         if name in q_low or name.replace("-", " ") in q_low:
             return ScoredSkill(skill, 1.0, ["name-in-query"])
+        if name == "lambda-data-agent" and DELEGATION_RE.search(q):
+            # A requested delegated workflow should beat incidental workspace
+            # extensions, while a table alone must not activate the full loop.
+            return ScoredSkill(skill, 1.0, ["delegated-workflow-request"])
         if compact_name and compact_name in compact_q and len(compact_name) >= 4:
             score = max(score, 0.92)
             reasons.append("compact-name")

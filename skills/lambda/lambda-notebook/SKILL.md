@@ -20,7 +20,7 @@ Deliver a runnable `.ipynb` that loads the workspace table and reproduces the an
 
 ## Path
 
-1. Prefer asking `lambda_data_agent` to export a notebook, then copy `lambda_output/*.ipynb`.
+1. Use native `python` and file tools to package existing cells or make a bounded notebook edit. For substantial notebook analysis workflows or an explicit LAMBDA request, delegate to `lambda_data_agent` with the inputs, expected notebook path, and completion evidence. Delegation shares the parent run's limits and deadline; inspect its completion status and the returned notebook before handoff.
 2. Otherwise build one with `nbformat` in the `python` kernel (see [references/notebook.md](references/notebook.md)).
 3. Save as `analysis.ipynb` in the workspace root (or `lambda_output/analysis.ipynb`).
 4. Cells should load `uploads/<file>`, clean, analyse, and save figures to `figures/`.

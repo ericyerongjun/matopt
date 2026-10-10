@@ -1,0 +1,93 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "MatOpt matched direct versus sequential LAMBDA experiment",
+  "type": "object",
+  "required": ["schema_version", "mode", "synthetic_provider_usage", "started_at", "state_dir", "conditions", "envelope", "source_sha256", "source_sha256_after", "source_unchanged", "raw_journals", "runs", "summary"],
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {"const": 1},
+    "mode": {"enum": ["fake", "live"]},
+    "synthetic_provider_usage": {"type": "boolean"},
+    "started_at": {"type": "number"},
+    "state_dir": {"type": "string"},
+    "conditions": {"type": "object"},
+    "envelope": {"type": "object"},
+    "source_sha256": {"type": "object", "additionalProperties": {"type": "string", "pattern": "^[a-f0-9]{64}$"}},
+    "source_sha256_after": {"type": "object", "additionalProperties": {"type": "string", "pattern": "^[a-f0-9]{64}$"}},
+    "source_unchanged": {"type": "boolean"},
+    "raw_journals": {"type": "object", "required": ["receipts", "trials"]},
+    "runs": {"type": "array", "minItems": 2, "items": {"$ref": "#/$defs/run"}},
+    "summary": {"type": "object", "required": ["by_path", "pairs", "accounting_all_match"]}
+  },
+  "$defs": {
+    "usage": {
+      "type": ["object", "null"],
+      "required": ["prompt_tokens", "completion_tokens", "total_tokens"],
+      "properties": {
+        "prompt_tokens": {"type": "integer", "minimum": 0},
+        "completion_tokens": {"type": "integer", "minimum": 0},
+        "total_tokens": {"type": "integer", "minimum": 0}
+      },
+      "additionalProperties": {"type": "integer", "minimum": 0}
+    },
+    "call": {
+      "type": "object",
+      "required": ["index", "source", "model", "reasoning", "stage", "max_output_tokens", "request_bytes", "request_sha256", "dispatched", "outcome", "usage", "finish_reason", "elapsed_ms"],
+      "additionalProperties": false,
+      "properties": {
+        "index": {"type": "integer", "minimum": 0},
+        "source": {"enum": ["native", "lambda"]},
+        "model": {"type": "string"},
+        "reasoning": {"enum": ["high", "none"]},
+        "stage": {"enum": ["worker", "final"]},
+        "max_output_tokens": {"type": "integer", "minimum": 1},
+        "request_bytes": {"type": "integer", "minimum": 0},
+        "request_sha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+        "dispatched": {"type": "boolean"},
+        "outcome": {"enum": ["completed", "error", "aborted", "local_rejection"]},
+        "usage": {"$ref": "#/$defs/usage"},
+        "finish_reason": {"type": ["string", "null"]},
+        "elapsed_ms": {"type": "number", "minimum": 0}
+      }
+    },
+    "run": {
+      "type": "object",
+      "required": ["id", "fixture", "path", "repetition", "pair_order", "conversation_id", "input_sha256", "prompt_sha256", "status", "final_ready", "final_text", "elapsed_ms", "event_counts", "oracle", "budget", "provider_calls", "child_tools", "accounting", "native_attempt_retries", "tool_failures"],
+      "additionalProperties": false,
+      "properties": {
+        "id": {"type": "string"},
+        "fixture": {"enum": ["invoice", "ledger"]},
+        "path": {"enum": ["direct", "delegated"]},
+        "repetition": {"type": "integer", "minimum": 1},
+        "pair_order": {"enum": [0, 1]},
+        "conversation_id": {"type": "string"},
+        "input_sha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+        "prompt_sha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+        "status": {"type": "string"},
+        "final_ready": {"type": "boolean"},
+        "final_text": {"type": "string"},
+        "elapsed_ms": {"type": "number", "minimum": 0},
+        "event_counts": {"type": "object", "additionalProperties": {"type": "integer", "minimum": 0}},
+        "oracle": {"type": "object", "required": ["expected", "observed_file", "observed_answer", "environment_pass", "input_unchanged", "answer_content_matches", "file_content_matches", "all_summary_locations", "workspace_files"]},
+        "budget": {"type": "object"},
+        "provider_calls": {"type": "array", "items": {"$ref": "#/$defs/call"}},
+        "child_tools": {"type": "array", "items": {"type": "object", "required": ["name", "call_id", "outcome", "admitted", "elapsed_ms"]}},
+        "accounting": {
+          "type": "object",
+          "required": ["actual_requests", "reported_attempts", "unknown_attempts", "exact_usage", "reported_subtotal", "parent_ledger_matches_wire", "cost"],
+          "properties": {
+            "actual_requests": {"type": "integer", "minimum": 0},
+            "reported_attempts": {"type": "integer", "minimum": 0},
+            "unknown_attempts": {"type": "integer", "minimum": 0},
+            "exact_usage": {"$ref": "#/$defs/usage"},
+            "reported_subtotal": {"$ref": "#/$defs/usage"},
+            "parent_ledger_matches_wire": {"type": "boolean"},
+            "cost": {"type": "object"}
+          }
+        },
+        "native_attempt_retries": {"type": "integer", "minimum": 0},
+        "tool_failures": {"type": "integer", "minimum": 0}
+      }
+    }
+  }
+}

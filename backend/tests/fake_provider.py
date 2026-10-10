@@ -14,6 +14,8 @@ class FakeProvider(LLMProvider):
 
     def __init__(self, script: list[dict]):
         # each item: {"text": str} or {"tool": name, "args": dict, "text": str?, "reasoning": str?}
+        # `raw_args` streams an exact argument string instead of `json.dumps(args)`,
+        # so tests can feed whitespace-heavy (or unparseable) model output.
         self.script = list(script)
         self.calls: list[list[dict]] = []
 
@@ -27,7 +29,8 @@ class FakeProvider(LLMProvider):
             yield StreamDelta(kind="text", text=text[i:i + 7])
         tool_steps = step.get("tools") or ([step] if step.get("tool") else [])
         for idx, t in enumerate(tool_steps):
-            args = json.dumps(t.get("args", {}))
+            raw = t.get("raw_args")
+            args = raw if raw is not None else json.dumps(t.get("args", {}))
             yield StreamDelta(kind="tool_call", tool_call=ToolCallDelta(index=idx, id=f"call_{len(self.calls)}_{idx}", name=t["tool"], arguments=""))
             for i in range(0, len(args), 11):
                 yield StreamDelta(kind="tool_call", tool_call=ToolCallDelta(index=idx, arguments=args[i:i + 11]))

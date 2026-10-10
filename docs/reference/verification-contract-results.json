@@ -1,0 +1,2186 @@
+{
+  "schema_version": 1,
+  "kind": "actual_harness_injected_provider_contract",
+  "paid_calls": 0,
+  "real_provider_quality_measured": false,
+  "oracle": {
+    "problem": "Compute the average speed from the supplied measurement: distance 60 m, elapsed time 5 s. Cite [Measurement](https://fixture.test/measurement) and state the limit of this inference: Instantaneous speed is not established.",
+    "field_grammar": "Average speed literal, linked Measurement URL, explicit limitation sentence",
+    "expected": {
+      "value": 12.0,
+      "unit": "m/s",
+      "citations": [
+        "https://fixture.test/measurement"
+      ],
+      "limitation": true
+    }
+  },
+  "settings": {
+    "verify": true,
+    "verify_rounds": 50,
+    "effective_max_checks_per_episode": 2,
+    "session_log_enabled": true
+  },
+  "source_sha256": {
+    "backend/app/agent/harness.py": "a6948af8fc9c8843cfe37e9b8f68fc5957b57a8d228beb24fb29300c5d1959e4",
+    "backend/app/agent/prompts.py": "5a9a5d9c6365a3c1c61b2f41f559502d84d91f9664a7d48737e8f6d7a934990f",
+    "backend/app/agent/presentation.py": "8b4dac35ef7ab254048983f6cde55ab6a5474445b8b7ec990c5ada0372f46eec",
+    "backend/app/agent/budget.py": "ea2f3a7770f3de38297d9c6969c1ff2fb57e8e68f903cd5c852b1f7feac35202",
+    "scripts/benchmark_verification_contract.py": "bfca45b3bd1fa0d0ae4444d2227b12e8868a5a088c78088e4c81613fca25be1c"
+  },
+  "summary": {
+    "normal": {
+      "runs": 12,
+      "writer_drift_injections": 4,
+      "writer_drift_injections_reaching_final": 4,
+      "injected_checker_errors_missed": 1,
+      "injected_checker_false_failures": 1,
+      "model_attempts": 44,
+      "canonical_mismatches": 0,
+      "private_text_leaks": 0
+    },
+    "strict": {
+      "runs": 12,
+      "writer_drift_injections": 4,
+      "writer_drift_injections_reaching_final": 0,
+      "injected_checker_errors_missed": 1,
+      "injected_checker_false_failures": 1,
+      "model_attempts": 33,
+      "canonical_mismatches": 0,
+      "private_text_leaks": 0
+    }
+  },
+  "runs": [
+    {
+      "fixture": "writer_clean",
+      "family": "writer_drift",
+      "mode": "normal",
+      "injection": {
+        "writer_change": "clean",
+        "drafts": [
+          "Average speed is **12 m/s**. [Measurement](https://fixture.test/measurement). Instantaneous speed is not established."
+        ],
+        "verdicts": [
+          "correct"
+        ],
+        "steer": null
+      },
+      "status": "complete",
+      "final_text": "Average speed is **12 m/s**. [Measurement](https://fixture.test/measurement). Instantaneous speed is not established.",
+      "final_fields": {
+        "value": 12.0,
+        "unit": "m/s",
+        "citations": [
+          "https://fixture.test/measurement"
+        ],
+        "limitation": true
+      },
+      "final_oracle_errors": [],
+      "verification": {
+        "status": "correct",
+        "rounds": 1
+      },
+      "notice": null,
+      "total_checks_started": 1,
+      "checks": [
+        {
+          "ordinal": 1,
+          "episode": 1,
+          "candidate": "Average speed is **12 m/s**. [Measurement](https://fixture.test/measurement). Instantaneous speed is not established.",
+          "candidate_input": {
+            "problem": "Compute the average speed from the supplied measurement: distance 60 m, elapsed time 5 s. Cite [Measurement](https://fixture.test/measurement) and state the limit of this inference: Instantaneous speed is not established.",
+            "candidate": "Average speed is **12 m/s**. [Measurement](https://fixture.test/measurement). Instantaneous speed is not established.",
+            "sources": "No source excerpts were loaded. Read the referenced workspace files when needed; do not infer unseen content."
+          },
+          "oracle_errors": [],
+          "injected_verdict": "correct",
+          "completed_record": true,
+          "record": {
+            "check_id": "1:check:1",
+            "candidate_sha256": "edc45b1e9ace22b3ddaa142f1ce49f322bc86ab367f776f664164deb83a61c38",
+            "round": 1,
+            "result_generation": 0,
+            "total_checks": 1,
+            "verdict": "correct"
+          },
+          "digest_matches_input": true
+        }
+      ],
+      "missed_errors": 0,
+      "false_failures": 0,
+      "worker_calls": 1,
+      "checker_calls": 1,
+      "final_writer_calls": 1,
+      "request_sequence": [
+        "worker",
+        "check",
+        "final"
+      ],
+      "final_writer_tools_offered": false,
+      "unchecked_final_writer_calls": 1,
+      "final_equals_last_checked_candidate": true,
+      "final_mode": "streaming",
+      "final_delta_count": 6,
+      "final_deltas_match_canonical": true,
+      "model_calls": 3,
+      "model_attempts": 3,
+      "model_limit": 12,
+      "usage_complete": true,
+      "steers_applied": 0,
+      "canonical_reload_matches": true,
+      "private_text_leaked": false,
+      "unused_script_steps": 0
+    },
+    {
+      "fixture": "writer_clean",
+      "family": "writer_drift",
+      "mode": "strict",
+      "injection": {
+        "writer_change": "clean",
+        "drafts": [
+          "Average speed is **12 m/s**. [Measurement](https://fixture.test/measurement). Instantaneous speed is not established."
+        ],
+        "verdicts": [
+          "correct"
+        ],
+        "steer": null
+      },
+      "status": "complete",
+      "final_text": "Average speed is **12 m/s**. [Measurement](https://fixture.test/measurement). Instantaneous speed is not established.",
+      "final_fields": {
+        "value": 12.0,
+        "unit": "m/s",
+        "citations": [
+          "https://fixture.test/measurement"
+        ],
+        "limitation": true
+      },
+      "final_oracle_errors": [],
+      "verification": {
+        "status": "correct",
+        "rounds": 1
+      },
+      "notice": null,
+      "total_checks_started": 1,
+      "checks": [
+        {
+          "ordinal": 1,
+          "episode": 1,
+          "candidate": "Average speed is **12 m/s**. [Measurement](https://fixture.test/measurement). Instantaneous speed is not established.",
+          "candidate_input": {
+            "problem": "Compute the average speed from the supplied measurement: distance 60 m, elapsed time 5 s. Cite [Measurement](https://fixture.test/measurement) and state the limit of this inference: Instantaneous speed is not established.",
+            "candidate": "Average speed is **12 m/s**. [Measurement](https://fixture.test/measurement). Instantaneous speed is not established.",
+            "sources": "No source excerpts were loaded. Read the referenced workspace files when needed; do not infer unseen content."
+          },
+          "oracle_errors": [],
+          "injected_verdict": "correct",
+          "completed_record": true,
+          "record": {
+            "check_id": "1:check:1",
+            "candidate_sha256": "edc45b1e9ace22b3ddaa142f1ce49f322bc86ab367f776f664164deb83a61c38",
+            "round": 1,
+            "result_generation": 0,
+            "total_checks": 1,
+            "verdict": "correct"
+          },
+          "digest_matches_input": true
+        }
+      ],
+      "missed_errors": 0,
+      "false_failures": 0,
+      "worker_calls": 1,
+      "checker_calls": 1,
+      "final_writer_calls": 0,
+      "request_sequence": [
+        "worker",
+        "check"
+      ],
+      "final_writer_tools_offered": false,
+      "unchecked_final_writer_calls": 0,
+      "final_equals_last_checked_candidate": true,
+      "final_mode": "buffered",
+      "final_delta_count": 1,
+      "final_deltas_match_canonical": true,
+      "model_calls": 2,
+      "model_attempts": 2,
+      "model_limit": 12,
+      "usage_complete": true,
+      "steers_applied": 0,
+      "canonical_reload_matches": true,
+      "private_text_leaked": false,
+      "unused_script_steps": 0
+    },
+    {
+      "fixture": "writer_value",
+      "family": "writer_drift",
+      "mode": "normal",
+      "injection": {
+        "writer_change": "value",
+        "drafts": [
+          "Average speed is **12 m/s**. [Measurement](https://fixture.test/measurement). Instantaneous speed is not established."
+        ],
+        "verdicts": [
+          "correct"
+        ],
+        "steer": null
+      },
+      "status": "complete",
+      "final_text": "Average speed is **15 m/s**. [Measurement](https://fixture.test/measurement). Instantaneous speed is not established.",
+      "final_fields": {
+        "value": 15.0,
+        "unit": "m/s",
+        "citations": [
+          "https://fixture.test/measurement"
+        ],
+        "limitation": true
+      },
+      "final_oracle_errors": [
+        "value"
+      ],
+      "verification": {
+        "status": "correct",
+        "rounds": 1
+      },
+      "notice": null,
+      "total_checks_started": 1,
+      "checks": [
+        {
+          "ordinal": 1,
+          "episode": 1,
+          "candidate": "Average speed is **12 m/s**. [Measurement](https://fixture.test/measurement). Instantaneous speed is not established.",
+          "candidate_input": {
+            "problem": "Compute the average speed from the supplied measurement: distance 60 m, elapsed time 5 s. Cite [Measurement](https://fixture.test/measurement) and state the limit of this inference: Instantaneous speed is not established.",
+            "candidate": "Average speed is **12 m/s**. [Measurement](https://fixture.test/measurement). Instantaneous speed is not established.",
+            "sources": "No source excerpts were loaded. Read the referenced workspace files when needed; do not infer unseen content."
+          },
+          "oracle_errors": [],
+          "injected_verdict": "correct",
+          "completed_record": true,
+          "record": {
+            "check_id": "1:check:1",
+            "candidate_sha256": "edc45b1e9ace22b3ddaa142f1ce49f322bc86ab367f776f664164deb83a61c38",
+            "round": 1,
+            "result_generation": 0,
+            "total_checks": 1,
+            "verdict": "correct"
+          },
+          "digest_matches_input": true
+        }
+      ],
+      "missed_errors": 0,
+      "false_failures": 0,
+      "worker_calls": 1,
+      "checker_calls": 1,
+      "final_writer_calls": 1,
+      "request_sequence": [
+        "worker",
+        "check",
+        "final"
+      ],
+      "final_writer_tools_offered": false,
+      "unchecked_final_writer_calls": 1,
+      "final_equals_last_checked_candidate": false,
+      "final_mode": "streaming",
+      "final_delta_count": 6,
+      "final_deltas_match_canonical": true,
+      "model_calls": 3,
+      "model_attempts": 3,
+      "model_limit": 12,
+      "usage_complete": true,
+      "steers_applied": 0,
+      "canonical_reload_matches": true,
+      "private_text_leaked": false,
+      "unused_script_steps": 0
+    },
+    {
+      "fixture": "writer_value",
+      "family": "writer_drift",
+      "mode": "strict",
+      "injection": {
+        "writer_change": "value",
+        "drafts": [
+          "Average speed is **12 m/s**. [Measurement](https://fixture.test/measurement). Instantaneous speed is not established."
+        ],
+        "verdicts": [
+          "correct"
+        ],
+        "steer": null
+      },
+      "status": "complete",
+      "final_text": "Average speed is **12 m/s**. [Measurement](https://fixture.test/measurement). Instantaneous speed is not established.",
+      "final_fields": {
+        "value": 12.0,
+        "unit": "m/s",
+        "citations": [
+          "https://fixture.test/measurement"
+        ],
+        "limitation": true
+      },
+      "final_oracle_errors": [],
+      "verification": {
+        "status": "correct",
+        "rounds": 1
+      },
+      "notice": null,
+      "total_checks_started": 1,
+      "checks": [
+        {
+          "ordinal": 1,
+          "episode": 1,
+          "candidate": "Average speed is **12 m/s**. [Measurement](https://fixture.test/measurement). Instantaneous speed is not established.",
+          "candidate_input": {
+            "problem": "Compute the average speed from the supplied measurement: distance 60 m, elapsed time 5 s. Cite [Measurement](https://fixture.test/measurement) and state the limit of this inference: Instantaneous speed is not established.",
+            "candidate": "Average speed is **12 m/s**. [Measurement](https://fixture.test/measurement). Instantaneous speed is not established.",
+            "sources": "No source excerpts were loaded. Read the referenced workspace files when needed; do not infer unseen content."
+          },
+          "oracle_errors": [],
+          "injected_verdict": "correct",
+          "completed_record": true,
+          "record": {
+            "check_id": "1:check:1",
+            "candidate_sha256": "edc45b1e9ace22b3ddaa142f1ce49f322bc86ab367f776f664164deb83a61c38",
+            "round": 1,
+            "result_generation": 0,
+            "total_checks": 1,
+            "verdict": "correct"
+          },
+          "digest_matches_input": true
+        }
+      ],
+      "missed_errors": 0,
+      "false_failures": 0,
+      "worker_calls": 1,
+      "checker_calls": 1,
+      "final_writer_calls": 0,
+      "request_sequence": [
+        "worker",
+        "check"
+      ],
+      "final_writer_tools_offered": false,
+      "unchecked_final_writer_calls": 0,
+      "final_equals_last_checked_candidate": true,
+      "final_mode": "buffered",
+      "final_delta_count": 1,
+      "final_deltas_match_canonical": true,
+      "model_calls": 2,
+      "model_attempts": 2,
+      "model_limit": 12,
+      "usage_complete": true,
+      "steers_applied": 0,
+      "canonical_reload_matches": true,
+      "private_text_leaked": false,
+      "unused_script_steps": 0
+    },
+    {
+      "fixture": "writer_unit",
+      "family": "writer_drift",
+      "mode": "normal",
+      "injection": {
+        "writer_change": "unit",
+        "drafts": [
+          "Average speed is **12 m/s**. [Measurement](https://fixture.test/measurement). Instantaneous speed is not established."
+        ],
+        "verdicts": [
+          "correct"
+        ],
+        "steer": null
+      },
+      "status": "complete",
+      "final_text": "Average speed is **12 km/h**. [Measurement](https://fixture.test/measurement). Instantaneous speed is not established.",
+      "final_fields": {
+        "value": 12.0,
+        "unit": "km/h",
+        "citations": [
+          "https://fixture.test/measurement"
+        ],
+        "limitation": true
+      },
+      "final_oracle_errors": [
+        "unit"
+      ],
+      "verification": {
+        "status": "correct",
+        "rounds": 1
+      },
+      "notice": null,
+      "total_checks_started": 1,
+      "checks": [
+        {
+          "ordinal": 1,
+          "episode": 1,
+          "candidate": "Average speed is **12 m/s**. [Measurement](https://fixture.test/measurement). Instantaneous speed is not established.",
+          "candidate_input": {
+            "problem": "Compute the average speed from the supplied measurement: distance 60 m, elapsed time 5 s. Cite [Measurement](https://fixture.test/measurement) and state the limit of this inference: Instantaneous speed is not established.",
+            "candidate": "Average speed is **12 m/s**. [Measurement](https://fixture.test/measurement). Instantaneous speed is not established.",
+            "sources": "No source excerpts were loaded. Read the referenced workspace files when needed; do not infer unseen content."
+          },
+          "oracle_errors": [],
+          "injected_verdict": "correct",
+          "completed_record": true,
+          "record": {
+            "check_id": "1:check:1",
+            "candidate_sha256": "edc45b1e9ace22b3ddaa142f1ce49f322bc86ab367f776f664164deb83a61c38",
+            "round": 1,
+            "result_generation": 0,
+            "total_checks": 1,
+            "verdict": "correct"
+          },
+          "digest_matches_input": true
+        }
+      ],
+      "missed_errors": 0,
+      "false_failures": 0,
+      "worker_calls": 1,
+      "checker_calls": 1,
+      "final_writer_calls": 1,
+      "request_sequence": [
+        "worker",
+        "check",
+        "final"
+      ],
+      "final_writer_tools_offered": false,
+      "unchecked_final_writer_calls": 1,
+      "final_equals_last_checked_candidate": false,
+      "final_mode": "streaming",
+      "final_delta_count": 6,
+      "final_deltas_match_canonical": true,
+      "model_calls": 3,
+      "model_attempts": 3,
+      "model_limit": 12,
+      "usage_complete": true,
+      "steers_applied": 0,
+      "canonical_reload_matches": true,
+      "private_text_leaked": false,
+      "unused_script_steps": 0
+    },
+    {
+      "fixture": "writer_unit",
+      "family": "writer_drift",
+      "mode": "strict",
+      "injection": {
+        "writer_change": "unit",
+        "drafts": [
+          "Average speed is **12 m/s**. [Measurement](https://fixture.test/measurement). Instantaneous speed is not established."
+        ],
+        "verdicts": [
+          "correct"
+        ],
+        "steer": null
+      },
+      "status": "complete",
+      "final_text": "Average speed is **12 m/s**. [Measurement](https://fixture.test/measurement). Instantaneous speed is not established.",
+      "final_fields": {
+        "value": 12.0,
+        "unit": "m/s",
+        "citations": [
+          "https://fixture.test/measurement"
+        ],
+        "limitation": true
+      },
+      "final_oracle_errors": [],
+      "verification": {
+        "status": "correct",
+        "rounds": 1
+      },
+      "notice": null,
+      "total_checks_started": 1,
+      "checks": [
+        {
+          "ordinal": 1,
+          "episode": 1,
+          "candidate": "Average speed is **12 m/s**. [Measurement](https://fixture.test/measurement). Instantaneous speed is not established.",
+          "candidate_input": {
+            "problem": "Compute the average speed from the supplied measurement: distance 60 m, elapsed time 5 s. Cite [Measurement](https://fixture.test/measurement) and state the limit of this inference: Instantaneous speed is not established.",
+            "candidate": "Average speed is **12 m/s**. [Measurement](https://fixture.test/measurement). Instantaneous speed is not established.",
+            "sources": "No source excerpts were loaded. Read the referenced workspace files when needed; do not infer unseen content."
+          },
+          "oracle_errors": [],
+          "injected_verdict": "correct",
+          "completed_record": true,
+          "record": {
+            "check_id": "1:check:1",
+            "candidate_sha256": "edc45b1e9ace22b3ddaa142f1ce49f322bc86ab367f776f664164deb83a61c38",
+            "round": 1,
+            "result_generation": 0,
+            "total_checks": 1,
+            "verdict": "correct"
+          },
+          "digest_matches_input": true
+        }
+      ],
+      "missed_errors": 0,
+      "false_failures": 0,
+      "worker_calls": 1,
+      "checker_calls": 1,
+      "final_writer_calls": 0,
+      "request_sequence": [
+        "worker",
+        "check"
+      ],
+      "final_writer_tools_offered": false,
+      "unchecked_final_writer_calls": 0,
+      "final_equals_last_checked_candidate": true,
+      "final_mode": "buffered",
+      "final_delta_count": 1,
+      "final_deltas_match_canonical": true,
+      "model_calls": 2,
+      "model_attempts": 2,
+      "model_limit": 12,
+      "usage_complete": true,
+      "steers_applied": 0,
+      "canonical_reload_matches": true,
+      "private_text_leaked": false,
+      "unused_script_steps": 0
+    },
+    {
+      "fixture": "writer_citation",
+      "family": "writer_drift",
+      "mode": "normal",
+      "injection": {
+        "writer_change": "citation",
+        "drafts": [
+          "Average speed is **12 m/s**. [Measurement](https://fixture.test/measurement). Instantaneous speed is not established."
+        ],
+        "verdicts": [
+          "correct"
+        ],
+        "steer": null
+      },
+      "status": "complete",
+      "final_text": "Average speed is **12 m/s**. [Measurement](https://fixture.test/unsupported). Instantaneous speed is not established.",
+      "final_fields": {
+        "value": 12.0,
+        "unit": "m/s",
+        "citations": [
+          "https://fixture.test/unsupported"
+        ],
+        "limitation": true
+      },
+      "final_oracle_errors": [
+        "citations"
+      ],
+      "verification": {
+        "status": "correct",
+        "rounds": 1
+      },
+      "notice": null,
+      "total_checks_started": 1,
+      "checks": [
+        {
+          "ordinal": 1,
+          "episode": 1,
+          "candidate": "Average speed is **12 m/s**. [Measurement](https://fixture.test/measurement). Instantaneous speed is not established.",
+          "candidate_input": {
+            "problem": "Compute the average speed from the supplied measurement: distance 60 m, elapsed time 5 s. Cite [Measurement](https://fixture.test/measurement) and state the limit of this inference: Instantaneous speed is not established.",
+            "candidate": "Average speed is **12 m/s**. [Measurement](https://fixture.test/measurement). Instantaneous speed is not established.",
+            "sources": "No source excerpts were loaded. Read the referenced workspace files when needed; do not infer unseen content."
+          },
+          "oracle_errors": [],
+          "injected_verdict": "correct",
+          "completed_record": true,
+          "record": {
+            "check_id": "1:check:1",
+            "candidate_sha256": "edc45b1e9ace22b3ddaa142f1ce49f322bc86ab367f776f664164deb83a61c38",
+            "round": 1,
+            "result_generation": 0,
+            "total_checks": 1,
+            "verdict": "correct"
+          },
+          "digest_matches_input": true
+        }
+      ],
+      "missed_errors": 0,
+      "false_failures": 0,
+      "worker_calls": 1,
+      "checker_calls": 1,
+      "final_writer_calls": 1,
+      "request_sequence": [
+        "worker",
+        "check",
+        "final"
+      ],
+      "final_writer_tools_offered": false,
+      "unchecked_final_writer_calls": 1,
+      "final_equals_last_checked_candidate": false,
+      "final_mode": "streaming",
+      "final_delta_count": 6,
+      "final_deltas_match_canonical": true,
+      "model_calls": 3,
+      "model_attempts": 3,
+      "model_limit": 12,
+      "usage_complete": true,
+      "steers_applied": 0,
+      "canonical_reload_matches": true,
+      "private_text_leaked": false,
+      "unused_script_steps": 0
+    },
+    {
+      "fixture": "writer_citation",
+      "family": "writer_drift",
+      "mode": "strict",
+      "injection": {
+        "writer_change": "citation",
+        "drafts": [
+          "Average speed is **12 m/s**. [Measurement](https://fixture.test/measurement). Instantaneous speed is not established."
+        ],
+        "verdicts": [
+          "correct"
+        ],
+        "steer": null
+      },
+      "status": "complete",
+      "final_text": "Average speed is **12 m/s**. [Measurement](https://fixture.test/measurement). Instantaneous speed is not established.",
+      "final_fields": {
+        "value": 12.0,
+        "unit": "m/s",
+        "citations": [
+          "https://fixture.test/measurement"
+        ],
+        "limitation": true
+      },
+      "final_oracle_errors": [],
+      "verification": {
+        "status": "correct",
+        "rounds": 1
+      },
+      "notice": null,
+      "total_checks_started": 1,
+      "checks": [
+        {
+          "ordinal": 1,
+          "episode": 1,
+          "candidate": "Average speed is **12 m/s**. [Measurement](https://fixture.test/measurement). Instantaneous speed is not established.",
+          "candidate_input": {
+            "problem": "Compute the average speed from the supplied measurement: distance 60 m, elapsed time 5 s. Cite [Measurement](https://fixture.test/measurement) and state the limit of this inference: Instantaneous speed is not established.",
+            "candidate": "Average speed is **12 m/s**. [Measurement](https://fixture.test/measurement). Instantaneous speed is not established.",
+            "sources": "No source excerpts were loaded. Read the referenced workspace files when needed; do not infer unseen content."
+          },
+          "oracle_errors": [],
+          "injected_verdict": "correct",
+          "completed_record": true,
+          "record": {
+            "check_id": "1:check:1",
+            "candidate_sha256": "edc45b1e9ace22b3ddaa142f1ce49f322bc86ab367f776f664164deb83a61c38",
+            "round": 1,
+            "result_generation": 0,
+            "total_checks": 1,
+            "verdict": "correct"
+          },
+          "digest_matches_input": true
+        }
+      ],
+      "missed_errors": 0,
+      "false_failures": 0,
+      "worker_calls": 1,
+      "checker_calls": 1,
+      "final_writer_calls": 0,
+      "request_sequence": [
+        "worker",
+        "check"
+      ],
+      "final_writer_tools_offered": false,
+      "unchecked_final_writer_calls": 0,
+      "final_equals_last_checked_candidate": true,
+      "final_mode": "buffered",
+      "final_delta_count": 1,
+      "final_deltas_match_canonical": true,
+      "model_calls": 2,
+      "model_attempts": 2,
+      "model_limit": 12,
+      "usage_complete": true,
+      "steers_applied": 0,
+      "canonical_reload_matches": true,
+      "private_text_leaked": false,
+      "unused_script_steps": 0
+    },
+    {
+      "fixture": "writer_limitation",
+      "family": "writer_drift",
+      "mode": "normal",
+      "injection": {
+        "writer_change": "limitation",
+        "drafts": [
+          "Average speed is **12 m/s**. [Measurement](https://fixture.test/measurement). Instantaneous speed is not established."
+        ],
+        "verdicts": [
+          "correct"
+        ],
+        "steer": null
+      },
+      "status": "complete",
+      "final_text": "Average speed is **12 m/s**. [Measurement](https://fixture.test/measurement).",
+      "final_fields": {
+        "value": 12.0,
+        "unit": "m/s",
+        "citations": [
+          "https://fixture.test/measurement"
+        ],
+        "limitation": false
+      },
+      "final_oracle_errors": [
+        "limitation"
+      ],
+      "verification": {
+        "status": "correct",
+        "rounds": 1
+      },
+      "notice": null,
+      "total_checks_started": 1,
+      "checks": [
+        {
+          "ordinal": 1,
+          "episode": 1,
+          "candidate": "Average speed is **12 m/s**. [Measurement](https://fixture.test/measurement). Instantaneous speed is not established.",
+          "candidate_input": {
+            "problem": "Compute the average speed from the supplied measurement: distance 60 m, elapsed time 5 s. Cite [Measurement](https://fixture.test/measurement) and state the limit of this inference: Instantaneous speed is not established.",
+            "candidate": "Average speed is **12 m/s**. [Measurement](https://fixture.test/measurement). Instantaneous speed is not established.",
+            "sources": "No source excerpts were loaded. Read the referenced workspace files when needed; do not infer unseen content."
+          },
+          "oracle_errors": [],
+          "injected_verdict": "correct",
+          "completed_record": true,
+          "record": {
+            "check_id": "1:check:1",
+            "candidate_sha256": "edc45b1e9ace22b3ddaa142f1ce49f322bc86ab367f776f664164deb83a61c38",
+            "round": 1,
+            "result_generation": 0,
+            "total_checks": 1,
+            "verdict": "correct"
+          },
+          "digest_matches_input": true
+        }
+      ],
+      "missed_errors": 0,
+      "false_failures": 0,
+      "worker_calls": 1,
+      "checker_calls": 1,
+      "final_writer_calls": 1,
+      "request_sequence": [
+        "worker",
+        "check",
+        "final"
+      ],
+      "final_writer_tools_offered": false,
+      "unchecked_final_writer_calls": 1,
+      "final_equals_last_checked_candidate": false,
+      "final_mode": "streaming",
+      "final_delta_count": 4,
+      "final_deltas_match_canonical": true,
+      "model_calls": 3,
+      "model_attempts": 3,
+      "model_limit": 12,
+      "usage_complete": true,
+      "steers_applied": 0,
+      "canonical_reload_matches": true,
+      "private_text_leaked": false,
+      "unused_script_steps": 0
+    },
+    {
+      "fixture": "writer_limitation",
+      "family": "writer_drift",
+      "mode": "strict",
+      "injection": {
+        "writer_change": "limitation",
+        "drafts": [
+          "Average speed is **12 m/s**. [Measurement](https://fixture.test/measurement). Instantaneous speed is not established."
+        ],
+        "verdicts": [
+          "correct"
+        ],
+        "steer": null
+      },
+      "status": "complete",
+      "final_text": "Average speed is **12 m/s**. [Measurement](https://fixture.test/measurement). Instantaneous speed is not established.",
+      "final_fields": {
+        "value": 12.0,
+        "unit": "m/s",
+        "citations": [
+          "https://fixture.test/measurement"
+        ],
+        "limitation": true
+      },
+      "final_oracle_errors": [],
+      "verification": {
+        "status": "correct",
+        "rounds": 1
+      },
+      "notice": null,
+      "total_checks_started": 1,
+      "checks": [
+        {
+          "ordinal": 1,
+          "episode": 1,
+          "candidate": "Average speed is **12 m/s**. [Measurement](https://fixture.test/measurement). Instantaneous speed is not established.",
+          "candidate_input": {
+            "problem": "Compute the average speed from the supplied measurement: distance 60 m, elapsed time 5 s. Cite [Measurement](https://fixture.test/measurement) and state the limit of this inference: Instantaneous speed is not established.",
+            "candidate": "Average speed is **12 m/s**. [Measurement](https://fixture.test/measurement). Instantaneous speed is not established.",
+            "sources": "No source excerpts were loaded. Read the referenced workspace files when needed; do not infer unseen content."
+          },
+          "oracle_errors": [],
+          "injected_verdict": "correct",
+          "completed_record": true,
+          "record": {
+            "check_id": "1:check:1",
+            "candidate_sha256": "edc45b1e9ace22b3ddaa142f1ce49f322bc86ab367f776f664164deb83a61c38",
+            "round": 1,
+            "result_generation": 0,
+            "total_checks": 1,
+            "verdict": "correct"
+          },
+          "digest_matches_input": true
+        }
+      ],
+      "missed_errors": 0,
+      "false_failures": 0,
+      "worker_calls": 1,
+      "checker_calls": 1,
+      "final_writer_calls": 0,
+      "request_sequence": [
+        "worker",
+        "check"
+      ],
+      "final_writer_tools_offered": false,
+      "unchecked_final_writer_calls": 0,
+      "final_equals_last_checked_candidate": true,
+      "final_mode": "buffered",
+      "final_delta_count": 1,
+      "final_deltas_match_canonical": true,
+      "model_calls": 2,
+      "model_attempts": 2,
+      "model_limit": 12,
+      "usage_complete": true,
+      "steers_applied": 0,
+      "canonical_reload_matches": true,
+      "private_text_leaked": false,
+      "unused_script_steps": 0
+    },
+    {
+      "fixture": "checker_missed_error",
+      "family": "checker",
+      "mode": "normal",
+      "injection": {
+        "writer_change": "clean",
+        "drafts": [
+          "Average speed is **15 m/s**. [Measurement](https://fixture.test/measurement). Instantaneous speed is not established."
+        ],
+        "verdicts": [
+          "correct"
+        ],
+        "steer": null
+      },
+      "status": "complete",
+      "final_text": "Average speed is **15 m/s**. [Measurement](https://fixture.test/measurement). Instantaneous speed is not established.",
+      "final_fields": {
+        "value": 15.0,
+        "unit": "m/s",
+        "citations": [
+          "https://fixture.test/measurement"
+        ],
+        "limitation": true
+      },
+      "final_oracle_errors": [
+        "value"
+      ],
+      "verification": {
+        "status": "correct",
+        "rounds": 1
+      },
+      "notice": null,
+      "total_checks_started": 1,
+      "checks": [
+        {
+          "ordinal": 1,
+          "episode": 1,
+          "candidate": "Average speed is **15 m/s**. [Measurement](https://fixture.test/measurement). Instantaneous speed is not established.",
+          "candidate_input": {
+            "problem": "Compute the average speed from the supplied measurement: distance 60 m, elapsed time 5 s. Cite [Measurement](https://fixture.test/measurement) and state the limit of this inference: Instantaneous speed is not established.",
+            "candidate": "Average speed is **15 m/s**. [Measurement](https://fixture.test/measurement). Instantaneous speed is not established.",
+            "sources": "No source excerpts were loaded. Read the referenced workspace files when needed; do not infer unseen content."
+          },
+          "oracle_errors": [
+            "value"
+          ],
+          "injected_verdict": "correct",
+          "completed_record": true,
+          "record": {
+            "check_id": "1:check:1",
+            "candidate_sha256": "0018a9e0d1707ca9f01d3307d354b1349fb04de95c139b7c435ef13c1452cfd2",
+            "round": 1,
+            "result_generation": 0,
+            "total_checks": 1,
+            "verdict": "correct"
+          },
+          "digest_matches_input": true
+        }
+      ],
+      "missed_errors": 1,
+      "false_failures": 0,
+      "worker_calls": 1,
+      "checker_calls": 1,
+      "final_writer_calls": 1,
+      "request_sequence": [
+        "worker",
+        "check",
+        "final"
+      ],
+      "final_writer_tools_offered": false,
+      "unchecked_final_writer_calls": 1,
+      "final_equals_last_checked_candidate": true,
+      "final_mode": "streaming",
+      "final_delta_count": 6,
+      "final_deltas_match_canonical": true,
+      "model_calls": 3,
+      "model_attempts": 3,
+      "model_limit": 12,
+      "usage_complete": true,
+      "steers_applied": 0,
+      "canonical_reload_matches": true,
+      "private_text_leaked": false,
+      "unused_script_steps": 0
+    },
+    {
+      "fixture": "checker_missed_error",
+      "family": "checker",
+      "mode": "strict",
+      "injection": {
+        "writer_change": "clean",
+        "drafts": [
+          "Average speed is **15 m/s**. [Measurement](https://fixture.test/measurement). Instantaneous speed is not established."
+        ],
+        "verdicts": [
+          "correct"
+        ],
+        "steer": null
+      },
+      "status": "complete",
+      "final_text": "Average speed is **15 m/s**. [Measurement](https://fixture.test/measurement). Instantaneous speed is not established.",
+      "final_fields": {
+        "value": 15.0,
+        "unit": "m/s",
+        "citations": [
+          "https://fixture.test/measurement"
+        ],
+        "limitation": true
+      },
+      "final_oracle_errors": [
+        "value"
+      ],
+      "verification": {
+        "status": "correct",
+        "rounds": 1
+      },
+      "notice": null,
+      "total_checks_started": 1,
+      "checks": [
+        {
+          "ordinal": 1,
+          "episode": 1,
+          "candidate": "Average speed is **15 m/s**. [Measurement](https://fixture.test/measurement). Instantaneous speed is not established.",
+          "candidate_input": {
+            "problem": "Compute the average speed from the supplied measurement: distance 60 m, elapsed time 5 s. Cite [Measurement](https://fixture.test/measurement) and state the limit of this inference: Instantaneous speed is not established.",
+            "candidate": "Average speed is **15 m/s**. [Measurement](https://fixture.test/measurement). Instantaneous speed is not established.",
+            "sources": "No source excerpts were loaded. Read the referenced workspace files when needed; do not infer unseen content."
+          },
+          "oracle_errors": [
+            "value"
+          ],
+          "injected_verdict": "correct",
+          "completed_record": true,
+          "record": {
+            "check_id": "1:check:1",
+            "candidate_sha256": "0018a9e0d1707ca9f01d3307d354b1349fb04de95c139b7c435ef13c1452cfd2",
+            "round": 1,
+            "result_generation": 0,
+            "total_checks": 1,
+            "verdict": "correct"
+          },
+          "digest_matches_input": true
+        }
+      ],
+      "missed_errors": 1,
+      "false_failures": 0,
+      "worker_calls": 1,
+      "checker_calls": 1,
+      "final_writer_calls": 0,
+      "request_sequence": [
+        "worker",
+        "check"
+      ],
+      "final_writer_tools_offered": false,
+      "unchecked_final_writer_calls": 0,
+      "final_equals_last_checked_candidate": true,
+      "final_mode": "buffered",
+      "final_delta_count": 1,
+      "final_deltas_match_canonical": true,
+      "model_calls": 2,
+      "model_attempts": 2,
+      "model_limit": 12,
+      "usage_complete": true,
+      "steers_applied": 0,
+      "canonical_reload_matches": true,
+      "private_text_leaked": false,
+      "unused_script_steps": 0
+    },
+    {
+      "fixture": "checker_false_failure",
+      "family": "checker",
+      "mode": "normal",
+      "injection": {
+        "writer_change": "clean",
+        "drafts": [
+          "Average speed is **12 m/s**. [Measurement](https://fixture.test/measurement). Instantaneous speed is not established.",
+          "Rechecked: Average speed is **12 m/s**. [Measurement](https://fixture.test/measurement). Instantaneous speed is not established."
+        ],
+        "verdicts": [
+          "incorrect",
+          "correct"
+        ],
+        "steer": null
+      },
+      "status": "complete",
+      "final_text": "Rechecked: Average speed is **12 m/s**. [Measurement](https://fixture.test/measurement). Instantaneous speed is not established.",
+      "final_fields": {
+        "value": 12.0,
+        "unit": "m/s",
+        "citations": [
+          "https://fixture.test/measurement"
+        ],
+        "limitation": true
+      },
+      "final_oracle_errors": [],
+      "verification": {
+        "status": "correct",
+        "rounds": 2
+      },
+      "notice": null,
+      "total_checks_started": 2,
+      "checks": [
+        {
+          "ordinal": 1,
+          "episode": 1,
+          "candidate": "Average speed is **12 m/s**. [Measurement](https://fixture.test/measurement). Instantaneous speed is not established.",
+          "candidate_input": {
+            "problem": "Compute the average speed from the supplied measurement: distance 60 m, elapsed time 5 s. Cite [Measurement](https://fixture.test/measurement) and state the limit of this inference: Instantaneous speed is not established.",
+            "candidate": "Average speed is **12 m/s**. [Measurement](https://fixture.test/measurement). Instantaneous speed is not established.",
+            "sources": "No source excerpts were loaded. Read the referenced workspace files when needed; do not infer unseen content."
+          },
+          "oracle_errors": [],
+          "injected_verdict": "incorrect",
+          "completed_record": true,
+          "record": {
+            "check_id": "1:check:1",
+            "candidate_sha256": "edc45b1e9ace22b3ddaa142f1ce49f322bc86ab367f776f664164deb83a61c38",
+            "round": 1,
+            "result_generation": 0,
+            "total_checks": 1,
+            "verdict": "incorrect"
+          },
+          "digest_matches_input": true
+        },
+        {
+          "ordinal": 2,
+          "episode": 1,
+          "candidate": "Rechecked: Average speed is **12 m/s**. [Measurement](https://fixture.test/measurement). Instantaneous speed is not established.",
+          "candidate_input": {
+            "problem": "Compute the average speed from the supplied measurement: distance 60 m, elapsed time 5 s. Cite [Measurement](https://fixture.test/measurement) and state the limit of this inference: Instantaneous speed is not established.",
+            "candidate": "Rechecked: Average speed is **12 m/s**. [Measurement](https://fixture.test/measurement). Instantaneous speed is not established.",
+            "sources": "No source excerpts were loaded. Read the referenced workspace files when needed; do not infer unseen content."
+          },
+          "oracle_errors": [],
+          "injected_verdict": "correct",
+          "completed_record": true,
+          "record": {
+            "check_id": "1:check:2",
+            "candidate_sha256": "8dd4d1d5699772ff1bf06e403e2b14cd7192e6027461affb551d9c19decc44a0",
+            "round": 2,
+            "result_generation": 1,
+            "total_checks": 2,
+            "verdict": "correct"
+          },
+          "digest_matches_input": true
+        }
+      ],
+      "missed_errors": 0,
+      "false_failures": 1,
+      "worker_calls": 2,
+      "checker_calls": 2,
+      "final_writer_calls": 1,
+      "request_sequence": [
+        "worker",
+        "check",
+        "worker",
+        "check",
+        "final"
+      ],
+      "final_writer_tools_offered": false,
+      "unchecked_final_writer_calls": 1,
+      "final_equals_last_checked_candidate": true,
+      "final_mode": "streaming",
+      "final_delta_count": 6,
+      "final_deltas_match_canonical": true,
+      "model_calls": 5,
+      "model_attempts": 5,
+      "model_limit": 12,
+      "usage_complete": true,
+      "steers_applied": 0,
+      "canonical_reload_matches": true,
+      "private_text_leaked": false,
+      "unused_script_steps": 0
+    },
+    {
+      "fixture": "checker_false_failure",
+      "family": "checker",
+      "mode": "strict",
+      "injection": {
+        "writer_change": "clean",
+        "drafts": [
+          "Average speed is **12 m/s**. [Measurement](https://fixture.test/measurement). Instantaneous speed is not established.",
+          "Rechecked: Average speed is **12 m/s**. [Measurement](https://fixture.test/measurement). Instantaneous speed is not established."
+        ],
+        "verdicts": [
+          "incorrect",
+          "correct"
+        ],
+        "steer": null
+      },
+      "status": "complete",
+      "final_text": "Rechecked: Average speed is **12 m/s**. [Measurement](https://fixture.test/measurement). Instantaneous speed is not established.",
+      "final_fields": {
+        "value": 12.0,
+        "unit": "m/s",
+        "citations": [
+          "https://fixture.test/measurement"
+        ],
+        "limitation": true
+      },
+      "final_oracle_errors": [],
+      "verification": {
+        "status": "correct",
+        "rounds": 2
+      },
+      "notice": null,
+      "total_checks_started": 2,
+      "checks": [
+        {
+          "ordinal": 1,
+          "episode": 1,
+          "candidate": "Average speed is **12 m/s**. [Measurement](https://fixture.test/measurement). Instantaneous speed is not established.",
+          "candidate_input": {
+            "problem": "Compute the average speed from the supplied measurement: distance 60 m, elapsed time 5 s. Cite [Measurement](https://fixture.test/measurement) and state the limit of this inference: Instantaneous speed is not established.",
+            "candidate": "Average speed is **12 m/s**. [Measurement](https://fixture.test/measurement). Instantaneous speed is not established.",
+            "sources": "No source excerpts were loaded. Read the referenced workspace files when needed; do not infer unseen content."
+          },
+          "oracle_errors": [],
+          "injected_verdict": "incorrect",
+          "completed_record": true,
+          "record": {
+            "check_id": "1:check:1",
+            "candidate_sha256": "edc45b1e9ace22b3ddaa142f1ce49f322bc86ab367f776f664164deb83a61c38",
+            "round": 1,
+            "result_generation": 0,
+            "total_checks": 1,
+            "verdict": "incorrect"
+          },
+          "digest_matches_input": true
+        },
+        {
+          "ordinal": 2,
+          "episode": 1,
+          "candidate": "Rechecked: Average speed is **12 m/s**. [Measurement](https://fixture.test/measurement). Instantaneous speed is not established.",
+          "candidate_input": {
+            "problem": "Compute the average speed from the supplied measurement: distance 60 m, elapsed time 5 s. Cite [Measurement](https://fixture.test/measurement) and state the limit of this inference: Instantaneous speed is not established.",
+            "candidate": "Rechecked: Average speed is **12 m/s**. [Measurement](https://fixture.test/measurement). Instantaneous speed is not established.",
+            "sources": "No source excerpts were loaded. Read the referenced workspace files when needed; do not infer unseen content."
+          },
+          "oracle_errors": [],
+          "injected_verdict": "correct",
+          "completed_record": true,
+          "record": {
+            "check_id": "1:check:2",
+            "candidate_sha256": "8dd4d1d5699772ff1bf06e403e2b14cd7192e6027461affb551d9c19decc44a0",
+            "round": 2,
+            "result_generation": 1,
+            "total_checks": 2,
+            "verdict": "correct"
+          },
+          "digest_matches_input": true
+        }
+      ],
+      "missed_errors": 0,
+      "false_failures": 1,
+      "worker_calls": 2,
+      "checker_calls": 2,
+      "final_writer_calls": 0,
+      "request_sequence": [
+        "worker",
+        "check",
+        "worker",
+        "check"
+      ],
+      "final_writer_tools_offered": false,
+      "unchecked_final_writer_calls": 0,
+      "final_equals_last_checked_candidate": true,
+      "final_mode": "buffered",
+      "final_delta_count": 1,
+      "final_deltas_match_canonical": true,
+      "model_calls": 4,
+      "model_attempts": 4,
+      "model_limit": 12,
+      "usage_complete": true,
+      "steers_applied": 0,
+      "canonical_reload_matches": true,
+      "private_text_leaked": false,
+      "unused_script_steps": 0
+    },
+    {
+      "fixture": "checker_inconclusive",
+      "family": "checker",
+      "mode": "normal",
+      "injection": {
+        "writer_change": "clean",
+        "drafts": [
+          "Average speed is **12 m/s**. [Measurement](https://fixture.test/measurement). Instantaneous speed is not established."
+        ],
+        "verdicts": [
+          "uncertain"
+        ],
+        "steer": null
+      },
+      "status": "complete",
+      "final_text": "Average speed is **12 m/s**. [Measurement](https://fixture.test/measurement). Instantaneous speed is not established.",
+      "final_fields": {
+        "value": 12.0,
+        "unit": "m/s",
+        "citations": [
+          "https://fixture.test/measurement"
+        ],
+        "limitation": true
+      },
+      "final_oracle_errors": [],
+      "verification": {
+        "status": "uncertain",
+        "rounds": 1
+      },
+      "notice": "Independent checking was inconclusive. Some parts of this answer remain unverified.",
+      "total_checks_started": 1,
+      "checks": [
+        {
+          "ordinal": 1,
+          "episode": 1,
+          "candidate": "Average speed is **12 m/s**. [Measurement](https://fixture.test/measurement). Instantaneous speed is not established.",
+          "candidate_input": {
+            "problem": "Compute the average speed from the supplied measurement: distance 60 m, elapsed time 5 s. Cite [Measurement](https://fixture.test/measurement) and state the limit of this inference: Instantaneous speed is not established.",
+            "candidate": "Average speed is **12 m/s**. [Measurement](https://fixture.test/measurement). Instantaneous speed is not established.",
+            "sources": "No source excerpts were loaded. Read the referenced workspace files when needed; do not infer unseen content."
+          },
+          "oracle_errors": [],
+          "injected_verdict": "uncertain",
+          "completed_record": true,
+          "record": {
+            "check_id": "1:check:1",
+            "candidate_sha256": "edc45b1e9ace22b3ddaa142f1ce49f322bc86ab367f776f664164deb83a61c38",
+            "round": 1,
+            "result_generation": 0,
+            "total_checks": 1,
+            "verdict": "uncertain"
+          },
+          "digest_matches_input": true
+        }
+      ],
+      "missed_errors": 0,
+      "false_failures": 0,
+      "worker_calls": 1,
+      "checker_calls": 1,
+      "final_writer_calls": 1,
+      "request_sequence": [
+        "worker",
+        "check",
+        "final"
+      ],
+      "final_writer_tools_offered": false,
+      "unchecked_final_writer_calls": 1,
+      "final_equals_last_checked_candidate": true,
+      "final_mode": "streaming",
+      "final_delta_count": 6,
+      "final_deltas_match_canonical": true,
+      "model_calls": 3,
+      "model_attempts": 3,
+      "model_limit": 12,
+      "usage_complete": true,
+      "steers_applied": 0,
+      "canonical_reload_matches": true,
+      "private_text_leaked": false,
+      "unused_script_steps": 0
+    },
+    {
+      "fixture": "checker_inconclusive",
+      "family": "checker",
+      "mode": "strict",
+      "injection": {
+        "writer_change": "clean",
+        "drafts": [
+          "Average speed is **12 m/s**. [Measurement](https://fixture.test/measurement). Instantaneous speed is not established."
+        ],
+        "verdicts": [
+          "uncertain"
+        ],
+        "steer": null
+      },
+      "status": "complete",
+      "final_text": "Average speed is **12 m/s**. [Measurement](https://fixture.test/measurement). Instantaneous speed is not established.",
+      "final_fields": {
+        "value": 12.0,
+        "unit": "m/s",
+        "citations": [
+          "https://fixture.test/measurement"
+        ],
+        "limitation": true
+      },
+      "final_oracle_errors": [],
+      "verification": {
+        "status": "uncertain",
+        "rounds": 1
+      },
+      "notice": "Independent checking was inconclusive. Some parts of this answer remain unverified.",
+      "total_checks_started": 1,
+      "checks": [
+        {
+          "ordinal": 1,
+          "episode": 1,
+          "candidate": "Average speed is **12 m/s**. [Measurement](https://fixture.test/measurement). Instantaneous speed is not established.",
+          "candidate_input": {
+            "problem": "Compute the average speed from the supplied measurement: distance 60 m, elapsed time 5 s. Cite [Measurement](https://fixture.test/measurement) and state the limit of this inference: Instantaneous speed is not established.",
+            "candidate": "Average speed is **12 m/s**. [Measurement](https://fixture.test/measurement). Instantaneous speed is not established.",
+            "sources": "No source excerpts were loaded. Read the referenced workspace files when needed; do not infer unseen content."
+          },
+          "oracle_errors": [],
+          "injected_verdict": "uncertain",
+          "completed_record": true,
+          "record": {
+            "check_id": "1:check:1",
+            "candidate_sha256": "edc45b1e9ace22b3ddaa142f1ce49f322bc86ab367f776f664164deb83a61c38",
+            "round": 1,
+            "result_generation": 0,
+            "total_checks": 1,
+            "verdict": "uncertain"
+          },
+          "digest_matches_input": true
+        }
+      ],
+      "missed_errors": 0,
+      "false_failures": 0,
+      "worker_calls": 1,
+      "checker_calls": 1,
+      "final_writer_calls": 0,
+      "request_sequence": [
+        "worker",
+        "check"
+      ],
+      "final_writer_tools_offered": false,
+      "unchecked_final_writer_calls": 0,
+      "final_equals_last_checked_candidate": true,
+      "final_mode": "buffered",
+      "final_delta_count": 1,
+      "final_deltas_match_canonical": true,
+      "model_calls": 2,
+      "model_attempts": 2,
+      "model_limit": 12,
+      "usage_complete": true,
+      "steers_applied": 0,
+      "canonical_reload_matches": true,
+      "private_text_leaked": false,
+      "unused_script_steps": 0
+    },
+    {
+      "fixture": "correction_succeeds",
+      "family": "correction",
+      "mode": "normal",
+      "injection": {
+        "writer_change": "clean",
+        "drafts": [
+          "Average speed is **15 m/s**. [Measurement](https://fixture.test/measurement). Instantaneous speed is not established.",
+          "Average speed is **12 m/s**. [Measurement](https://fixture.test/measurement). Instantaneous speed is not established."
+        ],
+        "verdicts": [
+          "incorrect",
+          "correct"
+        ],
+        "steer": null
+      },
+      "status": "complete",
+      "final_text": "Average speed is **12 m/s**. [Measurement](https://fixture.test/measurement). Instantaneous speed is not established.",
+      "final_fields": {
+        "value": 12.0,
+        "unit": "m/s",
+        "citations": [
+          "https://fixture.test/measurement"
+        ],
+        "limitation": true
+      },
+      "final_oracle_errors": [],
+      "verification": {
+        "status": "correct",
+        "rounds": 2
+      },
+      "notice": null,
+      "total_checks_started": 2,
+      "checks": [
+        {
+          "ordinal": 1,
+          "episode": 1,
+          "candidate": "Average speed is **15 m/s**. [Measurement](https://fixture.test/measurement). Instantaneous speed is not established.",
+          "candidate_input": {
+            "problem": "Compute the average speed from the supplied measurement: distance 60 m, elapsed time 5 s. Cite [Measurement](https://fixture.test/measurement) and state the limit of this inference: Instantaneous speed is not established.",
+            "candidate": "Average speed is **15 m/s**. [Measurement](https://fixture.test/measurement). Instantaneous speed is not established.",
+            "sources": "No source excerpts were loaded. Read the referenced workspace files when needed; do not infer unseen content."
+          },
+          "oracle_errors": [
+            "value"
+          ],
+          "injected_verdict": "incorrect",
+          "completed_record": true,
+          "record": {
+            "check_id": "1:check:1",
+            "candidate_sha256": "0018a9e0d1707ca9f01d3307d354b1349fb04de95c139b7c435ef13c1452cfd2",
+            "round": 1,
+            "result_generation": 0,
+            "total_checks": 1,
+            "verdict": "incorrect"
+          },
+          "digest_matches_input": true
+        },
+        {
+          "ordinal": 2,
+          "episode": 1,
+          "candidate": "Average speed is **12 m/s**. [Measurement](https://fixture.test/measurement). Instantaneous speed is not established.",
+          "candidate_input": {
+            "problem": "Compute the average speed from the supplied measurement: distance 60 m, elapsed time 5 s. Cite [Measurement](https://fixture.test/measurement) and state the limit of this inference: Instantaneous speed is not established.",
+            "candidate": "Average speed is **12 m/s**. [Measurement](https://fixture.test/measurement). Instantaneous speed is not established.",
+            "sources": "No source excerpts were loaded. Read the referenced workspace files when needed; do not infer unseen content."
+          },
+          "oracle_errors": [],
+          "injected_verdict": "correct",
+          "completed_record": true,
+          "record": {
+            "check_id": "1:check:2",
+            "candidate_sha256": "edc45b1e9ace22b3ddaa142f1ce49f322bc86ab367f776f664164deb83a61c38",
+            "round": 2,
+            "result_generation": 1,
+            "total_checks": 2,
+            "verdict": "correct"
+          },
+          "digest_matches_input": true
+        }
+      ],
+      "missed_errors": 0,
+      "false_failures": 0,
+      "worker_calls": 2,
+      "checker_calls": 2,
+      "final_writer_calls": 1,
+      "request_sequence": [
+        "worker",
+        "check",
+        "worker",
+        "check",
+        "final"
+      ],
+      "final_writer_tools_offered": false,
+      "unchecked_final_writer_calls": 1,
+      "final_equals_last_checked_candidate": true,
+      "final_mode": "streaming",
+      "final_delta_count": 6,
+      "final_deltas_match_canonical": true,
+      "model_calls": 5,
+      "model_attempts": 5,
+      "model_limit": 12,
+      "usage_complete": true,
+      "steers_applied": 0,
+      "canonical_reload_matches": true,
+      "private_text_leaked": false,
+      "unused_script_steps": 0
+    },
+    {
+      "fixture": "correction_succeeds",
+      "family": "correction",
+      "mode": "strict",
+      "injection": {
+        "writer_change": "clean",
+        "drafts": [
+          "Average speed is **15 m/s**. [Measurement](https://fixture.test/measurement). Instantaneous speed is not established.",
+          "Average speed is **12 m/s**. [Measurement](https://fixture.test/measurement). Instantaneous speed is not established."
+        ],
+        "verdicts": [
+          "incorrect",
+          "correct"
+        ],
+        "steer": null
+      },
+      "status": "complete",
+      "final_text": "Average speed is **12 m/s**. [Measurement](https://fixture.test/measurement). Instantaneous speed is not established.",
+      "final_fields": {
+        "value": 12.0,
+        "unit": "m/s",
+        "citations": [
+          "https://fixture.test/measurement"
+        ],
+        "limitation": true
+      },
+      "final_oracle_errors": [],
+      "verification": {
+        "status": "correct",
+        "rounds": 2
+      },
+      "notice": null,
+      "total_checks_started": 2,
+      "checks": [
+        {
+          "ordinal": 1,
+          "episode": 1,
+          "candidate": "Average speed is **15 m/s**. [Measurement](https://fixture.test/measurement). Instantaneous speed is not established.",
+          "candidate_input": {
+            "problem": "Compute the average speed from the supplied measurement: distance 60 m, elapsed time 5 s. Cite [Measurement](https://fixture.test/measurement) and state the limit of this inference: Instantaneous speed is not established.",
+            "candidate": "Average speed is **15 m/s**. [Measurement](https://fixture.test/measurement). Instantaneous speed is not established.",
+            "sources": "No source excerpts were loaded. Read the referenced workspace files when needed; do not infer unseen content."
+          },
+          "oracle_errors": [
+            "value"
+          ],
+          "injected_verdict": "incorrect",
+          "completed_record": true,
+          "record": {
+            "check_id": "1:check:1",
+            "candidate_sha256": "0018a9e0d1707ca9f01d3307d354b1349fb04de95c139b7c435ef13c1452cfd2",
+            "round": 1,
+            "result_generation": 0,
+            "total_checks": 1,
+            "verdict": "incorrect"
+          },
+          "digest_matches_input": true
+        },
+        {
+          "ordinal": 2,
+          "episode": 1,
+          "candidate": "Average speed is **12 m/s**. [Measurement](https://fixture.test/measurement). Instantaneous speed is not established.",
+          "candidate_input": {
+            "problem": "Compute the average speed from the supplied measurement: distance 60 m, elapsed time 5 s. Cite [Measurement](https://fixture.test/measurement) and state the limit of this inference: Instantaneous speed is not established.",
+            "candidate": "Average speed is **12 m/s**. [Measurement](https://fixture.test/measurement). Instantaneous speed is not established.",
+            "sources": "No source excerpts were loaded. Read the referenced workspace files when needed; do not infer unseen content."
+          },
+          "oracle_errors": [],
+          "injected_verdict": "correct",
+          "completed_record": true,
+          "record": {
+            "check_id": "1:check:2",
+            "candidate_sha256": "edc45b1e9ace22b3ddaa142f1ce49f322bc86ab367f776f664164deb83a61c38",
+            "round": 2,
+            "result_generation": 1,
+            "total_checks": 2,
+            "verdict": "correct"
+          },
+          "digest_matches_input": true
+        }
+      ],
+      "missed_errors": 0,
+      "false_failures": 0,
+      "worker_calls": 2,
+      "checker_calls": 2,
+      "final_writer_calls": 0,
+      "request_sequence": [
+        "worker",
+        "check",
+        "worker",
+        "check"
+      ],
+      "final_writer_tools_offered": false,
+      "unchecked_final_writer_calls": 0,
+      "final_equals_last_checked_candidate": true,
+      "final_mode": "buffered",
+      "final_delta_count": 1,
+      "final_deltas_match_canonical": true,
+      "model_calls": 4,
+      "model_attempts": 4,
+      "model_limit": 12,
+      "usage_complete": true,
+      "steers_applied": 0,
+      "canonical_reload_matches": true,
+      "private_text_leaked": false,
+      "unused_script_steps": 0
+    },
+    {
+      "fixture": "correction_limit",
+      "family": "correction",
+      "mode": "normal",
+      "injection": {
+        "writer_change": "clean",
+        "drafts": [
+          "Average speed is **15 m/s**. [Measurement](https://fixture.test/measurement). Instantaneous speed is not established.",
+          "Average speed is **14 m/s**. [Measurement](https://fixture.test/measurement). Instantaneous speed is not established."
+        ],
+        "verdicts": [
+          "incorrect",
+          "incorrect"
+        ],
+        "steer": null
+      },
+      "status": "complete",
+      "final_text": "Average speed is **14 m/s**. [Measurement](https://fixture.test/measurement). Instantaneous speed is not established.",
+      "final_fields": {
+        "value": 14.0,
+        "unit": "m/s",
+        "citations": [
+          "https://fixture.test/measurement"
+        ],
+        "limitation": true
+      },
+      "final_oracle_errors": [
+        "value"
+      ],
+      "verification": {
+        "status": "limit_reached",
+        "rounds": 2
+      },
+      "notice": "The check limit was reached with an unresolved issue. Treat this answer as provisional.",
+      "total_checks_started": 2,
+      "checks": [
+        {
+          "ordinal": 1,
+          "episode": 1,
+          "candidate": "Average speed is **15 m/s**. [Measurement](https://fixture.test/measurement). Instantaneous speed is not established.",
+          "candidate_input": {
+            "problem": "Compute the average speed from the supplied measurement: distance 60 m, elapsed time 5 s. Cite [Measurement](https://fixture.test/measurement) and state the limit of this inference: Instantaneous speed is not established.",
+            "candidate": "Average speed is **15 m/s**. [Measurement](https://fixture.test/measurement). Instantaneous speed is not established.",
+            "sources": "No source excerpts were loaded. Read the referenced workspace files when needed; do not infer unseen content."
+          },
+          "oracle_errors": [
+            "value"
+          ],
+          "injected_verdict": "incorrect",
+          "completed_record": true,
+          "record": {
+            "check_id": "1:check:1",
+            "candidate_sha256": "0018a9e0d1707ca9f01d3307d354b1349fb04de95c139b7c435ef13c1452cfd2",
+            "round": 1,
+            "result_generation": 0,
+            "total_checks": 1,
+            "verdict": "incorrect"
+          },
+          "digest_matches_input": true
+        },
+        {
+          "ordinal": 2,
+          "episode": 1,
+          "candidate": "Average speed is **14 m/s**. [Measurement](https://fixture.test/measurement). Instantaneous speed is not established.",
+          "candidate_input": {
+            "problem": "Compute the average speed from the supplied measurement: distance 60 m, elapsed time 5 s. Cite [Measurement](https://fixture.test/measurement) and state the limit of this inference: Instantaneous speed is not established.",
+            "candidate": "Average speed is **14 m/s**. [Measurement](https://fixture.test/measurement). Instantaneous speed is not established.",
+            "sources": "No source excerpts were loaded. Read the referenced workspace files when needed; do not infer unseen content."
+          },
+          "oracle_errors": [
+            "value"
+          ],
+          "injected_verdict": "incorrect",
+          "completed_record": true,
+          "record": {
+            "check_id": "1:check:2",
+            "candidate_sha256": "63278b3eb58442721a2e1301b4e4b1dbf362bdd304761e2ccda7eb08ca99664b",
+            "round": 2,
+            "result_generation": 1,
+            "total_checks": 2,
+            "verdict": "incorrect"
+          },
+          "digest_matches_input": true
+        }
+      ],
+      "missed_errors": 0,
+      "false_failures": 0,
+      "worker_calls": 2,
+      "checker_calls": 2,
+      "final_writer_calls": 1,
+      "request_sequence": [
+        "worker",
+        "check",
+        "worker",
+        "check",
+        "final"
+      ],
+      "final_writer_tools_offered": false,
+      "unchecked_final_writer_calls": 1,
+      "final_equals_last_checked_candidate": true,
+      "final_mode": "streaming",
+      "final_delta_count": 6,
+      "final_deltas_match_canonical": true,
+      "model_calls": 5,
+      "model_attempts": 5,
+      "model_limit": 12,
+      "usage_complete": true,
+      "steers_applied": 0,
+      "canonical_reload_matches": true,
+      "private_text_leaked": false,
+      "unused_script_steps": 0
+    },
+    {
+      "fixture": "correction_limit",
+      "family": "correction",
+      "mode": "strict",
+      "injection": {
+        "writer_change": "clean",
+        "drafts": [
+          "Average speed is **15 m/s**. [Measurement](https://fixture.test/measurement). Instantaneous speed is not established.",
+          "Average speed is **14 m/s**. [Measurement](https://fixture.test/measurement). Instantaneous speed is not established."
+        ],
+        "verdicts": [
+          "incorrect",
+          "incorrect"
+        ],
+        "steer": null
+      },
+      "status": "complete",
+      "final_text": "Average speed is **14 m/s**. [Measurement](https://fixture.test/measurement). Instantaneous speed is not established.",
+      "final_fields": {
+        "value": 14.0,
+        "unit": "m/s",
+        "citations": [
+          "https://fixture.test/measurement"
+        ],
+        "limitation": true
+      },
+      "final_oracle_errors": [
+        "value"
+      ],
+      "verification": {
+        "status": "limit_reached",
+        "rounds": 2
+      },
+      "notice": "The check limit was reached with an unresolved issue. Treat this answer as provisional.",
+      "total_checks_started": 2,
+      "checks": [
+        {
+          "ordinal": 1,
+          "episode": 1,
+          "candidate": "Average speed is **15 m/s**. [Measurement](https://fixture.test/measurement). Instantaneous speed is not established.",
+          "candidate_input": {
+            "problem": "Compute the average speed from the supplied measurement: distance 60 m, elapsed time 5 s. Cite [Measurement](https://fixture.test/measurement) and state the limit of this inference: Instantaneous speed is not established.",
+            "candidate": "Average speed is **15 m/s**. [Measurement](https://fixture.test/measurement). Instantaneous speed is not established.",
+            "sources": "No source excerpts were loaded. Read the referenced workspace files when needed; do not infer unseen content."
+          },
+          "oracle_errors": [
+            "value"
+          ],
+          "injected_verdict": "incorrect",
+          "completed_record": true,
+          "record": {
+            "check_id": "1:check:1",
+            "candidate_sha256": "0018a9e0d1707ca9f01d3307d354b1349fb04de95c139b7c435ef13c1452cfd2",
+            "round": 1,
+            "result_generation": 0,
+            "total_checks": 1,
+            "verdict": "incorrect"
+          },
+          "digest_matches_input": true
+        },
+        {
+          "ordinal": 2,
+          "episode": 1,
+          "candidate": "Average speed is **14 m/s**. [Measurement](https://fixture.test/measurement). Instantaneous speed is not established.",
+          "candidate_input": {
+            "problem": "Compute the average speed from the supplied measurement: distance 60 m, elapsed time 5 s. Cite [Measurement](https://fixture.test/measurement) and state the limit of this inference: Instantaneous speed is not established.",
+            "candidate": "Average speed is **14 m/s**. [Measurement](https://fixture.test/measurement). Instantaneous speed is not established.",
+            "sources": "No source excerpts were loaded. Read the referenced workspace files when needed; do not infer unseen content."
+          },
+          "oracle_errors": [
+            "value"
+          ],
+          "injected_verdict": "incorrect",
+          "completed_record": true,
+          "record": {
+            "check_id": "1:check:2",
+            "candidate_sha256": "63278b3eb58442721a2e1301b4e4b1dbf362bdd304761e2ccda7eb08ca99664b",
+            "round": 2,
+            "result_generation": 1,
+            "total_checks": 2,
+            "verdict": "incorrect"
+          },
+          "digest_matches_input": true
+        }
+      ],
+      "missed_errors": 0,
+      "false_failures": 0,
+      "worker_calls": 2,
+      "checker_calls": 2,
+      "final_writer_calls": 0,
+      "request_sequence": [
+        "worker",
+        "check",
+        "worker",
+        "check"
+      ],
+      "final_writer_tools_offered": false,
+      "unchecked_final_writer_calls": 0,
+      "final_equals_last_checked_candidate": true,
+      "final_mode": "buffered",
+      "final_delta_count": 1,
+      "final_deltas_match_canonical": true,
+      "model_calls": 4,
+      "model_attempts": 4,
+      "model_limit": 12,
+      "usage_complete": true,
+      "steers_applied": 0,
+      "canonical_reload_matches": true,
+      "private_text_leaked": false,
+      "unused_script_steps": 0
+    },
+    {
+      "fixture": "steer_new_episode",
+      "family": "steering",
+      "mode": "normal",
+      "injection": {
+        "writer_change": "clean",
+        "drafts": [
+          "Average speed is **12 m/s**. [Measurement](https://fixture.test/measurement). Instantaneous speed is not established.",
+          "Average speed is **20 m/s**. [Measurement](https://fixture.test/measurement). Instantaneous speed is not established."
+        ],
+        "verdicts": [
+          "correct",
+          "correct"
+        ],
+        "steer": "Correct the elapsed time to 3 s while retaining distance 60 m, the source, and the limitation."
+      },
+      "status": "complete",
+      "final_text": "Average speed is **20 m/s**. [Measurement](https://fixture.test/measurement). Instantaneous speed is not established.",
+      "final_fields": {
+        "value": 20.0,
+        "unit": "m/s",
+        "citations": [
+          "https://fixture.test/measurement"
+        ],
+        "limitation": true
+      },
+      "final_oracle_errors": [],
+      "verification": {
+        "status": "correct",
+        "rounds": 1
+      },
+      "notice": null,
+      "total_checks_started": 2,
+      "checks": [
+        {
+          "ordinal": 1,
+          "episode": 1,
+          "candidate": "Average speed is **12 m/s**. [Measurement](https://fixture.test/measurement). Instantaneous speed is not established.",
+          "candidate_input": {
+            "problem": "Compute the average speed from the supplied measurement: distance 60 m, elapsed time 5 s. Cite [Measurement](https://fixture.test/measurement) and state the limit of this inference: Instantaneous speed is not established.",
+            "candidate": "Average speed is **12 m/s**. [Measurement](https://fixture.test/measurement). Instantaneous speed is not established.",
+            "sources": "No source excerpts were loaded. Read the referenced workspace files when needed; do not infer unseen content."
+          },
+          "oracle_errors": [],
+          "injected_verdict": "correct",
+          "completed_record": false,
+          "record": null,
+          "digest_matches_input": null
+        },
+        {
+          "ordinal": 2,
+          "episode": 2,
+          "candidate": "Average speed is **20 m/s**. [Measurement](https://fixture.test/measurement). Instantaneous speed is not established.",
+          "candidate_input": {
+            "problem": "Compute the average speed from the supplied measurement: distance 60 m, elapsed time 5 s. Cite [Measurement](https://fixture.test/measurement) and state the limit of this inference: Instantaneous speed is not established.\n\n[User update] Correct the elapsed time to 3 s while retaining distance 60 m, the source, and the limitation.",
+            "candidate": "Average speed is **20 m/s**. [Measurement](https://fixture.test/measurement). Instantaneous speed is not established.",
+            "sources": "No source excerpts were loaded. Read the referenced workspace files when needed; do not infer unseen content."
+          },
+          "oracle_errors": [],
+          "injected_verdict": "correct",
+          "completed_record": true,
+          "record": {
+            "check_id": "1:check:2",
+            "candidate_sha256": "ac6fe562f2ba5fcc079e719fa6da5da230b0cfb10ab428828763ba13aa8518e8",
+            "round": 1,
+            "result_generation": 1,
+            "total_checks": 2,
+            "verdict": "correct"
+          },
+          "digest_matches_input": true
+        }
+      ],
+      "missed_errors": 0,
+      "false_failures": 0,
+      "worker_calls": 2,
+      "checker_calls": 2,
+      "final_writer_calls": 1,
+      "request_sequence": [
+        "worker",
+        "check",
+        "worker",
+        "check",
+        "final"
+      ],
+      "final_writer_tools_offered": false,
+      "unchecked_final_writer_calls": 1,
+      "final_equals_last_checked_candidate": true,
+      "final_mode": "streaming",
+      "final_delta_count": 6,
+      "final_deltas_match_canonical": true,
+      "model_calls": 5,
+      "model_attempts": 5,
+      "model_limit": 5,
+      "usage_complete": true,
+      "steers_applied": 1,
+      "canonical_reload_matches": true,
+      "private_text_leaked": false,
+      "unused_script_steps": 0
+    },
+    {
+      "fixture": "steer_new_episode",
+      "family": "steering",
+      "mode": "strict",
+      "injection": {
+        "writer_change": "clean",
+        "drafts": [
+          "Average speed is **12 m/s**. [Measurement](https://fixture.test/measurement). Instantaneous speed is not established.",
+          "Average speed is **20 m/s**. [Measurement](https://fixture.test/measurement). Instantaneous speed is not established."
+        ],
+        "verdicts": [
+          "correct",
+          "correct"
+        ],
+        "steer": "Correct the elapsed time to 3 s while retaining distance 60 m, the source, and the limitation."
+      },
+      "status": "complete",
+      "final_text": "Average speed is **20 m/s**. [Measurement](https://fixture.test/measurement). Instantaneous speed is not established.",
+      "final_fields": {
+        "value": 20.0,
+        "unit": "m/s",
+        "citations": [
+          "https://fixture.test/measurement"
+        ],
+        "limitation": true
+      },
+      "final_oracle_errors": [],
+      "verification": {
+        "status": "correct",
+        "rounds": 1
+      },
+      "notice": null,
+      "total_checks_started": 2,
+      "checks": [
+        {
+          "ordinal": 1,
+          "episode": 1,
+          "candidate": "Average speed is **12 m/s**. [Measurement](https://fixture.test/measurement). Instantaneous speed is not established.",
+          "candidate_input": {
+            "problem": "Compute the average speed from the supplied measurement: distance 60 m, elapsed time 5 s. Cite [Measurement](https://fixture.test/measurement) and state the limit of this inference: Instantaneous speed is not established.",
+            "candidate": "Average speed is **12 m/s**. [Measurement](https://fixture.test/measurement). Instantaneous speed is not established.",
+            "sources": "No source excerpts were loaded. Read the referenced workspace files when needed; do not infer unseen content."
+          },
+          "oracle_errors": [],
+          "injected_verdict": "correct",
+          "completed_record": false,
+          "record": null,
+          "digest_matches_input": null
+        },
+        {
+          "ordinal": 2,
+          "episode": 2,
+          "candidate": "Average speed is **20 m/s**. [Measurement](https://fixture.test/measurement). Instantaneous speed is not established.",
+          "candidate_input": {
+            "problem": "Compute the average speed from the supplied measurement: distance 60 m, elapsed time 5 s. Cite [Measurement](https://fixture.test/measurement) and state the limit of this inference: Instantaneous speed is not established.\n\n[User update] Correct the elapsed time to 3 s while retaining distance 60 m, the source, and the limitation.",
+            "candidate": "Average speed is **20 m/s**. [Measurement](https://fixture.test/measurement). Instantaneous speed is not established.",
+            "sources": "No source excerpts were loaded. Read the referenced workspace files when needed; do not infer unseen content."
+          },
+          "oracle_errors": [],
+          "injected_verdict": "correct",
+          "completed_record": true,
+          "record": {
+            "check_id": "1:check:2",
+            "candidate_sha256": "ac6fe562f2ba5fcc079e719fa6da5da230b0cfb10ab428828763ba13aa8518e8",
+            "round": 1,
+            "result_generation": 1,
+            "total_checks": 2,
+            "verdict": "correct"
+          },
+          "digest_matches_input": true
+        }
+      ],
+      "missed_errors": 0,
+      "false_failures": 0,
+      "worker_calls": 2,
+      "checker_calls": 2,
+      "final_writer_calls": 0,
+      "request_sequence": [
+        "worker",
+        "check",
+        "worker",
+        "check"
+      ],
+      "final_writer_tools_offered": false,
+      "unchecked_final_writer_calls": 0,
+      "final_equals_last_checked_candidate": true,
+      "final_mode": "buffered",
+      "final_delta_count": 1,
+      "final_deltas_match_canonical": true,
+      "model_calls": 4,
+      "model_attempts": 4,
+      "model_limit": 5,
+      "usage_complete": true,
+      "steers_applied": 1,
+      "canonical_reload_matches": true,
+      "private_text_leaked": false,
+      "unused_script_steps": 0
+    },
+    {
+      "fixture": "steer_shared_cap",
+      "family": "steering",
+      "mode": "normal",
+      "injection": {
+        "writer_change": "clean",
+        "drafts": [
+          "Average speed is **12 m/s**. [Measurement](https://fixture.test/measurement). Instantaneous speed is not established.",
+          "Average speed is **20 m/s**. [Measurement](https://fixture.test/measurement). Instantaneous speed is not established."
+        ],
+        "verdicts": [
+          "correct",
+          "correct"
+        ],
+        "steer": "Correct the elapsed time to 3 s while retaining distance 60 m, the source, and the limitation."
+      },
+      "status": "error",
+      "final_text": "",
+      "final_fields": {
+        "value": null,
+        "unit": null,
+        "citations": [],
+        "limitation": false
+      },
+      "final_oracle_errors": [
+        "value",
+        "unit",
+        "citations",
+        "limitation"
+      ],
+      "verification": {
+        "status": "limit_reached",
+        "rounds": 1
+      },
+      "notice": "The run's model attempt limit was reached. Completed work and available partial results were saved.",
+      "total_checks_started": 2,
+      "checks": [
+        {
+          "ordinal": 1,
+          "episode": 1,
+          "candidate": "Average speed is **12 m/s**. [Measurement](https://fixture.test/measurement). Instantaneous speed is not established.",
+          "candidate_input": {
+            "problem": "Compute the average speed from the supplied measurement: distance 60 m, elapsed time 5 s. Cite [Measurement](https://fixture.test/measurement) and state the limit of this inference: Instantaneous speed is not established.",
+            "candidate": "Average speed is **12 m/s**. [Measurement](https://fixture.test/measurement). Instantaneous speed is not established.",
+            "sources": "No source excerpts were loaded. Read the referenced workspace files when needed; do not infer unseen content."
+          },
+          "oracle_errors": [],
+          "injected_verdict": "correct",
+          "completed_record": false,
+          "record": null,
+          "digest_matches_input": null
+        }
+      ],
+      "missed_errors": 0,
+      "false_failures": 0,
+      "worker_calls": 2,
+      "checker_calls": 1,
+      "final_writer_calls": 0,
+      "request_sequence": [
+        "worker",
+        "check",
+        "worker"
+      ],
+      "final_writer_tools_offered": false,
+      "unchecked_final_writer_calls": 0,
+      "final_equals_last_checked_candidate": null,
+      "final_mode": "buffered",
+      "final_delta_count": 0,
+      "final_deltas_match_canonical": true,
+      "model_calls": 3,
+      "model_attempts": 3,
+      "model_limit": 3,
+      "usage_complete": true,
+      "steers_applied": 1,
+      "canonical_reload_matches": true,
+      "private_text_leaked": false,
+      "unused_script_steps": 1
+    },
+    {
+      "fixture": "steer_shared_cap",
+      "family": "steering",
+      "mode": "strict",
+      "injection": {
+        "writer_change": "clean",
+        "drafts": [
+          "Average speed is **12 m/s**. [Measurement](https://fixture.test/measurement). Instantaneous speed is not established.",
+          "Average speed is **20 m/s**. [Measurement](https://fixture.test/measurement). Instantaneous speed is not established."
+        ],
+        "verdicts": [
+          "correct",
+          "correct"
+        ],
+        "steer": "Correct the elapsed time to 3 s while retaining distance 60 m, the source, and the limitation."
+      },
+      "status": "error",
+      "final_text": "",
+      "final_fields": {
+        "value": null,
+        "unit": null,
+        "citations": [],
+        "limitation": false
+      },
+      "final_oracle_errors": [
+        "value",
+        "unit",
+        "citations",
+        "limitation"
+      ],
+      "verification": {
+        "status": "limit_reached",
+        "rounds": 1
+      },
+      "notice": "The run's model attempt limit was reached. Completed work and available partial results were saved.",
+      "total_checks_started": 2,
+      "checks": [
+        {
+          "ordinal": 1,
+          "episode": 1,
+          "candidate": "Average speed is **12 m/s**. [Measurement](https://fixture.test/measurement). Instantaneous speed is not established.",
+          "candidate_input": {
+            "problem": "Compute the average speed from the supplied measurement: distance 60 m, elapsed time 5 s. Cite [Measurement](https://fixture.test/measurement) and state the limit of this inference: Instantaneous speed is not established.",
+            "candidate": "Average speed is **12 m/s**. [Measurement](https://fixture.test/measurement). Instantaneous speed is not established.",
+            "sources": "No source excerpts were loaded. Read the referenced workspace files when needed; do not infer unseen content."
+          },
+          "oracle_errors": [],
+          "injected_verdict": "correct",
+          "completed_record": false,
+          "record": null,
+          "digest_matches_input": null
+        }
+      ],
+      "missed_errors": 0,
+      "false_failures": 0,
+      "worker_calls": 2,
+      "checker_calls": 1,
+      "final_writer_calls": 0,
+      "request_sequence": [
+        "worker",
+        "check",
+        "worker"
+      ],
+      "final_writer_tools_offered": false,
+      "unchecked_final_writer_calls": 0,
+      "final_equals_last_checked_candidate": null,
+      "final_mode": "buffered",
+      "final_delta_count": 0,
+      "final_deltas_match_canonical": true,
+      "model_calls": 3,
+      "model_attempts": 3,
+      "model_limit": 3,
+      "usage_complete": true,
+      "steers_applied": 1,
+      "canonical_reload_matches": true,
+      "private_text_leaked": false,
+      "unused_script_steps": 1
+    }
+  ]
+}

@@ -1,0 +1,161 @@
+/* MatOpt answer and public activity presentation. All colors use host tokens. */
+.matopt-message-column {
+  width: 100%; min-width: 0; max-width: 792px; margin-inline: auto;
+  padding: 32px 28px 24px;
+}
+.matopt-message-column > .group + .group { margin-top: 36px; }
+.matopt-user-message { align-items: flex-end; }
+.matopt-user-message .matopt-user-content {
+  max-width: min(88%, 640px); padding: 13px 18px;
+  border: 1px solid transparent; border-radius: 18px 18px 5px 18px;
+  background: var(--color-surface); font-size: var(--matopt-text-base); line-height: 1.65;
+}
+.matopt-message-files { min-width: 0; max-width: 100%; gap: 8px; padding-top: 2px; }
+.matopt-message-file { display: block; min-width: 0; max-width: min(100%, 320px); border-radius: 12px; color: var(--color-foreground); text-decoration: none; }
+.matopt-message-file .matopt-message-file-card {
+  height: auto; min-height: 58px; min-width: 0; gap: 10px; padding: 9px 12px 9px 9px;
+  border: 1px solid var(--color-border); border-radius: inherit; background: var(--color-panel);
+  cursor: pointer; transition: border-color 120ms ease, background-color 120ms ease;
+}
+.matopt-message-file:hover .matopt-message-file-card { border-color: var(--color-border-hover); background: var(--color-surface); }
+.matopt-message-file:focus-visible { outline: 2px solid var(--color-ring); outline-offset: 3px; }
+.matopt-message-file .matopt-message-file-icon { width: 34px; height: 36px; border-radius: 7px; background: var(--color-surface); }
+.matopt-message-file-icon svg { width: 19px; height: 19px; stroke-width: 1.6; color: var(--color-foreground-subtle); }
+.matopt-message-file-info { min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.matopt-message-file-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: var(--matopt-text-compact); font-weight: 500; line-height: 1.4; }
+.matopt-message-file-type { color: var(--color-foreground-subtle); font-size: var(--text-ui-xs); font-weight: 400; line-height: 1.35; }
+@media (prefers-reduced-motion: reduce) { .matopt-message-file .matopt-message-file-card { transition: none; } }
+.matopt-assistant-message .matopt-assistant-content { gap: 0; overflow: visible; }
+.matopt-answer-author { display: flex; align-items: center; gap: 9px; margin-bottom: 14px; color: var(--color-foreground); font-size: var(--matopt-text-compact); font-weight: 600; }
+.matopt-answer-mark { display: grid; place-items: center; width: 25px; height: 25px; border: 1px solid var(--color-border); border-radius: 8px; background: var(--color-panel); color: var(--color-foreground); font-size: 12px; font-weight: 650; letter-spacing: -.04em; }
+.matopt-answer-document { font-size: var(--matopt-text-base); line-height: 1.75; }
+.matopt-answer-document [data-response-streaming] p { margin-block: 0 18px; line-height: 1.75; }
+.matopt-answer-document [data-response-streaming] :is(h1,h2,h3,h4,h5,h6) { color: var(--color-foreground); font-weight: 600; letter-spacing: -.018em; line-height: 1.35; margin-block: 30px 14px; }
+.matopt-answer-document [data-response-streaming] h1 { font-size: calc(var(--ui-font-size) + 10px); }
+.matopt-answer-document [data-response-streaming] h2 { font-size: calc(var(--ui-font-size) + 6px); }
+.matopt-answer-document [data-response-streaming] :is(h3,h4) { font-size: calc(var(--ui-font-size) + 3px); }
+.matopt-answer-document [data-response-streaming] :is(h5,h6) { font-size: var(--matopt-text-base); }
+.matopt-answer-document [data-response-streaming] :is(h1,h2,h3,h4,h5,h6):first-child { margin-top: 0; }
+.matopt-answer-document [data-response-streaming] li { line-height: 1.75; }
+.matopt-answer-document [data-response-streaming] li p { margin-bottom: 8px; }
+.matopt-answer-document [data-response-streaming] blockquote { padding: 4px 0 4px 18px; border-left: 2px solid var(--color-border-hover); color: var(--color-foreground-subtle); }
+.matopt-answer-document [data-response-streaming] .katex-display { padding-block: 8px; margin-block: 20px 26px; }
+.matopt-answer-document [data-response-streaming] :is(p,li,td) > code { padding: 2px 5px; border-radius: 5px; background: var(--color-surface); font-size: .88em; }
+.matopt-answer-document [data-streamdown="table"] { font-size: var(--matopt-text-base); font-variant-numeric: tabular-nums; }
+.matopt-answer-document [data-streamdown="table"] th { background: var(--color-surface); color: var(--color-foreground-subtle); font-size: var(--matopt-text-compact); font-weight: 600; padding-block: 12px; }
+.matopt-answer-document [data-streamdown="table"] td { padding-block: 12px; }
+.matopt-answer-document [data-markdown-table-toolbar] { min-height: 34px; padding: 3px 6px; border: 1px solid var(--color-border); border-bottom: 0; border-radius: 12px 12px 0 0; margin-bottom: -8px; background: var(--color-surface); }
+.matopt-answer-document [data-markdown-table-toolbar] svg { width: 15px; height: 15px; }
+.matopt-answer-document [data-markdown-table-toolbar] button { color: var(--color-foreground-subtle); border-radius: 6px; }
+.matopt-answer-document [data-markdown-table-frame] > div:first-child > .rounded-xl { border-top-left-radius: 0; border-top-right-radius: 0; }
+.matopt-answer-document .group[data-language] { border-radius: 12px; border: 1px solid var(--color-border); background: var(--color-panel); margin-block: 20px; }
+.matopt-answer-document .group[data-language] > div:first-child { min-height: 40px; padding: 6px 10px 6px 14px; background: var(--color-surface); border-bottom: 1px solid var(--color-border); }
+.matopt-answer-document .group[data-language] > div:first-child .font-mono { font-family: var(--font-sans); font-size: var(--matopt-text-compact); font-weight: 500; }
+.matopt-answer-document .group[data-language] > div:first-child img { filter: grayscale(1); opacity: .75; }
+.matopt-answer-document .group[data-language] > div:last-child { padding: 12px 10px; }
+/* CodeViewer passes its setting inline into the shadow host. Override only the
+   published-answer font token so code scales with the saved text preference. */
+.matopt-answer-document [data-language] [style*="--diffs-font-size"] { --diffs-font-size: var(--matopt-text-compact) !important; --diffs-line-height: max(20px, calc(var(--matopt-text-compact) * 1.55)); }
+.matopt-answer-actions { margin-top: 12px; color: var(--color-foreground-subtle); }
+.matopt-answer-actions button { color: inherit; }
+.partial-result { min-width: 0; margin: 18px 0 26px; }
+.partial-result-status { display: flex; align-items: center; gap: 7px; color: var(--color-foreground-subtle); font-size: var(--matopt-text-compact); line-height: 1.5; margin-bottom: 12px; }
+.partial-result-dot { width: 5px; height: 5px; border-radius: 50%; background: currentColor; flex-shrink: 0; }
+.partial-result[data-result-status="provisional"] .partial-result-status { color: var(--mo-accent, var(--color-ring)); }
+.partial-result-source { overflow: auto; padding: 16px; border: 1px solid var(--color-border); border-radius: 12px; font-family: var(--font-mono); font-size: var(--matopt-text-compact); line-height: 1.65; white-space: pre; background: var(--color-surface); }
+.partial-result-evidence { display: flex; flex-wrap: wrap; gap: 6px 12px; color: var(--color-foreground-subtle); font-size: var(--matopt-text-compact); margin-top: 12px; }
+.partial-result-evidence :is(a,button) { text-decoration: underline; text-decoration-color: var(--color-border-hover); text-underline-offset: 3px; }
+.earlier-results { margin: 20px 0 4px; color: var(--color-foreground-subtle); font-size: var(--matopt-text-compact); }
+.earlier-results > button { gap: 7px; font-size: inherit; }
+
+/* Public activity migrated from matopt.css; shell/run controls remain there. */
+.matopt-live-work { margin: 0 0 18px; min-width: 0; }
+.matopt-live-work[data-work-status="running"], .matopt-live-work[data-work-status="paused"] { padding: 12px 15px; border: 1px solid var(--color-border); border-radius: 12px; background: var(--color-surface); }
+.matopt-work-icon, .matopt-work-chevron { width: 14px; height: 14px; flex-shrink: 0; }
+.matopt-work-spinning { animation: matopt-work-spin 1.2s linear infinite; }
+@keyframes matopt-work-spin { to { transform: rotate(360deg); } }
+.matopt-work-trigger[data-slot="button"] { display: flex; align-items: center; max-width: 100%; min-height: 28px; gap: 7px; padding: 2px 0; color: var(--color-foreground-subtle); font-size: var(--matopt-text-compact); font-weight: 400; text-align: left; white-space: normal; border-radius: 6px; background: transparent; }
+.matopt-work-trigger[data-slot="button"] > span:first-of-type { min-width: 0; }
+.matopt-work-trigger[data-slot="button"]:hover { color: var(--color-foreground); background: transparent; }
+.matopt-live-work[data-work-status="running"] .matopt-work-trigger { color: var(--mo-accent, var(--color-ring)); }
+.matopt-live-work[data-work-status="paused"] .matopt-work-trigger { color: var(--color-foreground); }
+.matopt-live-work[data-work-status="error"] .matopt-work-trigger { color: var(--mo-danger, var(--color-foreground)); }
+.matopt-work-chevron { transition: transform 150ms ease; opacity: .65; }
+.matopt-work-trigger[aria-expanded="true"] .matopt-work-chevron, .matopt-activity-item[open] > summary .matopt-work-chevron { transform: rotate(180deg); }
+.matopt-work-elapsed, .matopt-work-state, .matopt-work-retry { color: var(--color-foreground-subtle); font-size: max(12px, var(--text-ui-xs)); font-variant-numeric: tabular-nums; }
+.matopt-work-elapsed { margin-left: 3px; }
+.matopt-work-retry { margin-left: 6px; white-space: nowrap; }
+.matopt-work-now { padding-top: 7px; }
+.matopt-work-commentary { color: var(--color-foreground); font-size: var(--matopt-text-compact); line-height: 1.65; margin: 0 0 10px; max-width: 72ch; overflow-wrap: anywhere; }
+.matopt-active-actions { list-style: none; padding: 0; margin: 0; display: grid; gap: 7px; }
+.matopt-active-actions > li { display: flex; gap: 8px; align-items: flex-start; color: var(--color-foreground-subtle); font-size: var(--matopt-text-compact); line-height: 1.5; }
+.matopt-active-actions > li > .matopt-work-icon { margin-top: 3px; color: var(--mo-accent, var(--color-ring)); }
+.matopt-active-actions > li > div { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.matopt-active-actions .matopt-work-state { margin-left: auto; padding-top: 1px; white-space: nowrap; }
+.matopt-more-actions { border: 0; padding: 9px 0 1px 22px; background: transparent; color: var(--color-foreground-subtle); font: inherit; font-size: var(--matopt-text-compact); cursor: pointer; text-align: left; }
+.matopt-more-actions:hover { color: var(--color-foreground); text-decoration: underline; text-underline-offset: 3px; }
+.matopt-work-history { margin-top: 14px; }
+.matopt-work-history > div { margin-left: 6px; padding-left: 14px; }
+.matopt-open-activity { padding-inline: 0; color: var(--color-foreground-subtle); font-size: var(--matopt-text-compact); }
+.matopt-measured-progress { display: flex; flex-wrap: wrap; align-items: center; gap: 9px; color: var(--color-foreground-subtle); font-size: max(12px, var(--text-ui-xs)); margin-top: 4px; }
+.matopt-measured-progress progress { width: 100px; height: 4px; accent-color: var(--mo-accent, var(--color-ring)); appearance: none; border: 0; background: var(--color-border); border-radius: 2px; overflow: hidden; }
+.matopt-measured-progress progress::-webkit-progress-bar { background: var(--color-border); }
+.matopt-measured-progress progress::-webkit-progress-value { background: var(--mo-accent, var(--color-ring)); }
+.matopt-measured-progress progress::-moz-progress-bar { background: var(--mo-accent, var(--color-ring)); }
+.matopt-work-timeline { display: grid; gap: 20px; padding: 8px 0; }
+.matopt-activity-phase h4 { margin: 0 0 6px; color: var(--color-foreground); font-size: var(--matopt-text-compact); font-weight: 600; }
+.matopt-activity-items { list-style: none; margin: 0; padding: 0; }
+.matopt-activity-items .matopt-activity-items { margin-left: 7px; padding-left: 11px; border-left: 1px solid var(--color-border); }
+.matopt-activity-item > summary { list-style: none; display: grid; grid-template-columns: 14px minmax(0, 1fr) auto 13px; align-items: start; gap: 8px; padding: 10px 4px; border-radius: 7px; cursor: pointer; color: var(--color-foreground-subtle); font-size: var(--matopt-text-compact); line-height: 1.5; }
+.matopt-activity-item > summary::-webkit-details-marker { display: none; }
+.matopt-activity-item > summary > svg { margin-top: 3px; }
+.matopt-activity-item > summary:hover { background: var(--color-surface-hover); }
+.matopt-work-label { display: flex; align-items: start; gap: 6px; flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.matopt-work-label > span { min-width: 0; }
+.matopt-work-label > svg { width: 14px; height: 14px; margin-top: 3px; flex-shrink: 0; }
+[data-activity-kind="phase"] > .matopt-activity-item > summary { color: var(--color-foreground); font-weight: 550; }
+[data-activity-status="running"] > .matopt-activity-item > summary > .matopt-work-icon { color: var(--mo-accent, var(--color-ring)); }
+[data-activity-status="failed"] > .matopt-activity-item > summary > .matopt-work-icon { color: var(--mo-danger, var(--color-foreground)); }
+.matopt-activity-item .matopt-work-state { display: flex; flex-direction: column; align-items: flex-end; gap: 1px; font-weight: 400; white-space: nowrap; line-height: 1.6; }
+.matopt-work-item-elapsed { color: var(--color-foreground-subtle); }
+.matopt-activity-detail { margin: 0 17px 10px 26px; padding: 2px 0 5px; color: var(--color-foreground-subtle); font-size: var(--matopt-text-compact); line-height: 1.65; overflow-wrap: anywhere; }
+.matopt-activity-detail p { margin: 0 0 8px; }
+.matopt-work-outputs { list-style: none; padding: 0; margin: 10px 0 0; display: grid; gap: 7px; }
+.matopt-work-output { display: inline-flex; align-items: center; gap: 6px; color: var(--color-foreground); background: none; border: 0; padding: 0; font: inherit; text-align: left; }
+a.matopt-work-output:hover, button.matopt-work-output:hover { text-decoration: underline; text-underline-offset: 3px; }
+.matopt-work-output svg { width: 13px; height: 13px; flex-shrink: 0; }
+.matopt-work-empty { margin: 12px 0; color: var(--color-foreground-subtle); font-size: var(--matopt-text-compact); }
+.matopt-public-activity { padding: 4px 20px 24px; }
+.matopt-activity-filters { display: flex; gap: 2px; padding: 3px; border-radius: 9px; background: var(--color-surface); margin-bottom: 24px; }
+.matopt-activity-filters button { flex: 1; border: 1px solid transparent; background: transparent; color: var(--color-foreground-subtle); border-radius: 7px; padding: 6px 8px; font-size: max(12px, var(--text-ui-xs)); cursor: pointer; }
+.matopt-activity-filters button[aria-pressed="true"] { background: var(--color-panel); border-color: var(--color-border); color: var(--color-foreground); }
+.matopt-activity-turns { list-style: none; display: grid; gap: 28px; padding: 0; margin: 0; }
+.matopt-activity-turns[hidden], .matopt-activity-turns > li[hidden] { display: none; }
+.matopt-activity-turns > li:not([hidden]) ~ li:not([hidden]) { border-top: 1px solid var(--color-border); padding-top: 22px; }
+.matopt-activity-turns h3 { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; margin: 0 0 12px; font-size: var(--matopt-text-compact); font-weight: 600; }
+.matopt-activity-turns h3 span { color: var(--color-foreground-subtle); font-size: max(12px, var(--text-ui-xs)); font-weight: 400; white-space: nowrap; }
+.matopt-inspector-current { font-size: var(--matopt-text-compact); line-height: 1.6; color: var(--color-foreground); margin: 0 0 12px; }
+.matopt-update-history { margin: 0 0 12px; }
+.matopt-update-history > summary { display: flex; align-items: center; gap: 6px; list-style: none; width: fit-content; padding: 3px 0; color: var(--color-foreground-subtle); font-size: max(12px, var(--text-ui-xs)); cursor: pointer; }
+.matopt-update-history > summary::-webkit-details-marker { display: none; }
+.matopt-update-history > summary > span + span { font-variant-numeric: tabular-nums; }
+.matopt-update-history > summary svg { height: 13px; width: 13px; transition: transform 150ms ease; }
+.matopt-update-history[open] > summary svg { transform: rotate(180deg); }
+.matopt-milestones { list-style: none; padding: 0 0 0 12px; margin: 10px 0 18px 5px; border-left: 1px solid var(--color-border); display: grid; gap: 9px; }
+.matopt-milestones li { position: relative; font-size: max(12px, var(--text-ui-xs)); line-height: 1.6; color: var(--color-foreground-subtle); padding-left: 5px; overflow-wrap: anywhere; }
+.matopt-milestones li::before { content: ''; position: absolute; width: 5px; height: 5px; border-radius: 50%; left: -15px; top: 7px; background: var(--color-border-hover); }
+.matopt-activity-item > summary:focus-visible, .matopt-work-output:focus-visible, .matopt-activity-filters button:focus-visible, .matopt-update-history > summary:focus-visible, .matopt-more-actions:focus-visible { outline: 2px solid var(--color-ring); outline-offset: 3px; }
+
+@media (max-width: 767px) {
+  .matopt-message-column { padding: 24px 20px 20px; }
+  .matopt-message-column > .group + .group { margin-top: 28px; }
+  .matopt-user-message .matopt-user-content { max-width: 94%; padding: 12px 15px; }
+  .matopt-answer-author { margin-bottom: 12px; }
+  .matopt-public-activity { padding-inline: 16px; }
+  .matopt-activity-filters button { min-height: 38px; }
+  .matopt-active-actions .matopt-work-state { max-width: 80px; white-space: normal; text-align: right; }
+  .matopt-answer-document [data-markdown-table-toolbar] button { min-height: 34px; min-width: 34px; }
+  .matopt-answer-document [data-response-streaming] .katex-display { padding-block: 6px; }
+}
+@media (max-width: 360px) { .matopt-message-column { padding-inline: 16px; } .matopt-live-work[data-work-status="running"], .matopt-live-work[data-work-status="paused"] { padding-inline: 12px; } }
+@media (prefers-reduced-motion: reduce) { .matopt-work-spinning { animation: none; } .matopt-work-chevron, .matopt-update-history > summary svg { transition: none; } .matopt-live-work [data-state] { animation: none !important; } }

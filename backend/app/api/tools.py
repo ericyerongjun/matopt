@@ -9,7 +9,7 @@ from app.runtime import get_runtime
 router = APIRouter(prefix="/api/tools", tags=["tools"])
 
 # Agent-internal: users invoke playbooks with /skill-name instead.
-HIDDEN = {"load_skill", "search_skills"}
+HIDDEN = {"load_skill", "search_skills", "render_ui", "create_ui_app", "register_ui_action"}
 
 
 @router.get("")

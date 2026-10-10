@@ -18,7 +18,7 @@ metadata:
 
 # LAMBDA data agent
 
-Call the `lambda_data_agent` tool. Do not reimplement LAMBDA's loop with `python`.
+Use `lambda_data_agent` for an explicit LAMBDA request or a substantial specialized analysis pipeline. Use native `python` and file tools by default for short bounded calculations, single statistics, table inspections, and file edits. A table attachment alone does not require delegation.
 
 LAMBDA inspects files, runs analysis code, produces charts, and can write reports. MatOpt hosts that backend at `/api/v1`.
 
@@ -32,6 +32,6 @@ For a focused job, load the matching sibling instead: `lambda-eda`, `lambda-repo
 ## How
 
 1. Confirm the table is in `uploads/`.
-2. Call `lambda_data_agent` with the user's request. Set `autonomous=true` when they uploaded data without a specific question, or asked for a full exploration.
-3. Read `lambda_output/` afterward and link artifacts (`lambda_output/...`).
-4. Summarise findings. Do not paste LAMBDA's internal tool traces.
+2. Specify the inputs, question, expected deliverable and output paths, and completion evidence in the delegated request. Set `autonomous=true` only when the user requests full autonomous exploration.
+3. Delegation shares the parent run's model/tool limits and deadline; it does not reset them. Check the returned incomplete/error status and inspect the actual workspace artifacts before treating the deliverable as complete.
+4. Summarise findings and link the returned artifacts at their actual paths. Do not paste LAMBDA's internal tool traces.

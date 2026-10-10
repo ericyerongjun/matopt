@@ -5,7 +5,10 @@ from __future__ import annotations
 from typing import Optional
 
 from app.config import settings
-from app.llm.catalog import LEVEL_LABELS, PROVIDERS, ModelSpec, ProviderSpec
+from app.llm.catalog import (
+    LEVELS, LEVEL_LABELS, MODEL_ID, PROVIDER_ID, PROVIDERS, ModelSpec, ProviderSpec,
+    canonical_model, canonical_provider,
+)
 from app.llm.openai_compat import OpenAICompatProvider
 
 
@@ -17,23 +20,12 @@ class ProviderRegistry:
 
     @staticmethod
     def api_key(provider_id: str) -> Optional[str]:
-        return {
-            "openai": settings.openai_api_key,
-            "deepseek": settings.deepseek_api_key,
-            "qwen": settings.qwen_api_key,
-        }.get(provider_id)
+        return settings.deepseek_api_key if provider_id == PROVIDER_ID else None
 
     @staticmethod
     def base_url(provider_id: str) -> Optional[str]:
         spec = PROVIDERS[provider_id]
-        override = {
-            "openai": settings.openai_base_url,
-            "deepseek": settings.deepseek_base_url,
-            "qwen": settings.qwen_base_url,
-        }.get(provider_id)
-        if provider_id == "qwen" and not override and settings.qwen_region.lower() in ("cn", "china"):
-            return spec.alt_base_urls["china"]
-        return override or spec.default_base_url
+        return settings.deepseek_base_url or spec.default_base_url
 
     def is_configured(self, provider_id: str) -> bool:
         return bool(self.api_key(provider_id))
@@ -44,29 +36,16 @@ class ProviderRegistry:
     # ── resolution ──────────────────────────────────────────────────────
 
     def resolve(self, provider_id: Optional[str], model_id: Optional[str]) -> tuple[ProviderSpec, ModelSpec]:
-        pid = (provider_id or "").strip().lower()
-        mid = (model_id or "").strip()
-        if not pid and mid:
-            for p in PROVIDERS.values():
-                if p.model(mid):
-                    pid = p.id
-                    break
-        if not pid:
-            pid = settings.default_provider if self.is_configured(settings.default_provider) else (self.configured_ids() or [None])[0]
-        if not pid or pid not in PROVIDERS:
-            raise ValueError("No LLM provider is configured. Set DEEPSEEK_API_KEY, OPENAI_API_KEY or QWEN_API_KEY in backend/.env.")
+        pid = canonical_provider(provider_id)
+        canonical_model(model_id)
         spec = PROVIDERS[pid]
         if not self.is_configured(pid):
             raise ValueError(f"{spec.label} is not configured. Set {spec.env_key} in backend/.env.")
-        model = spec.model(mid) if mid else None
-        if mid and model is None:
-            # allow custom model ids on the same provider (fine-tunes / newer snapshots)
-            model = ModelSpec(id=mid, label=mid, family="custom", context_window=128_000, max_output=32_768,
-                              reasoning_levels=spec.default_model.reasoning_levels,
-                              default_reasoning=spec.default_model.default_reasoning)
-        return spec, model or spec.default_model
+        return spec, spec.default_model
 
     def get(self, provider_id: str) -> OpenAICompatProvider:
+        if provider_id != PROVIDER_ID:
+            raise ValueError("Only the DeepSeek provider can be dispatched.")
         inst = self._instances.get(provider_id)
         if inst is None:
             spec = PROVIDERS[provider_id]
@@ -80,15 +59,12 @@ class ProviderRegistry:
     # ── catalog for the frontend ────────────────────────────────────────
 
     def catalog(self) -> dict:
-        default_pid = settings.default_provider if self.is_configured(settings.default_provider) else (self.configured_ids() or [None])[0]
-        default_model = None
-        if default_pid:
-            spec = PROVIDERS[default_pid]
-            default_model = spec.model(settings.default_model).id if spec.model(settings.default_model) else spec.default_model.id
+        default_pid = PROVIDER_ID
+        default_model = MODEL_ID
         return {
             "default_provider": default_pid,
             "default_model": default_model,
-            "levels": [{"id": lvl, "label": LEVEL_LABELS[lvl]} for lvl in ("off", "low", "medium", "high", "max")],
+            "levels": [{"id": lvl, "label": LEVEL_LABELS[lvl]} for lvl in LEVELS],
             "providers": [
                 {
                     "id": p.id,

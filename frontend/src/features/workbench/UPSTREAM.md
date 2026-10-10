@@ -1,0 +1,12 @@
+# Workspace document workbench
+
+Pinned upstream: [ZCode v3.14.3](https://github.com/zai-org/ZCode/tree/29628c9acdb81b703bbd4080c207a0e7ce5e276e), Apache-2.0. The root `NOTICE` and `THIRD_PARTY_NOTICES.md` carry the license and attribution.
+
+- `hierarchyGuides.ts`: direct migration of `packages/ui/src/workspace-file-tree/hierarchyGuides.ts` with formatting changes.
+- `WorkspaceFileTreeRowName.tsx`: direct migration of the same-named upstream component with formatting changes.
+- `tree.ts`: copies `flattenWorkspaceFileTreeRows`, directory-chain compaction, `isWorkspaceFileTreeAutoFlattenableDirectory`, the directory-first comparator from `workspace-file-tree/model.ts`, and `replaceSetValue` from `workspace-file-tree/helpers.ts`. MatOpt adds the adapter from its flat HTTP listing; upstream desktop RPC/Git types are narrowed.
+- `matopt.css` / `WorkspaceExplorer.tsx`: translate the 28 px rows, 12 px depth increments, hierarchy guide positioning, selected row border and collapse behavior from `WorkspaceFileTreeRowView.tsx`. The directory chevron is the same Lucide icon; file glyphs use the complete upstream Material Icon Theme assets and actual FileDisplayIcon component. Search, keyboard navigation and progressive rendering adapt that UI to a maximum 1,000-file HTTP listing. Upstream desktop context menus, Git decorations, watchers and drag/drop are omitted because those capabilities do not exist in MatOpt.
+- `WorkspaceWorkbench.tsx` / `matopt.css`: migrate `app-shell/SidePaneTabTrigger.tsx` tab geometry, active/hover states, close affordance and middle-click behavior. Controlled native tabs replace desktop DnD/RPC bindings.
+- `preview.ts`: migrates the 256 KiB text cap and source-language extension map from `lib/codeViewer.ts`. MatOpt adds a stream reader that cancels at the cap, stale-request cancellation, bounded quoted CSV/TSV parsing and formula extraction.
+
+File content comes from the existing MatOpt file URLs. Only the active document is fetched; it is not cached after closing or switching files. Images and PDFs use browser rendering, Markdown uses the complete native MessageResponse stack; source uses the native CodeViewer with its WASM worker pool. Plotly retains MatOpt scientific output. LaTeX opens as source; its optional formula view renders extracted math with KaTeX and does not compile a whole document. CSV previews show at most 200 data rows and 40 columns. Large/unsupported files always retain a download link to the original. No terminal, Git, compiler, or desktop RPC behavior is represented as working UI.

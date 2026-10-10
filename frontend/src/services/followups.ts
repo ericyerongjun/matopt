@@ -2,7 +2,7 @@
  * Follow-up service — fetch follow-up questions for the latest assistant reply.
  */
 
-import apiClient from "./api";
+import apiClient from "./api.ts";
 import type { FollowUpRequestBody, FollowUpResponseBody } from "./types";
 
 export async function fetchFollowUps(

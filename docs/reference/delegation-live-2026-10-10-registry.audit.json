@@ -1,0 +1,1743 @@
+{
+  "schema_version": 1,
+  "experiment": "registry-menu matched pilot, 2026-10-10",
+  "comparison_validity": "Matched concrete paths under six total model attempts, eight tool starts, 120 seconds. Complete menus and errors were scoped to each registry. Full tool schemas and child prompt remain different; this is not a causal estimate of delegation alone or a general quality ranking.",
+  "redactions": [
+    "Absolute temporary state directory replaced by a placeholder.",
+    "Conversation IDs and generated child model/tool IDs consistently pseudonymized.",
+    "Raw provider request bodies, private reasoning, tool arguments/output, credentials, and model messages are not included in the audit export."
+  ],
+  "original_file_sha256": {
+    "matopt-delegation-registry-live.json": "f44d5a92fbd646b5a515574ef62049bee7c0bd45c233128e9f3a216aea39cbdb",
+    "matopt-delegation-registry-live.receipts.jsonl": "e3773c8b61c34dac24dedd0118f29de2744a63e9ad18034d4f4dc12196bfd4e8",
+    "matopt-delegation-registry-live.runs.jsonl": "ea442117b1f7357daecba5ebae38ae98286a88ba70c71328cfadefbc8fb0779c"
+  },
+  "sanitized_file_sha256": {
+    "delegation-live-2026-10-10-registry.json": "78ad370c7d1158171aea9ca6b273bccb02e25b6dd3a4a67e9a6514bb85078944",
+    "delegation-live-2026-10-10-registry.receipts.jsonl": "460ed57984e37e11558999d0039aa02a607e063876099669e071fed40c19c1f7",
+    "delegation-live-2026-10-10-registry.runs.jsonl": "9cc5ed519d499dd9cab3b31127f8568978d46262888b5ab7a743bfda21cd9bbd"
+  },
+  "source_parity": {
+    "file_count": 121,
+    "before_equals_after": true,
+    "script_sha256": "9eb9ba0d0ce87c173d9128a96ffcd03107efdb0de8bbe49f4143cd178f31132d",
+    "files_changed_since_inherited_pilot": [
+      "backend/app/agent/harness.py",
+      "backend/app/agent/skills/router.py",
+      "backend/app/agent/tools/lambda_tool.py",
+      "scripts/benchmark_delegation.py"
+    ]
+  },
+  "menu_checks": {
+    "all_persisted_system_prompts_scoped": true,
+    "worker_request_headers_with_exact_registry_checked": 18,
+    "unknown_tool_results": 0
+  },
+  "pair_checks": [
+    {
+      "fixture": "invoice",
+      "repetition": 1,
+      "input_and_human_prompt_hashes_match": true
+    },
+    {
+      "fixture": "invoice",
+      "repetition": 2,
+      "input_and_human_prompt_hashes_match": true
+    },
+    {
+      "fixture": "ledger",
+      "repetition": 1,
+      "input_and_human_prompt_hashes_match": true
+    },
+    {
+      "fixture": "ledger",
+      "repetition": 2,
+      "input_and_human_prompt_hashes_match": true
+    }
+  ],
+  "file_oracles_rechecked_from_isolated_workspace": 8,
+  "journal_checks": {
+    "provider_start": 40,
+    "provider_usage": 40,
+    "provider_end": 40,
+    "unique_matching_provider_keys": true,
+    "run_end": 8,
+    "all_run_ends_equal_report": true,
+    "ledger_required_tokens_equal_each_observed_receipt_sum": true,
+    "unknown_usage_attempts": 0,
+    "unsettled_attempts": 0,
+    "native_retry_attempts": 0,
+    "all_sdk_provider_outcomes_completed": true,
+    "sdk_automatic_retries": 0,
+    "sdk_retry_configuration_evidence": [
+      "backend/app/llm/openai_compat.py:28",
+      "backend/lambda_app/services/llm_service.py:16"
+    ]
+  },
+  "aggregates": {
+    "direct": {
+      "runs": 4,
+      "status_counts": {
+        "complete": 4
+      },
+      "environment_passes": 4,
+      "exact_answer_passes": 4,
+      "median_elapsed_ms": 13677.825499999999,
+      "tokens": {
+        "prompt_tokens": 22918,
+        "completion_tokens": 1568,
+        "total_tokens": 24486
+      },
+      "actual_requests": 16,
+      "unknown_tool_results": 0,
+      "budget_control_tool_results": 0,
+      "actual_tool_starts": 9,
+      "finish_reasons": {
+        "tool_calls": 8,
+        "stop": 8
+      }
+    },
+    "delegated": {
+      "runs": 4,
+      "status_counts": {
+        "error": 3,
+        "complete": 1
+      },
+      "environment_passes": 4,
+      "exact_answer_passes": 1,
+      "median_elapsed_ms": 21509.0735,
+      "tokens": {
+        "prompt_tokens": 124900,
+        "completion_tokens": 9501,
+        "total_tokens": 134401
+      },
+      "actual_requests": 24,
+      "unknown_tool_results": 0,
+      "budget_control_tool_results": 1,
+      "actual_tool_starts": 19,
+      "finish_reasons": {
+        "tool_calls": 18,
+        "stop": 6
+      }
+    }
+  },
+  "paired_median_delegation_overhead_ms": 7936.423,
+  "cost": {
+    "amount": null,
+    "reason": "All usage is reported, but configured rates did not produce a price. No dollar estimate is inferred."
+  },
+  "decision": "Keep native execution as the default for small bounded arithmetic/file tasks; retain LAMBDA for explicit or substantial specialized workflows. Larger budgets, reserved final slots, and complex reports were not tested.",
+  "phase_evidence": [
+    {
+      "id": "invoice-r1-direct",
+      "diagnosis": "Completed the task and final JSON within the shared allowance.",
+      "notice": null,
+      "session_events": [
+        {
+          "seq": 5,
+          "type": "step/start",
+          "data": {
+            "turn": 1,
+            "step": 1,
+            "phase": "answer"
+          }
+        },
+        {
+          "seq": 6,
+          "type": "request/header",
+          "step": 1,
+          "attempt": 1,
+          "reason": "dispatch",
+          "config": {
+            "provider": "deepseek",
+            "model": "deepseek-flash",
+            "reasoning": "high",
+            "max_tokens": 2048
+          },
+          "advertised_tools": [
+            "python",
+            "read_file",
+            "write_file",
+            "list_files"
+          ]
+        },
+        {
+          "seq": 9,
+          "type": "tool/call",
+          "step": 1,
+          "name": "read_file"
+        },
+        {
+          "seq": 10,
+          "type": "tool/result",
+          "step": 1,
+          "name": "read_file",
+          "ok": true,
+          "error": null,
+          "meta": {
+            "duration_ms": 2
+          }
+        },
+        {
+          "seq": 11,
+          "type": "step/end",
+          "data": {
+            "turn": 1,
+            "step": 1
+          }
+        },
+        {
+          "seq": 12,
+          "type": "step/start",
+          "data": {
+            "turn": 1,
+            "step": 2,
+            "phase": "answer"
+          }
+        },
+        {
+          "seq": 13,
+          "type": "request/header",
+          "step": 2,
+          "attempt": 1,
+          "reason": "dispatch",
+          "config": {
+            "provider": "deepseek",
+            "model": "deepseek-flash",
+            "reasoning": "high",
+            "max_tokens": 2048
+          },
+          "advertised_tools": [
+            "python",
+            "read_file",
+            "write_file",
+            "list_files"
+          ]
+        },
+        {
+          "seq": 16,
+          "type": "tool/call",
+          "step": 2,
+          "name": "python"
+        },
+        {
+          "seq": 17,
+          "type": "tool/result",
+          "step": 2,
+          "name": "python",
+          "ok": true,
+          "error": null,
+          "meta": {
+            "duration_ms": 3
+          }
+        },
+        {
+          "seq": 18,
+          "type": "step/end",
+          "data": {
+            "turn": 1,
+            "step": 2
+          }
+        },
+        {
+          "seq": 19,
+          "type": "step/start",
+          "data": {
+            "turn": 1,
+            "step": 3,
+            "phase": "answer"
+          }
+        },
+        {
+          "seq": 20,
+          "type": "request/header",
+          "step": 3,
+          "attempt": 1,
+          "reason": "dispatch",
+          "config": {
+            "provider": "deepseek",
+            "model": "deepseek-flash",
+            "reasoning": "high",
+            "max_tokens": 2048
+          },
+          "advertised_tools": [
+            "python",
+            "read_file",
+            "write_file",
+            "list_files"
+          ]
+        },
+        {
+          "seq": 23,
+          "type": "step/end",
+          "data": {
+            "turn": 1,
+            "step": 3
+          }
+        },
+        {
+          "seq": 24,
+          "type": "step/start",
+          "data": {
+            "turn": 1,
+            "step": 4,
+            "phase": "final"
+          }
+        },
+        {
+          "seq": 28,
+          "type": "request/header",
+          "step": 4,
+          "attempt": 1,
+          "reason": "dispatch",
+          "config": {
+            "provider": "deepseek",
+            "model": "deepseek-flash",
+            "reasoning": "off",
+            "max_tokens": 2048
+          },
+          "advertised_tools": []
+        },
+        {
+          "seq": 31,
+          "type": "step/end",
+          "data": {
+            "turn": 1,
+            "step": 4
+          }
+        },
+        {
+          "seq": 40,
+          "type": "ui/message",
+          "status": "complete",
+          "final_ready": true,
+          "notice": null
+        },
+        {
+          "seq": 41,
+          "type": "turn/end",
+          "data": {
+            "turn": 1,
+            "reason": {
+              "kind": "completed"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "invoice-r1-delegated",
+      "diagnosis": "One outer request and five child requests completed the delegated call and produced the correct file. The next outer worker model admission was denied at six used attempts; no final model request was dispatched.",
+      "notice": "The run's model attempt limit was reached. Completed work and available partial results were saved.",
+      "session_events": [
+        {
+          "seq": 5,
+          "type": "step/start",
+          "data": {
+            "turn": 1,
+            "step": 1,
+            "phase": "answer"
+          }
+        },
+        {
+          "seq": 6,
+          "type": "request/header",
+          "step": 1,
+          "attempt": 1,
+          "reason": "dispatch",
+          "config": {
+            "provider": "deepseek",
+            "model": "deepseek-flash",
+            "reasoning": "high",
+            "max_tokens": 2048
+          },
+          "advertised_tools": [
+            "lambda_data_agent"
+          ]
+        },
+        {
+          "seq": 9,
+          "type": "tool/call",
+          "step": 1,
+          "name": "lambda_data_agent"
+        },
+        {
+          "seq": 10,
+          "type": "llm/side-task",
+          "step": 1,
+          "task": "lambda",
+          "status": "started",
+          "usage": null
+        },
+        {
+          "seq": 11,
+          "type": "llm/side-task",
+          "step": 1,
+          "task": "lambda",
+          "status": "completed",
+          "usage": {
+            "prompt_tokens": 5354,
+            "completion_tokens": 206,
+            "total_tokens": 5560,
+            "reasoning_tokens": 66
+          }
+        },
+        {
+          "seq": 12,
+          "type": "llm/side-task",
+          "step": 1,
+          "task": "lambda",
+          "status": "started",
+          "usage": null
+        },
+        {
+          "seq": 13,
+          "type": "llm/side-task",
+          "step": 1,
+          "task": "lambda",
+          "status": "completed",
+          "usage": {
+            "prompt_tokens": 5999,
+            "completion_tokens": 703,
+            "total_tokens": 6702,
+            "reasoning_tokens": 22
+          }
+        },
+        {
+          "seq": 14,
+          "type": "llm/side-task",
+          "step": 1,
+          "task": "lambda",
+          "status": "started",
+          "usage": null
+        },
+        {
+          "seq": 15,
+          "type": "llm/side-task",
+          "step": 1,
+          "task": "lambda",
+          "status": "completed",
+          "usage": {
+            "prompt_tokens": 7141,
+            "completion_tokens": 236,
+            "total_tokens": 7377,
+            "reasoning_tokens": 13
+          }
+        },
+        {
+          "seq": 16,
+          "type": "llm/side-task",
+          "step": 1,
+          "task": "lambda",
+          "status": "started",
+          "usage": null
+        },
+        {
+          "seq": 17,
+          "type": "llm/side-task",
+          "step": 1,
+          "task": "lambda",
+          "status": "completed",
+          "usage": {
+            "prompt_tokens": 7488,
+            "completion_tokens": 166,
+            "total_tokens": 7654,
+            "reasoning_tokens": 16
+          }
+        },
+        {
+          "seq": 18,
+          "type": "llm/side-task",
+          "step": 1,
+          "task": "lambda",
+          "status": "started",
+          "usage": null
+        },
+        {
+          "seq": 19,
+          "type": "llm/side-task",
+          "step": 1,
+          "task": "lambda",
+          "status": "completed",
+          "usage": {
+            "prompt_tokens": 14960,
+            "completion_tokens": 618,
+            "total_tokens": 15578,
+            "reasoning_tokens": 107
+          }
+        },
+        {
+          "seq": 20,
+          "type": "tool/result",
+          "step": 1,
+          "name": "lambda_data_agent",
+          "ok": true,
+          "error": null,
+          "meta": {
+            "duration_ms": 19308
+          }
+        },
+        {
+          "seq": 21,
+          "type": "step/end",
+          "data": {
+            "turn": 1,
+            "step": 1
+          }
+        },
+        {
+          "seq": 22,
+          "type": "step/start",
+          "data": {
+            "turn": 1,
+            "step": 2,
+            "phase": "answer"
+          }
+        },
+        {
+          "seq": 23,
+          "type": "step/end",
+          "data": {
+            "turn": 1,
+            "step": 2
+          }
+        },
+        {
+          "seq": 24,
+          "type": "ui/message",
+          "status": "error",
+          "final_ready": false,
+          "notice": "The run's model attempt limit was reached. Completed work and available partial results were saved."
+        },
+        {
+          "seq": 25,
+          "type": "turn/end",
+          "data": {
+            "turn": 1,
+            "reason": {
+              "kind": "blocked"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "ledger-r1-delegated",
+      "diagnosis": "One outer request and five child requests completed the delegated call and produced the correct file. The next outer worker model admission was denied at six used attempts; no final model request was dispatched.",
+      "notice": "The run's model attempt limit was reached. Completed work and available partial results were saved.",
+      "session_events": [
+        {
+          "seq": 5,
+          "type": "step/start",
+          "data": {
+            "turn": 1,
+            "step": 1,
+            "phase": "answer"
+          }
+        },
+        {
+          "seq": 6,
+          "type": "request/header",
+          "step": 1,
+          "attempt": 1,
+          "reason": "dispatch",
+          "config": {
+            "provider": "deepseek",
+            "model": "deepseek-flash",
+            "reasoning": "high",
+            "max_tokens": 2048
+          },
+          "advertised_tools": [
+            "lambda_data_agent"
+          ]
+        },
+        {
+          "seq": 9,
+          "type": "tool/call",
+          "step": 1,
+          "name": "lambda_data_agent"
+        },
+        {
+          "seq": 10,
+          "type": "llm/side-task",
+          "step": 1,
+          "task": "lambda",
+          "status": "started",
+          "usage": null
+        },
+        {
+          "seq": 11,
+          "type": "llm/side-task",
+          "step": 1,
+          "task": "lambda",
+          "status": "completed",
+          "usage": {
+            "prompt_tokens": 5274,
+            "completion_tokens": 160,
+            "total_tokens": 5434,
+            "reasoning_tokens": 60
+          }
+        },
+        {
+          "seq": 12,
+          "type": "llm/side-task",
+          "step": 1,
+          "task": "lambda",
+          "status": "started",
+          "usage": null
+        },
+        {
+          "seq": 13,
+          "type": "llm/side-task",
+          "step": 1,
+          "task": "lambda",
+          "status": "completed",
+          "usage": {
+            "prompt_tokens": 5553,
+            "completion_tokens": 326,
+            "total_tokens": 5879,
+            "reasoning_tokens": 10
+          }
+        },
+        {
+          "seq": 14,
+          "type": "llm/side-task",
+          "step": 1,
+          "task": "lambda",
+          "status": "started",
+          "usage": null
+        },
+        {
+          "seq": 15,
+          "type": "llm/side-task",
+          "step": 1,
+          "task": "lambda",
+          "status": "completed",
+          "usage": {
+            "prompt_tokens": 6152,
+            "completion_tokens": 610,
+            "total_tokens": 6762,
+            "reasoning_tokens": 28
+          }
+        },
+        {
+          "seq": 16,
+          "type": "llm/side-task",
+          "step": 1,
+          "task": "lambda",
+          "status": "started",
+          "usage": null
+        },
+        {
+          "seq": 17,
+          "type": "llm/side-task",
+          "step": 1,
+          "task": "lambda",
+          "status": "completed",
+          "usage": {
+            "prompt_tokens": 6965,
+            "completion_tokens": 152,
+            "total_tokens": 7117,
+            "reasoning_tokens": 20
+          }
+        },
+        {
+          "seq": 18,
+          "type": "llm/side-task",
+          "step": 1,
+          "task": "lambda",
+          "status": "started",
+          "usage": null
+        },
+        {
+          "seq": 19,
+          "type": "llm/side-task",
+          "step": 1,
+          "task": "lambda",
+          "status": "completed",
+          "usage": {
+            "prompt_tokens": 7312,
+            "completion_tokens": 553,
+            "total_tokens": 7865,
+            "reasoning_tokens": 0
+          }
+        },
+        {
+          "seq": 20,
+          "type": "tool/result",
+          "step": 1,
+          "name": "lambda_data_agent",
+          "ok": true,
+          "error": null,
+          "meta": {
+            "duration_ms": 19375
+          }
+        },
+        {
+          "seq": 21,
+          "type": "step/end",
+          "data": {
+            "turn": 1,
+            "step": 1
+          }
+        },
+        {
+          "seq": 22,
+          "type": "step/start",
+          "data": {
+            "turn": 1,
+            "step": 2,
+            "phase": "answer"
+          }
+        },
+        {
+          "seq": 23,
+          "type": "step/end",
+          "data": {
+            "turn": 1,
+            "step": 2
+          }
+        },
+        {
+          "seq": 24,
+          "type": "ui/message",
+          "status": "error",
+          "final_ready": false,
+          "notice": "The run's model attempt limit was reached. Completed work and available partial results were saved."
+        },
+        {
+          "seq": 25,
+          "type": "turn/end",
+          "data": {
+            "turn": 1,
+            "reason": {
+              "kind": "blocked"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "ledger-r1-direct",
+      "diagnosis": "Completed the task and final JSON within the shared allowance.",
+      "notice": null,
+      "session_events": [
+        {
+          "seq": 5,
+          "type": "step/start",
+          "data": {
+            "turn": 1,
+            "step": 1,
+            "phase": "answer"
+          }
+        },
+        {
+          "seq": 6,
+          "type": "request/header",
+          "step": 1,
+          "attempt": 1,
+          "reason": "dispatch",
+          "config": {
+            "provider": "deepseek",
+            "model": "deepseek-flash",
+            "reasoning": "high",
+            "max_tokens": 2048
+          },
+          "advertised_tools": [
+            "python",
+            "read_file",
+            "write_file",
+            "list_files"
+          ]
+        },
+        {
+          "seq": 9,
+          "type": "tool/call",
+          "step": 1,
+          "name": "read_file"
+        },
+        {
+          "seq": 10,
+          "type": "tool/call",
+          "step": 1,
+          "name": "list_files"
+        },
+        {
+          "seq": 11,
+          "type": "tool/result",
+          "step": 1,
+          "name": "read_file",
+          "ok": true,
+          "error": null,
+          "meta": {
+            "duration_ms": 2
+          }
+        },
+        {
+          "seq": 12,
+          "type": "tool/result",
+          "step": 1,
+          "name": "list_files",
+          "ok": true,
+          "error": null,
+          "meta": {
+            "duration_ms": 2
+          }
+        },
+        {
+          "seq": 13,
+          "type": "step/end",
+          "data": {
+            "turn": 1,
+            "step": 1
+          }
+        },
+        {
+          "seq": 14,
+          "type": "step/start",
+          "data": {
+            "turn": 1,
+            "step": 2,
+            "phase": "answer"
+          }
+        },
+        {
+          "seq": 15,
+          "type": "request/header",
+          "step": 2,
+          "attempt": 1,
+          "reason": "dispatch",
+          "config": {
+            "provider": "deepseek",
+            "model": "deepseek-flash",
+            "reasoning": "high",
+            "max_tokens": 2048
+          },
+          "advertised_tools": [
+            "python",
+            "read_file",
+            "write_file",
+            "list_files"
+          ]
+        },
+        {
+          "seq": 18,
+          "type": "tool/call",
+          "step": 2,
+          "name": "python"
+        },
+        {
+          "seq": 19,
+          "type": "tool/result",
+          "step": 2,
+          "name": "python",
+          "ok": true,
+          "error": null,
+          "meta": {
+            "duration_ms": 3
+          }
+        },
+        {
+          "seq": 20,
+          "type": "step/end",
+          "data": {
+            "turn": 1,
+            "step": 2
+          }
+        },
+        {
+          "seq": 21,
+          "type": "step/start",
+          "data": {
+            "turn": 1,
+            "step": 3,
+            "phase": "answer"
+          }
+        },
+        {
+          "seq": 22,
+          "type": "request/header",
+          "step": 3,
+          "attempt": 1,
+          "reason": "dispatch",
+          "config": {
+            "provider": "deepseek",
+            "model": "deepseek-flash",
+            "reasoning": "high",
+            "max_tokens": 2048
+          },
+          "advertised_tools": [
+            "python",
+            "read_file",
+            "write_file",
+            "list_files"
+          ]
+        },
+        {
+          "seq": 25,
+          "type": "step/end",
+          "data": {
+            "turn": 1,
+            "step": 3
+          }
+        },
+        {
+          "seq": 26,
+          "type": "step/start",
+          "data": {
+            "turn": 1,
+            "step": 4,
+            "phase": "final"
+          }
+        },
+        {
+          "seq": 30,
+          "type": "request/header",
+          "step": 4,
+          "attempt": 1,
+          "reason": "dispatch",
+          "config": {
+            "provider": "deepseek",
+            "model": "deepseek-flash",
+            "reasoning": "off",
+            "max_tokens": 2048
+          },
+          "advertised_tools": []
+        },
+        {
+          "seq": 33,
+          "type": "step/end",
+          "data": {
+            "turn": 1,
+            "step": 4
+          }
+        },
+        {
+          "seq": 43,
+          "type": "ui/message",
+          "status": "complete",
+          "final_ready": true,
+          "notice": null
+        },
+        {
+          "seq": 44,
+          "type": "turn/end",
+          "data": {
+            "turn": 1,
+            "reason": {
+              "kind": "completed"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "invoice-r2-delegated",
+      "diagnosis": "Three child and three native requests fit within six attempts, including the final writer, which returned exact JSON.",
+      "notice": null,
+      "session_events": [
+        {
+          "seq": 5,
+          "type": "step/start",
+          "data": {
+            "turn": 1,
+            "step": 1,
+            "phase": "answer"
+          }
+        },
+        {
+          "seq": 6,
+          "type": "request/header",
+          "step": 1,
+          "attempt": 1,
+          "reason": "dispatch",
+          "config": {
+            "provider": "deepseek",
+            "model": "deepseek-flash",
+            "reasoning": "high",
+            "max_tokens": 2048
+          },
+          "advertised_tools": [
+            "lambda_data_agent"
+          ]
+        },
+        {
+          "seq": 9,
+          "type": "tool/call",
+          "step": 1,
+          "name": "lambda_data_agent"
+        },
+        {
+          "seq": 10,
+          "type": "llm/side-task",
+          "step": 1,
+          "task": "lambda",
+          "status": "started",
+          "usage": null
+        },
+        {
+          "seq": 11,
+          "type": "llm/side-task",
+          "step": 1,
+          "task": "lambda",
+          "status": "completed",
+          "usage": {
+            "prompt_tokens": 5336,
+            "completion_tokens": 357,
+            "total_tokens": 5693,
+            "reasoning_tokens": 24
+          }
+        },
+        {
+          "seq": 12,
+          "type": "llm/side-task",
+          "step": 1,
+          "task": "lambda",
+          "status": "started",
+          "usage": null
+        },
+        {
+          "seq": 13,
+          "type": "llm/side-task",
+          "step": 1,
+          "task": "lambda",
+          "status": "completed",
+          "usage": {
+            "prompt_tokens": 5950,
+            "completion_tokens": 657,
+            "total_tokens": 6607,
+            "reasoning_tokens": 17
+          }
+        },
+        {
+          "seq": 14,
+          "type": "llm/side-task",
+          "step": 1,
+          "task": "lambda",
+          "status": "started",
+          "usage": null
+        },
+        {
+          "seq": 15,
+          "type": "llm/side-task",
+          "step": 1,
+          "task": "lambda",
+          "status": "completed",
+          "usage": {
+            "prompt_tokens": 6889,
+            "completion_tokens": 477,
+            "total_tokens": 7366,
+            "reasoning_tokens": 0
+          }
+        },
+        {
+          "seq": 16,
+          "type": "tool/result",
+          "step": 1,
+          "name": "lambda_data_agent",
+          "ok": true,
+          "error": null,
+          "meta": {
+            "duration_ms": 16627
+          }
+        },
+        {
+          "seq": 17,
+          "type": "step/end",
+          "data": {
+            "turn": 1,
+            "step": 1
+          }
+        },
+        {
+          "seq": 18,
+          "type": "step/start",
+          "data": {
+            "turn": 1,
+            "step": 2,
+            "phase": "answer"
+          }
+        },
+        {
+          "seq": 19,
+          "type": "request/header",
+          "step": 2,
+          "attempt": 1,
+          "reason": "dispatch",
+          "config": {
+            "provider": "deepseek",
+            "model": "deepseek-flash",
+            "reasoning": "high",
+            "max_tokens": 2048
+          },
+          "advertised_tools": [
+            "lambda_data_agent"
+          ]
+        },
+        {
+          "seq": 22,
+          "type": "step/end",
+          "data": {
+            "turn": 1,
+            "step": 2
+          }
+        },
+        {
+          "seq": 23,
+          "type": "step/start",
+          "data": {
+            "turn": 1,
+            "step": 3,
+            "phase": "final"
+          }
+        },
+        {
+          "seq": 27,
+          "type": "request/header",
+          "step": 3,
+          "attempt": 1,
+          "reason": "dispatch",
+          "config": {
+            "provider": "deepseek",
+            "model": "deepseek-flash",
+            "reasoning": "off",
+            "max_tokens": 2048
+          },
+          "advertised_tools": []
+        },
+        {
+          "seq": 30,
+          "type": "step/end",
+          "data": {
+            "turn": 1,
+            "step": 3
+          }
+        },
+        {
+          "seq": 37,
+          "type": "ui/message",
+          "status": "complete",
+          "final_ready": true,
+          "notice": null
+        },
+        {
+          "seq": 38,
+          "type": "turn/end",
+          "data": {
+            "turn": 1,
+            "reason": {
+              "kind": "completed"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "invoice-r2-direct",
+      "diagnosis": "Completed the task and final JSON within the shared allowance.",
+      "notice": null,
+      "session_events": [
+        {
+          "seq": 5,
+          "type": "step/start",
+          "data": {
+            "turn": 1,
+            "step": 1,
+            "phase": "answer"
+          }
+        },
+        {
+          "seq": 6,
+          "type": "request/header",
+          "step": 1,
+          "attempt": 1,
+          "reason": "dispatch",
+          "config": {
+            "provider": "deepseek",
+            "model": "deepseek-flash",
+            "reasoning": "high",
+            "max_tokens": 2048
+          },
+          "advertised_tools": [
+            "python",
+            "read_file",
+            "write_file",
+            "list_files"
+          ]
+        },
+        {
+          "seq": 9,
+          "type": "tool/call",
+          "step": 1,
+          "name": "read_file"
+        },
+        {
+          "seq": 10,
+          "type": "tool/result",
+          "step": 1,
+          "name": "read_file",
+          "ok": true,
+          "error": null,
+          "meta": {
+            "duration_ms": 2
+          }
+        },
+        {
+          "seq": 11,
+          "type": "step/end",
+          "data": {
+            "turn": 1,
+            "step": 1
+          }
+        },
+        {
+          "seq": 12,
+          "type": "step/start",
+          "data": {
+            "turn": 1,
+            "step": 2,
+            "phase": "answer"
+          }
+        },
+        {
+          "seq": 13,
+          "type": "request/header",
+          "step": 2,
+          "attempt": 1,
+          "reason": "dispatch",
+          "config": {
+            "provider": "deepseek",
+            "model": "deepseek-flash",
+            "reasoning": "high",
+            "max_tokens": 2048
+          },
+          "advertised_tools": [
+            "python",
+            "read_file",
+            "write_file",
+            "list_files"
+          ]
+        },
+        {
+          "seq": 16,
+          "type": "tool/call",
+          "step": 2,
+          "name": "python"
+        },
+        {
+          "seq": 17,
+          "type": "tool/result",
+          "step": 2,
+          "name": "python",
+          "ok": true,
+          "error": null,
+          "meta": {
+            "duration_ms": 4
+          }
+        },
+        {
+          "seq": 18,
+          "type": "step/end",
+          "data": {
+            "turn": 1,
+            "step": 2
+          }
+        },
+        {
+          "seq": 19,
+          "type": "step/start",
+          "data": {
+            "turn": 1,
+            "step": 3,
+            "phase": "answer"
+          }
+        },
+        {
+          "seq": 20,
+          "type": "request/header",
+          "step": 3,
+          "attempt": 1,
+          "reason": "dispatch",
+          "config": {
+            "provider": "deepseek",
+            "model": "deepseek-flash",
+            "reasoning": "high",
+            "max_tokens": 2048
+          },
+          "advertised_tools": [
+            "python",
+            "read_file",
+            "write_file",
+            "list_files"
+          ]
+        },
+        {
+          "seq": 23,
+          "type": "step/end",
+          "data": {
+            "turn": 1,
+            "step": 3
+          }
+        },
+        {
+          "seq": 24,
+          "type": "step/start",
+          "data": {
+            "turn": 1,
+            "step": 4,
+            "phase": "final"
+          }
+        },
+        {
+          "seq": 28,
+          "type": "request/header",
+          "step": 4,
+          "attempt": 1,
+          "reason": "dispatch",
+          "config": {
+            "provider": "deepseek",
+            "model": "deepseek-flash",
+            "reasoning": "off",
+            "max_tokens": 2048
+          },
+          "advertised_tools": []
+        },
+        {
+          "seq": 31,
+          "type": "step/end",
+          "data": {
+            "turn": 1,
+            "step": 4
+          }
+        },
+        {
+          "seq": 40,
+          "type": "ui/message",
+          "status": "complete",
+          "final_ready": true,
+          "notice": null
+        },
+        {
+          "seq": 41,
+          "type": "turn/end",
+          "data": {
+            "turn": 1,
+            "reason": {
+              "kind": "completed"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "ledger-r2-direct",
+      "diagnosis": "Completed the task and final JSON within the shared allowance.",
+      "notice": null,
+      "session_events": [
+        {
+          "seq": 5,
+          "type": "step/start",
+          "data": {
+            "turn": 1,
+            "step": 1,
+            "phase": "answer"
+          }
+        },
+        {
+          "seq": 6,
+          "type": "request/header",
+          "step": 1,
+          "attempt": 1,
+          "reason": "dispatch",
+          "config": {
+            "provider": "deepseek",
+            "model": "deepseek-flash",
+            "reasoning": "high",
+            "max_tokens": 2048
+          },
+          "advertised_tools": [
+            "python",
+            "read_file",
+            "write_file",
+            "list_files"
+          ]
+        },
+        {
+          "seq": 9,
+          "type": "tool/call",
+          "step": 1,
+          "name": "read_file"
+        },
+        {
+          "seq": 10,
+          "type": "tool/result",
+          "step": 1,
+          "name": "read_file",
+          "ok": true,
+          "error": null,
+          "meta": {
+            "duration_ms": 0
+          }
+        },
+        {
+          "seq": 11,
+          "type": "step/end",
+          "data": {
+            "turn": 1,
+            "step": 1
+          }
+        },
+        {
+          "seq": 12,
+          "type": "step/start",
+          "data": {
+            "turn": 1,
+            "step": 2,
+            "phase": "answer"
+          }
+        },
+        {
+          "seq": 13,
+          "type": "request/header",
+          "step": 2,
+          "attempt": 1,
+          "reason": "dispatch",
+          "config": {
+            "provider": "deepseek",
+            "model": "deepseek-flash",
+            "reasoning": "high",
+            "max_tokens": 2048
+          },
+          "advertised_tools": [
+            "python",
+            "read_file",
+            "write_file",
+            "list_files"
+          ]
+        },
+        {
+          "seq": 16,
+          "type": "tool/call",
+          "step": 2,
+          "name": "python"
+        },
+        {
+          "seq": 17,
+          "type": "tool/result",
+          "step": 2,
+          "name": "python",
+          "ok": true,
+          "error": null,
+          "meta": {
+            "duration_ms": 4
+          }
+        },
+        {
+          "seq": 18,
+          "type": "step/end",
+          "data": {
+            "turn": 1,
+            "step": 2
+          }
+        },
+        {
+          "seq": 19,
+          "type": "step/start",
+          "data": {
+            "turn": 1,
+            "step": 3,
+            "phase": "answer"
+          }
+        },
+        {
+          "seq": 20,
+          "type": "request/header",
+          "step": 3,
+          "attempt": 1,
+          "reason": "dispatch",
+          "config": {
+            "provider": "deepseek",
+            "model": "deepseek-flash",
+            "reasoning": "high",
+            "max_tokens": 2048
+          },
+          "advertised_tools": [
+            "python",
+            "read_file",
+            "write_file",
+            "list_files"
+          ]
+        },
+        {
+          "seq": 23,
+          "type": "step/end",
+          "data": {
+            "turn": 1,
+            "step": 3
+          }
+        },
+        {
+          "seq": 24,
+          "type": "step/start",
+          "data": {
+            "turn": 1,
+            "step": 4,
+            "phase": "final"
+          }
+        },
+        {
+          "seq": 28,
+          "type": "request/header",
+          "step": 4,
+          "attempt": 1,
+          "reason": "dispatch",
+          "config": {
+            "provider": "deepseek",
+            "model": "deepseek-flash",
+            "reasoning": "off",
+            "max_tokens": 2048
+          },
+          "advertised_tools": []
+        },
+        {
+          "seq": 31,
+          "type": "step/end",
+          "data": {
+            "turn": 1,
+            "step": 4
+          }
+        },
+        {
+          "seq": 40,
+          "type": "ui/message",
+          "status": "complete",
+          "final_ready": true,
+          "notice": null
+        },
+        {
+          "seq": 41,
+          "type": "turn/end",
+          "data": {
+            "turn": 1,
+            "reason": {
+              "kind": "completed"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "ledger-r2-delegated",
+      "diagnosis": "One outer request and four child requests produced the correct file. The sixth request was an outer read-back delegation; its first child model admission was denied. No final model request was dispatched.",
+      "notice": "The run's model attempt limit was reached. Completed work and available partial results were saved.",
+      "session_events": [
+        {
+          "seq": 5,
+          "type": "step/start",
+          "data": {
+            "turn": 1,
+            "step": 1,
+            "phase": "answer"
+          }
+        },
+        {
+          "seq": 6,
+          "type": "request/header",
+          "step": 1,
+          "attempt": 1,
+          "reason": "dispatch",
+          "config": {
+            "provider": "deepseek",
+            "model": "deepseek-flash",
+            "reasoning": "high",
+            "max_tokens": 2048
+          },
+          "advertised_tools": [
+            "lambda_data_agent"
+          ]
+        },
+        {
+          "seq": 9,
+          "type": "tool/call",
+          "step": 1,
+          "name": "lambda_data_agent"
+        },
+        {
+          "seq": 10,
+          "type": "llm/side-task",
+          "step": 1,
+          "task": "lambda",
+          "status": "started",
+          "usage": null
+        },
+        {
+          "seq": 11,
+          "type": "llm/side-task",
+          "step": 1,
+          "task": "lambda",
+          "status": "completed",
+          "usage": {
+            "prompt_tokens": 5372,
+            "completion_tokens": 537,
+            "total_tokens": 5909,
+            "reasoning_tokens": 165
+          }
+        },
+        {
+          "seq": 12,
+          "type": "llm/side-task",
+          "step": 1,
+          "task": "lambda",
+          "status": "started",
+          "usage": null
+        },
+        {
+          "seq": 13,
+          "type": "llm/side-task",
+          "step": 1,
+          "task": "lambda",
+          "status": "completed",
+          "usage": {
+            "prompt_tokens": 6265,
+            "completion_tokens": 614,
+            "total_tokens": 6879,
+            "reasoning_tokens": 14
+          }
+        },
+        {
+          "seq": 14,
+          "type": "llm/side-task",
+          "step": 1,
+          "task": "lambda",
+          "status": "started",
+          "usage": null
+        },
+        {
+          "seq": 15,
+          "type": "llm/side-task",
+          "step": 1,
+          "task": "lambda",
+          "status": "completed",
+          "usage": {
+            "prompt_tokens": 7007,
+            "completion_tokens": 336,
+            "total_tokens": 7343,
+            "reasoning_tokens": 9
+          }
+        },
+        {
+          "seq": 16,
+          "type": "llm/side-task",
+          "step": 1,
+          "task": "lambda",
+          "status": "started",
+          "usage": null
+        },
+        {
+          "seq": 17,
+          "type": "llm/side-task",
+          "step": 1,
+          "task": "lambda",
+          "status": "completed",
+          "usage": {
+            "prompt_tokens": 7632,
+            "completion_tokens": 681,
+            "total_tokens": 8313,
+            "reasoning_tokens": 0
+          }
+        },
+        {
+          "seq": 18,
+          "type": "tool/result",
+          "step": 1,
+          "name": "lambda_data_agent",
+          "ok": true,
+          "error": null,
+          "meta": {
+            "duration_ms": 19564
+          }
+        },
+        {
+          "seq": 19,
+          "type": "step/end",
+          "data": {
+            "turn": 1,
+            "step": 1
+          }
+        },
+        {
+          "seq": 20,
+          "type": "step/start",
+          "data": {
+            "turn": 1,
+            "step": 2,
+            "phase": "answer"
+          }
+        },
+        {
+          "seq": 21,
+          "type": "request/header",
+          "step": 2,
+          "attempt": 1,
+          "reason": "dispatch",
+          "config": {
+            "provider": "deepseek",
+            "model": "deepseek-flash",
+            "reasoning": "high",
+            "max_tokens": 2048
+          },
+          "advertised_tools": [
+            "lambda_data_agent"
+          ]
+        },
+        {
+          "seq": 24,
+          "type": "tool/call",
+          "step": 2,
+          "name": "lambda_data_agent"
+        },
+        {
+          "seq": 25,
+          "type": "tool/result",
+          "step": 2,
+          "name": "lambda_data_agent",
+          "ok": false,
+          "error": "The run's model attempt limit was reached.",
+          "meta": {
+            "code": "RUN_BUDGET_EXHAUSTED",
+            "budget_dimension": "model_attempts",
+            "budget_limit": 6,
+            "budget_used": 6,
+            "dispatched": true,
+            "duration_ms": 21
+          }
+        },
+        {
+          "seq": 26,
+          "type": "step/end",
+          "data": {
+            "turn": 1,
+            "step": 2
+          }
+        },
+        {
+          "seq": 27,
+          "type": "ui/message",
+          "status": "error",
+          "final_ready": false,
+          "notice": "The run's model attempt limit was reached. Completed work and available partial results were saved."
+        },
+        {
+          "seq": 28,
+          "type": "turn/end",
+          "data": {
+            "turn": 1,
+            "reason": {
+              "kind": "blocked"
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

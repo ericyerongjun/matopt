@@ -11,6 +11,7 @@ a Tavily/Exa stand-in). Optional upgrades, in order:
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import re
 from typing import Any
@@ -19,7 +20,7 @@ from urllib.parse import urlparse
 import httpx
 
 from app.agent.events import Artifact, ToolResult
-from app.agent.tools.base import Tool, ToolContext
+from app.agent.tools.base import Tool, ToolContext, output_bound_bytes
 
 logger = logging.getLogger(__name__)
 
@@ -144,17 +145,31 @@ async def search_web(query: str, limit: int, settings) -> tuple[list[dict], str]
             return await _brave(brave, query, limit), "brave"
         except Exception:  # noqa: BLE001
             logger.exception("Brave search failed")
-    return _ddgs(query, limit), "ddgs"
+    # DDGS is synchronous. Keep its network work off the event loop so running
+    # activity, sibling completions, pause and Stop remain responsive.
+    return await asyncio.to_thread(_ddgs, query, limit), "ddgs"
 
 
 class WebSearchTool(Tool):
     name = "web_search"
     read_only = True
+    destructive = False
+    concurrent_safe = True
+    side_effect_scope = "none"   # nothing durable changes; the query leaves the machine
+    risk_level = "low"
+    needs_approval = False
+    # The harness enables this capability by default. Explicit API opt-outs
+    # keep the gate closed unless a slash command or steer requests the tool.
+    requires_flags = ("web_search",)
+    # No enforced bound: the engine chain (SearXNG → Tavily → Brave → ddgs) is
+    # tried in order, each with its own 20s client timeout.
     background = True
     ui_kind = "search"
     description = (
-        "Search the live web. Use when the user enabled Web Search and the question needs "
-        "current pages, papers, docs, or facts that are not in the workspace. "
+        "Search the live web automatically when an answer needs real-time or up-to-date information: "
+        "news, weather, prices, schedules, current officeholders, recent releases, or changing facts. "
+        "Also use for explicit requests to search, check online, or verify current sources. "
+        "No slash command or manual selection is required. Skip browsing for stable explanations or when the user asks not to browse. "
         "Returns ranked titles, URLs, and snippets. Follow interesting URLs with web_fetch."
     )
     parameters = {
@@ -179,13 +194,22 @@ class WebSearchTool(Tool):
             artifacts=[
                 Artifact(kind="json", name="search.json", data={"query": q, "engine": engine, "results": hits})
             ],
-            meta={"engine": engine, "count": len(hits), "query": q},
+            meta={"engine": engine, "count": len(hits), "query": q,
+                  "public_sources": [{"title": hit.get("title", "Source"), "url": hit.get("url") or hit.get("href")} for hit in hits]},
         )
 
 
 class WebFetchTool(Tool):
     name = "web_fetch"
     read_only = True
+    destructive = False
+    concurrent_safe = True
+    side_effect_scope = "none"   # reads a public page; local/private URLs are rejected
+    risk_level = "low"
+    needs_approval = False
+    requires_flags = ("web_search",)   # same turn switch as web_search
+    timeout_ms = 20_000          # httpx.AsyncClient(timeout=20.0)
+    max_output_bytes = output_bound_bytes(8_000)   # text capped at 8_000 chars
     background = True
     ui_kind = "search"
     description = (

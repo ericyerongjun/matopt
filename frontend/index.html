@@ -2,9 +2,34 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+    <link rel="icon" type="image/svg+xml" href="/matopt.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>MatOpt</title>
+
+    <!-- Apply the saved ZCode theme classes before styles load. Keep this
+         preference resolution in sync with src/utils/theme.ts. -->
+    <style>
+      html { background-color: #f3f4f6; }
+      html[data-mo-dark-theme] { background-color: #111214; color-scheme: dark; }
+    </style>
+    <script>
+      (() => {
+        try {
+          const stored = localStorage.getItem("matopt.theme");
+          const preference =
+            stored === "light" || stored === "dark" || stored === "system" ? stored : "system";
+          const dark =
+            preference === "dark" ||
+            (preference === "system" && matchMedia("(prefers-color-scheme: dark)").matches);
+          document.documentElement.toggleAttribute("data-mo-dark-theme", dark);
+          document.documentElement.classList.toggle("dark", dark);
+          document.documentElement.classList.add(dark ? "theme-zai-dark" : "theme-zai-light");
+          document.documentElement.style.colorScheme = dark ? "dark" : "light";
+        } catch {
+          /* storage blocked (private mode) — fall through to the light canvas */
+        }
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>

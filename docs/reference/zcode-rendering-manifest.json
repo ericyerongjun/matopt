@@ -1,0 +1,1071 @@
+{
+  "commit": "29628c9acdb81b703bbd4080c207a0e7ce5e276e",
+  "repository": "https://github.com/zai-org/ZCode",
+  "license": "Apache-2.0",
+  "scope": "Native Markdown rendering, localization, capability contexts, shared/type closure, model-option-map closure and supported main-thread code rendering; excludes other UI primitives and prompt/shell families owned by other migration tasks. Provenance banner stripped before comparison.",
+  "whole_files": [
+    {
+      "file": "frontend/src/zcode/ControlHintTooltip.tsx",
+      "upstream": "packages/ui/src/ControlHintTooltip.tsx",
+      "status": "unchanged",
+      "upstream_sha256": "2da7e41f22f9eed6cda1259e403618f1f8cca5f4350665aeee8008e10a8753bd",
+      "normalized_sha256": "2da7e41f22f9eed6cda1259e403618f1f8cca5f4350665aeee8008e10a8753bd"
+    },
+    {
+      "file": "frontend/src/zcode/ToolCallBlocks/QueuedSummaryContent.tsx",
+      "upstream": "packages/ui/src/ToolCallBlocks/QueuedSummaryContent.tsx",
+      "status": "unchanged",
+      "upstream_sha256": "a4ef50ccadba57b42c5300591a0a7c3546a376794f8c0569f9f62bd09dbc0c8f",
+      "normalized_sha256": "a4ef50ccadba57b42c5300591a0a7c3546a376794f8c0569f9f62bd09dbc0c8f"
+    },
+    {
+      "file": "frontend/src/zcode/components/ai-elements/code-block.tsx",
+      "upstream": "packages/ui/src/components/ai-elements/code-block.tsx",
+      "status": "adapted",
+      "upstream_sha256": "ae4f975537ebb9c8ef905b7b9de39bc37180f81511bffc027dc4da1929037f18",
+      "normalized_sha256": "3f5f00f605bfda7e93d5d7703f737ce28d1354ee9f507649a0e9f17089ce00b5"
+    },
+    {
+      "file": "frontend/src/zcode/components/ai-elements/diagram-preview-dialog.tsx",
+      "upstream": "packages/ui/src/components/ai-elements/diagram-preview-dialog.tsx",
+      "status": "unchanged",
+      "upstream_sha256": "cc142f8808370897dfc40cd7aea3f1aa42fd07ce471a7fbb284d9ae728b1299a",
+      "normalized_sha256": "cc142f8808370897dfc40cd7aea3f1aa42fd07ce471a7fbb284d9ae728b1299a"
+    },
+    {
+      "file": "frontend/src/zcode/components/ai-elements/image-preview-dialog.tsx",
+      "upstream": "packages/ui/src/components/ai-elements/image-preview-dialog.tsx",
+      "status": "unchanged",
+      "upstream_sha256": "47d4ecdefc84d39f2deda93119ce400b36224276bb6c7dab6a914868914ac8de",
+      "normalized_sha256": "47d4ecdefc84d39f2deda93119ce400b36224276bb6c7dab6a914868914ac8de"
+    },
+    {
+      "file": "frontend/src/zcode/components/ai-elements/image-thumbnail-gallery.tsx",
+      "upstream": "packages/ui/src/components/ai-elements/image-thumbnail-gallery.tsx",
+      "status": "unchanged",
+      "upstream_sha256": "185766c039c6c4852ae12360360f7cf29e844a1463358b8cc2c6de972dcdaf43",
+      "normalized_sha256": "185766c039c6c4852ae12360360f7cf29e844a1463358b8cc2c6de972dcdaf43"
+    },
+    {
+      "file": "frontend/src/zcode/components/ai-elements/markdown-blockquote.tsx",
+      "upstream": "packages/ui/src/components/ai-elements/markdown-blockquote.tsx",
+      "status": "unchanged",
+      "upstream_sha256": "0c76599780a464136703d40d07172dcc62730dee1ce01a155100cf4712440a7f",
+      "normalized_sha256": "0c76599780a464136703d40d07172dcc62730dee1ce01a155100cf4712440a7f"
+    },
+    {
+      "file": "frontend/src/zcode/components/ai-elements/markdown-image.tsx",
+      "upstream": "packages/ui/src/components/ai-elements/markdown-image.tsx",
+      "status": "unchanged",
+      "upstream_sha256": "aedf797b19d4f5d37fc7e8833b2824a9d1a1a4fca440b69519b43a43eb122e90",
+      "normalized_sha256": "aedf797b19d4f5d37fc7e8833b2824a9d1a1a4fca440b69519b43a43eb122e90"
+    },
+    {
+      "file": "frontend/src/zcode/components/ai-elements/markdown-list.tsx",
+      "upstream": "packages/ui/src/components/ai-elements/markdown-list.tsx",
+      "status": "unchanged",
+      "upstream_sha256": "ecf50ad4f48cd460ddcf90db7b463671f915d8c22c7cb8e7760ff3b02282c7f1",
+      "normalized_sha256": "ecf50ad4f48cd460ddcf90db7b463671f915d8c22c7cb8e7760ff3b02282c7f1"
+    },
+    {
+      "file": "frontend/src/zcode/components/ai-elements/markdown-table.tsx",
+      "upstream": "packages/ui/src/components/ai-elements/markdown-table.tsx",
+      "status": "unchanged",
+      "upstream_sha256": "612d78092eaeb950931070fff2a194a244e84c5c2d63c6df645e6b91391953da",
+      "normalized_sha256": "612d78092eaeb950931070fff2a194a244e84c5c2d63c6df645e6b91391953da"
+    },
+    {
+      "file": "frontend/src/zcode/components/ai-elements/mermaid-block.tsx",
+      "upstream": "packages/ui/src/components/ai-elements/mermaid-block.tsx",
+      "status": "unchanged",
+      "upstream_sha256": "4cc6783097a6ecbb1896ee1f3dd1d89115ca81f3efb15d9fbabcf448063818ae",
+      "normalized_sha256": "4cc6783097a6ecbb1896ee1f3dd1d89115ca81f3efb15d9fbabcf448063818ae"
+    },
+    {
+      "file": "frontend/src/zcode/components/ai-elements/message.tsx",
+      "upstream": "packages/ui/src/components/ai-elements/message.tsx",
+      "status": "adapted",
+      "upstream_sha256": "6c35829ed11321e850cd59e20c1c88fdd452e8e2d9b5da45f808371021aabf99",
+      "normalized_sha256": "de670ce86f7388646223011e34a08815fa9e19d15340ba15e9a96dbea24420c7"
+    },
+    {
+      "file": "frontend/src/zcode/components/ai-elements/reasoning.tsx",
+      "upstream": "packages/ui/src/components/ai-elements/reasoning.tsx",
+      "status": "unchanged",
+      "upstream_sha256": "a10a38c7b3ca633e9b5480ad94f9c7a1fdd52bc5526ae0801e3e6ed141f2b604",
+      "normalized_sha256": "a10a38c7b3ca633e9b5480ad94f9c7a1fdd52bc5526ae0801e3e6ed141f2b604"
+    },
+    {
+      "file": "frontend/src/zcode/components/ai-elements/streamdown-controls.ts",
+      "upstream": "packages/ui/src/components/ai-elements/streamdown-controls.ts",
+      "status": "unchanged",
+      "upstream_sha256": "13dc740d133c75a9d6eec6e23e673b29d0361a87ba4ee0e7d44a4b7ad047984a",
+      "normalized_sha256": "13dc740d133c75a9d6eec6e23e673b29d0361a87ba4ee0e7d44a4b7ad047984a"
+    },
+    {
+      "file": "frontend/src/zcode/components/lib/utils.ts",
+      "upstream": "packages/ui/src/components/lib/utils.ts",
+      "status": "unchanged",
+      "upstream_sha256": "b083c2359de5f521e00ead8c39b8c8b68934d0e052b1c83384660614198b810d",
+      "normalized_sha256": "b083c2359de5f521e00ead8c39b8c8b68934d0e052b1c83384660614198b810d"
+    },
+    {
+      "file": "frontend/src/zcode/components/ui/code-viewer.tsx",
+      "upstream": "packages/ui/src/components/ui/code-viewer.tsx",
+      "status": "adapted",
+      "upstream_sha256": "dfccd2feaccc62af84f3e92dc5b8e25e7025b6c64cbd16f177586b1dc763affe",
+      "normalized_sha256": "8d85e2924922d568a9b1cb5ff1b994b4a7ec2a98a05347b147447ed2502e9107"
+    },
+    {
+      "file": "frontend/src/zcode/embeddedBrowserHelpers.ts",
+      "upstream": "packages/ui/src/embeddedBrowserHelpers.ts",
+      "status": "unchanged",
+      "upstream_sha256": "96ababc923175124d7b33a7bd7bb3673cae5e7ae1e748bdc113e16d9803e07fd",
+      "normalized_sha256": "96ababc923175124d7b33a7bd7bb3673cae5e7ae1e748bdc113e16d9803e07fd"
+    },
+    {
+      "file": "frontend/src/zcode/hooks/useFileContextActions.ts",
+      "upstream": "packages/ui/src/hooks/useFileContextActions.ts",
+      "status": "unchanged",
+      "upstream_sha256": "15d95cbb5e0811d6c2a1a32d448ae9be0eacfc656782cb2b87c72aa2d3563955",
+      "normalized_sha256": "15d95cbb5e0811d6c2a1a32d448ae9be0eacfc656782cb2b87c72aa2d3563955"
+    },
+    {
+      "file": "frontend/src/zcode/hooks/usePlatform.tsx",
+      "upstream": "packages/ui/src/hooks/usePlatform.tsx",
+      "status": "unchanged",
+      "upstream_sha256": "e0b99d7e15b03f720cd1d5d07e6327008583b22fc29402abb11d9dfa3c318628",
+      "normalized_sha256": "e0b99d7e15b03f720cd1d5d07e6327008583b22fc29402abb11d9dfa3c318628"
+    },
+    {
+      "file": "frontend/src/zcode/hooks/useServices.tsx",
+      "upstream": "packages/ui/src/hooks/useServices.tsx",
+      "status": "adapted",
+      "upstream_sha256": "bf41162883c429ccdf23955e61b5ba63fd987faab3c08005020f6cf23864af72",
+      "normalized_sha256": "101586120224ffa55e25eed3614f9d7a1b975be20e505b471058e35dd2be9dcc"
+    },
+    {
+      "file": "frontend/src/zcode/i18n/IntlProvider.tsx",
+      "upstream": "packages/ui/src/i18n/IntlProvider.tsx",
+      "status": "adapted",
+      "upstream_sha256": "269f010d7b15d5c1a011fc79a99a578952ef4194f2ed652a0f052e5ee2b18b40",
+      "normalized_sha256": "1e101a0ff8dafe31b9fad23d32700786ba1ace8674b97aa194e31622c521402b"
+    },
+    {
+      "file": "frontend/src/zcode/i18n/locales/en-US.ts",
+      "upstream": "packages/ui/src/i18n/locales/en-US.ts",
+      "status": "unchanged",
+      "upstream_sha256": "ca1ea1321e3de199f7e09864784020041265d2096b56221e352d0742468af1d9",
+      "normalized_sha256": "ca1ea1321e3de199f7e09864784020041265d2096b56221e352d0742468af1d9"
+    },
+    {
+      "file": "frontend/src/zcode/i18n/locales/zh-CN.ts",
+      "upstream": "packages/ui/src/i18n/locales/zh-CN.ts",
+      "status": "unchanged",
+      "upstream_sha256": "7fb2202f7179a24fcbb2b1bc6f820da621fa205f7f6faa4ccd53120734ca9fc6",
+      "normalized_sha256": "7fb2202f7179a24fcbb2b1bc6f820da621fa205f7f6faa4ccd53120734ca9fc6"
+    },
+    {
+      "file": "frontend/src/zcode/lib/askUserQuestion.ts",
+      "upstream": "packages/ui/src/lib/askUserQuestion.ts",
+      "status": "unchanged",
+      "upstream_sha256": "863cbc961162048b9a0a7a36cf15601c2988e0ef8d8d220948d44762e42c310b",
+      "normalized_sha256": "863cbc961162048b9a0a7a36cf15601c2988e0ef8d8d220948d44762e42c310b"
+    },
+    {
+      "file": "frontend/src/zcode/lib/assistantDirectiveParser.ts",
+      "upstream": "packages/ui/src/lib/assistantDirectiveParser.ts",
+      "status": "unchanged",
+      "upstream_sha256": "21f17b684efaf977c7c6969c3c9590929d6b959d2e0a84e978345f9f42ce1e94",
+      "normalized_sha256": "21f17b684efaf977c7c6969c3c9590929d6b959d2e0a84e978345f9f42ce1e94"
+    },
+    {
+      "file": "frontend/src/zcode/lib/assistantFileReferences.ts",
+      "upstream": "packages/ui/src/lib/assistantFileReferences.ts",
+      "status": "unchanged",
+      "upstream_sha256": "26a503a0352b1adfac00b02289402a2c3e40c1050bc682a7259501fef19bd64e",
+      "normalized_sha256": "26a503a0352b1adfac00b02289402a2c3e40c1050bc682a7259501fef19bd64e"
+    },
+    {
+      "file": "frontend/src/zcode/lib/assistantPathQuotes.ts",
+      "upstream": "packages/ui/src/lib/assistantPathQuotes.ts",
+      "status": "unchanged",
+      "upstream_sha256": "c9370e926371c7e7e718396180f6a60782a82af9cd2e5b544179318adcf6f0df",
+      "normalized_sha256": "c9370e926371c7e7e718396180f6a60782a82af9cd2e5b544179318adcf6f0df"
+    },
+    {
+      "file": "frontend/src/zcode/lib/browserEnvironment.ts",
+      "upstream": "packages/ui/src/lib/browserEnvironment.ts",
+      "status": "unchanged",
+      "upstream_sha256": "3de5167d657fb07fd8d58f3ec5f3178f1a95304832ec4de0b118d49ffea38471",
+      "normalized_sha256": "3de5167d657fb07fd8d58f3ec5f3178f1a95304832ec4de0b118d49ffea38471"
+    },
+    {
+      "file": "frontend/src/zcode/lib/codeCommentContext.ts",
+      "upstream": "packages/ui/src/lib/codeCommentContext.ts",
+      "status": "unchanged",
+      "upstream_sha256": "6659b751dc2a3d7163e7b851ce82b3b7d00733eb5907ae73899960464c439bd9",
+      "normalized_sha256": "6659b751dc2a3d7163e7b851ce82b3b7d00733eb5907ae73899960464c439bd9"
+    },
+    {
+      "file": "frontend/src/zcode/lib/codePreviewPreferences.ts",
+      "upstream": "packages/ui/src/lib/codePreviewPreferences.ts",
+      "status": "adapted",
+      "upstream_sha256": "6ed19d40a6e918fe4b2ed0349cfb6d7478612cc4e41668858e3cfd03cf8425ef",
+      "normalized_sha256": "0a026be939a9fb15b928488e6af55c95e24cf7dac2affce0ef28b28bbbed2304"
+    },
+    {
+      "file": "frontend/src/zcode/lib/codePreviewSettings.ts",
+      "upstream": "packages/ui/src/lib/codePreviewSettings.ts",
+      "status": "unchanged",
+      "upstream_sha256": "3808a2b6df90f4b3e0be4010f6125a1f4977ad80b3a239d81b373f23dc76b2d2",
+      "normalized_sha256": "3808a2b6df90f4b3e0be4010f6125a1f4977ad80b3a239d81b373f23dc76b2d2"
+    },
+    {
+      "file": "frontend/src/zcode/lib/codeViewer.ts",
+      "upstream": "packages/ui/src/lib/codeViewer.ts",
+      "status": "unchanged",
+      "upstream_sha256": "28183b949c881fcd49ad3840979333de4f682b8d23f9702a4121b1decd3c47b1",
+      "normalized_sha256": "28183b949c881fcd49ad3840979333de4f682b8d23f9702a4121b1decd3c47b1"
+    },
+    {
+      "file": "frontend/src/zcode/lib/codeViewerWorkspaceScope.ts",
+      "upstream": "packages/ui/src/lib/codeViewerWorkspaceScope.ts",
+      "status": "unchanged",
+      "upstream_sha256": "1325053ff79a80990c87054c7e3a6ef9e6e0fde2cccf64ab1ca6e659044a9aec",
+      "normalized_sha256": "1325053ff79a80990c87054c7e3a6ef9e6e0fde2cccf64ab1ca6e659044a9aec"
+    },
+    {
+      "file": "frontend/src/zcode/lib/diagramViewport.ts",
+      "upstream": "packages/ui/src/lib/diagramViewport.ts",
+      "status": "unchanged",
+      "upstream_sha256": "60399e9d45a6c9e7be2a85b8681bd89d24b106901a642416ac23f0122071de04",
+      "normalized_sha256": "60399e9d45a6c9e7be2a85b8681bd89d24b106901a642416ac23f0122071de04"
+    },
+    {
+      "file": "frontend/src/zcode/lib/diffsHighlighterEngine.ts",
+      "upstream": "packages/ui/src/lib/diffsHighlighterEngine.ts",
+      "status": "unchanged",
+      "upstream_sha256": "e3b1d95db15b7ed41f84a6e9490226ca8e8fa522887e5902ae7dafba49267214",
+      "normalized_sha256": "e3b1d95db15b7ed41f84a6e9490226ca8e8fa522887e5902ae7dafba49267214"
+    },
+    {
+      "file": "frontend/src/zcode/lib/editorPreference.ts",
+      "upstream": "packages/ui/src/lib/editorPreference.ts",
+      "status": "unchanged",
+      "upstream_sha256": "c30544ccce3ba836ad19783e3ad6f5cffc83fa108b884d6a42ba73b6e2ae38e6",
+      "normalized_sha256": "c30544ccce3ba836ad19783e3ad6f5cffc83fa108b884d6a42ba73b6e2ae38e6"
+    },
+    {
+      "file": "frontend/src/zcode/lib/fileDisplay.tsx",
+      "upstream": "packages/ui/src/lib/fileDisplay.tsx",
+      "status": "unchanged",
+      "upstream_sha256": "e0bb3dc5c8200fadabc4f498f82efc1b0ca73b76d772347f686b71cc04c2dc80",
+      "normalized_sha256": "e0bb3dc5c8200fadabc4f498f82efc1b0ca73b76d772347f686b71cc04c2dc80"
+    },
+    {
+      "file": "frontend/src/zcode/lib/fileDisplayHelpers.ts",
+      "upstream": "packages/ui/src/lib/fileDisplayHelpers.ts",
+      "status": "adapted",
+      "upstream_sha256": "ad22ec674ec83b106c1dc503d941d734999c4f6c2dc4efda51eff8eda173ba9d",
+      "normalized_sha256": "2f123dbf12655259eff0f99b50db8082f9038dddcebb90900f39ba1c8b81f144"
+    },
+    {
+      "file": "frontend/src/zcode/lib/keyboardShortcuts.ts",
+      "upstream": "packages/ui/src/lib/keyboardShortcuts.ts",
+      "status": "unchanged",
+      "upstream_sha256": "659f8cc892c92a411e81842282f6620c15701fec11e6937cd9b19e5a1494ec73",
+      "normalized_sha256": "659f8cc892c92a411e81842282f6620c15701fec11e6937cd9b19e5a1494ec73"
+    },
+    {
+      "file": "frontend/src/zcode/lib/markdownFileLink.ts",
+      "upstream": "packages/ui/src/lib/markdownFileLink.ts",
+      "status": "unchanged",
+      "upstream_sha256": "f53ac9aa97af7632a83b2ff33f349ac60fe413041d96e354039b86f055adb8a7",
+      "normalized_sha256": "f53ac9aa97af7632a83b2ff33f349ac60fe413041d96e354039b86f055adb8a7"
+    },
+    {
+      "file": "frontend/src/zcode/lib/mermaidLanguage.ts",
+      "upstream": "packages/ui/src/lib/mermaidLanguage.ts",
+      "status": "unchanged",
+      "upstream_sha256": "14163b7f78c21dc2a7f21211e978ca7179e0b01a5002177025643a18f3d8b024",
+      "normalized_sha256": "14163b7f78c21dc2a7f21211e978ca7179e0b01a5002177025643a18f3d8b024"
+    },
+    {
+      "file": "frontend/src/zcode/lib/mermaidRenderBudget.ts",
+      "upstream": "packages/ui/src/lib/mermaidRenderBudget.ts",
+      "status": "unchanged",
+      "upstream_sha256": "e04965a3bfedf94f57196247f6cfbb934e5474079677515b29312feec851a9ae",
+      "normalized_sha256": "e04965a3bfedf94f57196247f6cfbb934e5474079677515b29312feec851a9ae"
+    },
+    {
+      "file": "frontend/src/zcode/lib/openWithEditors.ts",
+      "upstream": "packages/ui/src/lib/openWithEditors.ts",
+      "status": "unchanged",
+      "upstream_sha256": "8bf65621fc2f1884cb4729954f94678b15f69410bc12f7e6dc6e0049e46f0e28",
+      "normalized_sha256": "8bf65621fc2f1884cb4729954f94678b15f69410bc12f7e6dc6e0049e46f0e28"
+    },
+    {
+      "file": "frontend/src/zcode/lib/path.ts",
+      "upstream": "packages/ui/src/lib/path.ts",
+      "status": "unchanged",
+      "upstream_sha256": "f030a18c3c5baed3e5c9a3b5787e7450d1fb0386fe1e2d747de1947cedbe941a",
+      "normalized_sha256": "f030a18c3c5baed3e5c9a3b5787e7450d1fb0386fe1e2d747de1947cedbe941a"
+    },
+    {
+      "file": "frontend/src/zcode/lib/taskChatMessageTypes.ts",
+      "upstream": "packages/ui/src/lib/taskChatMessageTypes.ts",
+      "status": "unchanged",
+      "upstream_sha256": "92f360a4f822e0dd3d6a86bf9f0cccf5b1754282f073eb8a73afa4c9fda09e61",
+      "normalized_sha256": "92f360a4f822e0dd3d6a86bf9f0cccf5b1754282f073eb8a73afa4c9fda09e61"
+    },
+    {
+      "file": "frontend/src/zcode/lib/toolDiffPreview.ts",
+      "upstream": "packages/ui/src/lib/toolDiffPreview.ts",
+      "status": "unchanged",
+      "upstream_sha256": "f2bada72ba6badae5dda0d74e3fa4780e664d225375e4c790cea9033906fd497",
+      "normalized_sha256": "f2bada72ba6badae5dda0d74e3fa4780e664d225375e4c790cea9033906fd497"
+    },
+    {
+      "file": "frontend/src/zcode/lib/toolIdentity.ts",
+      "upstream": "packages/ui/src/lib/toolIdentity.ts",
+      "status": "unchanged",
+      "upstream_sha256": "dd370a7b04136871923196beac9f5385214a4be6486a28fe9243efc89f5bcad5",
+      "normalized_sha256": "dd370a7b04136871923196beac9f5385214a4be6486a28fe9243efc89f5bcad5"
+    },
+    {
+      "file": "frontend/src/zcode/lib/windowsFileLinkEscapeRemarkPlugin.ts",
+      "upstream": "packages/ui/src/lib/windowsFileLinkEscapeRemarkPlugin.ts",
+      "status": "unchanged",
+      "upstream_sha256": "93606cd59cdf3e0acdd5158ad01b6f43f5d33552d369cefff00c03ce45d3aa7f",
+      "normalized_sha256": "93606cd59cdf3e0acdd5158ad01b6f43f5d33552d369cefff00c03ce45d3aa7f"
+    },
+    {
+      "file": "frontend/src/zcode/lib/workspaceEditorSelection.ts",
+      "upstream": "packages/ui/src/lib/workspaceEditorSelection.ts",
+      "status": "unchanged",
+      "upstream_sha256": "3d92e942ea1a355a76f652a876ade0c2b9c49cd1578f74e3e43e058fcf2cfb4c",
+      "normalized_sha256": "3d92e942ea1a355a76f652a876ade0c2b9c49cd1578f74e3e43e058fcf2cfb4c"
+    },
+    {
+      "file": "frontend/src/zcode/lib/zcodeFileCitation.ts",
+      "upstream": "packages/ui/src/lib/zcodeFileCitation.ts",
+      "status": "unchanged",
+      "upstream_sha256": "ce89a253a42c3377cfeca927b443ad0b943118cb0186558b1aaeebef0432f771",
+      "normalized_sha256": "ce89a253a42c3377cfeca927b443ad0b943118cb0186558b1aaeebef0432f771"
+    },
+    {
+      "file": "frontend/src/zcode/lib/zcodeFileCitationRemarkPlugin.ts",
+      "upstream": "packages/ui/src/lib/zcodeFileCitationRemarkPlugin.ts",
+      "status": "unchanged",
+      "upstream_sha256": "127a63cbbdb70a4f50787ee98d57d82fbef3efd1e4ef61d09eeb3b925f9c5f70",
+      "normalized_sha256": "127a63cbbdb70a4f50787ee98d57d82fbef3efd1e4ef61d09eeb3b925f9c5f70"
+    },
+    {
+      "file": "frontend/src/zcode/logger.ts",
+      "upstream": "packages/ui/src/logger.ts",
+      "status": "unchanged",
+      "upstream_sha256": "a02db511d21e52da52be5217404a672a57a7d9e02d21c0bc73018aff0793600b",
+      "normalized_sha256": "a02db511d21e52da52be5217404a672a57a7d9e02d21c0bc73018aff0793600b"
+    },
+    {
+      "file": "frontend/src/zcode/mentions/components/scrollMask.ts",
+      "upstream": "packages/ui/src/mentions/components/scrollMask.ts",
+      "status": "unchanged",
+      "upstream_sha256": "e542fa2718d6dfb68316a438a7feafb3b29211fcaf9b4ef5ca47dea2c8a4002f",
+      "normalized_sha256": "e542fa2718d6dfb68316a438a7feafb3b29211fcaf9b4ef5ca47dea2c8a4002f"
+    },
+    {
+      "file": "frontend/src/zcode/model-option-map/compiler.ts",
+      "upstream": "packages/model-option-map/src/compiler.ts",
+      "status": "unchanged",
+      "upstream_sha256": "36f97b996d1bd5757eafcabd9660ff451e64a92d9fa632e8f7078719fe6fcb43",
+      "normalized_sha256": "36f97b996d1bd5757eafcabd9660ff451e64a92d9fa632e8f7078719fe6fcb43"
+    },
+    {
+      "file": "frontend/src/zcode/model-option-map/evaluator.ts",
+      "upstream": "packages/model-option-map/src/evaluator.ts",
+      "status": "unchanged",
+      "upstream_sha256": "522a3eaf968110c2caf79d9f2c4b19b9f71289e867789129af237ae841fe5ec7",
+      "normalized_sha256": "522a3eaf968110c2caf79d9f2c4b19b9f71289e867789129af237ae841fe5ec7"
+    },
+    {
+      "file": "frontend/src/zcode/model-option-map/index.ts",
+      "upstream": "packages/model-option-map/src/index.ts",
+      "status": "unchanged",
+      "upstream_sha256": "e573a4696a4d6dae0ff4b281fe1f8975a2e395f6eaea76a2880158c81143ea33",
+      "normalized_sha256": "e573a4696a4d6dae0ff4b281fe1f8975a2e395f6eaea76a2880158c81143ea33"
+    },
+    {
+      "file": "frontend/src/zcode/model-option-map/merge-patch.ts",
+      "upstream": "packages/model-option-map/src/merge-patch.ts",
+      "status": "unchanged",
+      "upstream_sha256": "31333e43e9f33d242addd7e3185ad5736312b2b79e17d3fbc7856df50df057ef",
+      "normalized_sha256": "31333e43e9f33d242addd7e3185ad5736312b2b79e17d3fbc7856df50df057ef"
+    },
+    {
+      "file": "frontend/src/zcode/model-option-map/option-maps.ts",
+      "upstream": "packages/model-option-map/src/option-maps.ts",
+      "status": "unchanged",
+      "upstream_sha256": "2bff6e281391b735cfc81b5e8ea016f56086a4088d0566da732b1acaf94b5547",
+      "normalized_sha256": "2bff6e281391b735cfc81b5e8ea016f56086a4088d0566da732b1acaf94b5547"
+    },
+    {
+      "file": "frontend/src/zcode/model-option-map/parser.ts",
+      "upstream": "packages/model-option-map/src/parser.ts",
+      "status": "unchanged",
+      "upstream_sha256": "4eeb09c63416b4b44069b24480026fb468553496206bf84ad44f6cb8d5686003",
+      "normalized_sha256": "4eeb09c63416b4b44069b24480026fb468553496206bf84ad44f6cb8d5686003"
+    },
+    {
+      "file": "frontend/src/zcode/model-option-map/tokenizer.ts",
+      "upstream": "packages/model-option-map/src/tokenizer.ts",
+      "status": "unchanged",
+      "upstream_sha256": "8066cc35cb4062a7046beebc1b4e3c9e5f28f0ed64928a8f218b5429dcdcc042",
+      "normalized_sha256": "8066cc35cb4062a7046beebc1b4e3c9e5f28f0ed64928a8f218b5429dcdcc042"
+    },
+    {
+      "file": "frontend/src/zcode/model-option-map/types.ts",
+      "upstream": "packages/model-option-map/src/types.ts",
+      "status": "unchanged",
+      "upstream_sha256": "6ff4a5db3e323eb887de390f8b0c6cc2af0a0cb052054be866a4e5876a1ca397",
+      "normalized_sha256": "6ff4a5db3e323eb887de390f8b0c6cc2af0a0cb052054be866a4e5876a1ca397"
+    },
+    {
+      "file": "frontend/src/zcode/shared/account-provider-state.ts",
+      "upstream": "packages/shared/src/account-provider-state.ts",
+      "status": "unchanged",
+      "upstream_sha256": "c81ac7579c053458c7fef4cd72b287be016ac43e30e2e107a7e29c22bf67a6ff",
+      "normalized_sha256": "c81ac7579c053458c7fef4cd72b287be016ac43e30e2e107a7e29c22bf67a6ff"
+    },
+    {
+      "file": "frontend/src/zcode/shared/assistant-message-parts.ts",
+      "upstream": "packages/shared/src/assistant-message-parts.ts",
+      "status": "unchanged",
+      "upstream_sha256": "ad7642e580253b6f60c98fcad85fa5a4a6a02c7439ff1d158550c861f51ea0f1",
+      "normalized_sha256": "ad7642e580253b6f60c98fcad85fa5a4a6a02c7439ff1d158550c861f51ea0f1"
+    },
+    {
+      "file": "frontend/src/zcode/shared/background-bash-output.ts",
+      "upstream": "packages/shared/src/background-bash-output.ts",
+      "status": "unchanged",
+      "upstream_sha256": "a3114a91e517f2a9b09fcb2815dd84a764c00d56bf735ad5e23a9c18a27ab5eb",
+      "normalized_sha256": "a3114a91e517f2a9b09fcb2815dd84a764c00d56bf735ad5e23a9c18a27ab5eb"
+    },
+    {
+      "file": "frontend/src/zcode/shared/background-task-controls.ts",
+      "upstream": "packages/shared/src/background-task-controls.ts",
+      "status": "unchanged",
+      "upstream_sha256": "8f6f3ab37561a57184009d85ecf36ae3663bd4ba87c2b56782329b4f7b2b3295",
+      "normalized_sha256": "8f6f3ab37561a57184009d85ecf36ae3663bd4ba87c2b56782329b4f7b2b3295"
+    },
+    {
+      "file": "frontend/src/zcode/shared/bash-output-display.ts",
+      "upstream": "packages/shared/src/bash-output-display.ts",
+      "status": "unchanged",
+      "upstream_sha256": "3dc88eb1f016259e220be9f02f07c344de51b4fed081a9cd59a40a5cd525cc0a",
+      "normalized_sha256": "3dc88eb1f016259e220be9f02f07c344de51b4fed081a9cd59a40a5cd525cc0a"
+    },
+    {
+      "file": "frontend/src/zcode/shared/bots.ts",
+      "upstream": "packages/shared/src/bots.ts",
+      "status": "unchanged",
+      "upstream_sha256": "1474521b9d3afdf9ba5802cfe09c97b8770f9c78914e85d349c833fcc7131cf4",
+      "normalized_sha256": "1474521b9d3afdf9ba5802cfe09c97b8770f9c78914e85d349c833fcc7131cf4"
+    },
+    {
+      "file": "frontend/src/zcode/shared/browser-use/backend.ts",
+      "upstream": "packages/shared/src/browser-use/backend.ts",
+      "status": "unchanged",
+      "upstream_sha256": "8e205855dbef21727292730172dfda34deee0b8bdcd2937534f7aeb8b3cbaba7",
+      "normalized_sha256": "8e205855dbef21727292730172dfda34deee0b8bdcd2937534f7aeb8b3cbaba7"
+    },
+    {
+      "file": "frontend/src/zcode/shared/browser-use/command-metadata.ts",
+      "upstream": "packages/shared/src/browser-use/command-metadata.ts",
+      "status": "unchanged",
+      "upstream_sha256": "37eb04347f44f01d1315811be00e131880eb6d1685399f68aab29239bbb7594f",
+      "normalized_sha256": "37eb04347f44f01d1315811be00e131880eb6d1685399f68aab29239bbb7594f"
+    },
+    {
+      "file": "frontend/src/zcode/shared/browser-use/commands.ts",
+      "upstream": "packages/shared/src/browser-use/commands.ts",
+      "status": "unchanged",
+      "upstream_sha256": "b832450b6c7c8510e266fc5d852596c88f8860746f62507760238429131484bf",
+      "normalized_sha256": "b832450b6c7c8510e266fc5d852596c88f8860746f62507760238429131484bf"
+    },
+    {
+      "file": "frontend/src/zcode/shared/browser-use/result.ts",
+      "upstream": "packages/shared/src/browser-use/result.ts",
+      "status": "unchanged",
+      "upstream_sha256": "b1fd3bda2e8787c12ab6090c923dd8ac67b8f42b00d84d28e4f5db1e54374599",
+      "normalized_sha256": "b1fd3bda2e8787c12ab6090c923dd8ac67b8f42b00d84d28e4f5db1e54374599"
+    },
+    {
+      "file": "frontend/src/zcode/shared/browser-use/snapshot.ts",
+      "upstream": "packages/shared/src/browser-use/snapshot.ts",
+      "status": "unchanged",
+      "upstream_sha256": "b11568e155d1aabf9771d4a9e9df98dbd692add80b3adb4d193fb92fd1568168",
+      "normalized_sha256": "b11568e155d1aabf9771d4a9e9df98dbd692add80b3adb4d193fb92fd1568168"
+    },
+    {
+      "file": "frontend/src/zcode/shared/command-types.ts",
+      "upstream": "packages/shared/src/command-types.ts",
+      "status": "unchanged",
+      "upstream_sha256": "24e59c2dc17e4346332d44037e999b2678b5d1bdaf9ff5384744c613fff54bd5",
+      "normalized_sha256": "24e59c2dc17e4346332d44037e999b2678b5d1bdaf9ff5384744c613fff54bd5"
+    },
+    {
+      "file": "frontend/src/zcode/shared/config-schema.ts",
+      "upstream": "packages/shared/src/config-schema.ts",
+      "status": "unchanged",
+      "upstream_sha256": "6abe56703524faac950d25b8d77d904facd36d059e11ac7be83d282e2c9301d5",
+      "normalized_sha256": "6abe56703524faac950d25b8d77d904facd36d059e11ac7be83d282e2c9301d5"
+    },
+    {
+      "file": "frontend/src/zcode/shared/conversation-preview-artifacts.ts",
+      "upstream": "packages/shared/src/conversation-preview-artifacts.ts",
+      "status": "unchanged",
+      "upstream_sha256": "addd1765a2774793d30571aa0eb52c1b27aef2bd97e054b8d9e18641952a7e11",
+      "normalized_sha256": "addd1765a2774793d30571aa0eb52c1b27aef2bd97e054b8d9e18641952a7e11"
+    },
+    {
+      "file": "frontend/src/zcode/shared/cuaAccessibilitySettings.ts",
+      "upstream": "packages/shared/src/cuaAccessibilitySettings.ts",
+      "status": "unchanged",
+      "upstream_sha256": "55696dfbd8436fb862da644ee3fddcc6cc39146b12655fbaebc9c640e4eef0b4",
+      "normalized_sha256": "55696dfbd8436fb862da644ee3fddcc6cc39146b12655fbaebc9c640e4eef0b4"
+    },
+    {
+      "file": "frontend/src/zcode/shared/database-startup.ts",
+      "upstream": "packages/shared/src/database-startup.ts",
+      "status": "unchanged",
+      "upstream_sha256": "ac7fb12cb5e902bfa5a733a1c989e7e094e686294236186dae62524a32004def",
+      "normalized_sha256": "ac7fb12cb5e902bfa5a733a1c989e7e094e686294236186dae62524a32004def"
+    },
+    {
+      "file": "frontend/src/zcode/shared/env.ts",
+      "upstream": "packages/shared/src/env.ts",
+      "status": "unchanged",
+      "upstream_sha256": "69c7f96325027d874be61367da3e80f92e751508070275305209ad739da65d2c",
+      "normalized_sha256": "69c7f96325027d874be61367da3e80f92e751508070275305209ad739da65d2c"
+    },
+    {
+      "file": "frontend/src/zcode/shared/execution-output-preview.ts",
+      "upstream": "packages/shared/src/execution-output-preview.ts",
+      "status": "unchanged",
+      "upstream_sha256": "49baa10419388ea695d87458f2c0fa614bdd7cfeb57543cc7f0437403b753282",
+      "normalized_sha256": "49baa10419388ea695d87458f2c0fa614bdd7cfeb57543cc7f0437403b753282"
+    },
+    {
+      "file": "frontend/src/zcode/shared/git.ts",
+      "upstream": "packages/shared/src/git.ts",
+      "status": "unchanged",
+      "upstream_sha256": "02e1d5ee5e94ad07e57cc743cc17f0c3d064163e1cd35148a5faaff3d6c797a9",
+      "normalized_sha256": "02e1d5ee5e94ad07e57cc743cc17f0c3d064163e1cd35148a5faaff3d6c797a9"
+    },
+    {
+      "file": "frontend/src/zcode/shared/localTtft.ts",
+      "upstream": "packages/shared/src/localTtft.ts",
+      "status": "unchanged",
+      "upstream_sha256": "b6f6963535fddb455bf6adcf1c82e08dd609fb2f8bf7b6398c16cd164b3b3597",
+      "normalized_sha256": "b6f6963535fddb455bf6adcf1c82e08dd609fb2f8bf7b6398c16cd164b3b3597"
+    },
+    {
+      "file": "frontend/src/zcode/shared/log-format.ts",
+      "upstream": "packages/shared/src/log-format.ts",
+      "status": "unchanged",
+      "upstream_sha256": "d30c2e09c722d7c2e975e80f48468c62fb17ac52299ff0f20101a272ded5c618",
+      "normalized_sha256": "d30c2e09c722d7c2e975e80f48468c62fb17ac52299ff0f20101a272ded5c618"
+    },
+    {
+      "file": "frontend/src/zcode/shared/markdown-artifact-images.ts",
+      "upstream": "packages/shared/src/markdown-artifact-images.ts",
+      "status": "unchanged",
+      "upstream_sha256": "5ad24f3c59525415f6897049f36d0bb614257c22b3327166dca6ff4422360dcd",
+      "normalized_sha256": "5ad24f3c59525415f6897049f36d0bb614257c22b3327166dca6ff4422360dcd"
+    },
+    {
+      "file": "frontend/src/zcode/shared/mcp.ts",
+      "upstream": "packages/shared/src/mcp.ts",
+      "status": "unchanged",
+      "upstream_sha256": "20903fb8806923434dcf5c319cb1becc5cbaa3418bc6c6e9bcf56848ad9312ac",
+      "normalized_sha256": "20903fb8806923434dcf5c319cb1becc5cbaa3418bc6c6e9bcf56848ad9312ac"
+    },
+    {
+      "file": "frontend/src/zcode/shared/media-preview.ts",
+      "upstream": "packages/shared/src/media-preview.ts",
+      "status": "unchanged",
+      "upstream_sha256": "cb5662582f863a3c1c679324c3707d2c028cef2b5d5e02350e82042455f4f76e",
+      "normalized_sha256": "cb5662582f863a3c1c679324c3707d2c028cef2b5d5e02350e82042455f4f76e"
+    },
+    {
+      "file": "frontend/src/zcode/shared/model-config.ts",
+      "upstream": "packages/shared/src/model-config.ts",
+      "status": "unchanged",
+      "upstream_sha256": "5d8f79c5add78054fad680493e530fa8ed01af99ffb907875a216cc462e6c0f0",
+      "normalized_sha256": "5d8f79c5add78054fad680493e530fa8ed01af99ffb907875a216cc462e6c0f0"
+    },
+    {
+      "file": "frontend/src/zcode/shared/model-execution.ts",
+      "upstream": "packages/shared/src/model-execution.ts",
+      "status": "unchanged",
+      "upstream_sha256": "53f00f3b60bf00507c9ca5707da65537f343d9a4a62b5c85fe1e0a53aa5401e1",
+      "normalized_sha256": "53f00f3b60bf00507c9ca5707da65537f343d9a4a62b5c85fe1e0a53aa5401e1"
+    },
+    {
+      "file": "frontend/src/zcode/shared/model-provider-family.ts",
+      "upstream": "packages/shared/src/model-provider-family.ts",
+      "status": "unchanged",
+      "upstream_sha256": "de6921dc0fce1e776a62010bfcf5488145ea4f4aa86cced5207cf6785f726e71",
+      "normalized_sha256": "de6921dc0fce1e776a62010bfcf5488145ea4f4aa86cced5207cf6785f726e71"
+    },
+    {
+      "file": "frontend/src/zcode/shared/model-provider-types.ts",
+      "upstream": "packages/shared/src/model-provider-types.ts",
+      "status": "unchanged",
+      "upstream_sha256": "7136b3e33dc7274e747e14f6c66cb4acf908dc6f2d8cf2b28adfc569bee218e8",
+      "normalized_sha256": "7136b3e33dc7274e747e14f6c66cb4acf908dc6f2d8cf2b28adfc569bee218e8"
+    },
+    {
+      "file": "frontend/src/zcode/shared/model-selection.ts",
+      "upstream": "packages/shared/src/model-selection.ts",
+      "status": "unchanged",
+      "upstream_sha256": "653a4671723d4a3302e84ba13f29d4d55a17e5e8082b44d54ba1f9087dbd3e44",
+      "normalized_sha256": "653a4671723d4a3302e84ba13f29d4d55a17e5e8082b44d54ba1f9087dbd3e44"
+    },
+    {
+      "file": "frontend/src/zcode/shared/oauth.ts",
+      "upstream": "packages/shared/src/oauth.ts",
+      "status": "unchanged",
+      "upstream_sha256": "426441fab7296a7a110523b455dbb3b8b86f291da5b6e3e0127058f63e26841b",
+      "normalized_sha256": "426441fab7296a7a110523b455dbb3b8b86f291da5b6e3e0127058f63e26841b"
+    },
+    {
+      "file": "frontend/src/zcode/shared/official-mcp-auth.ts",
+      "upstream": "packages/shared/src/official-mcp-auth.ts",
+      "status": "unchanged",
+      "upstream_sha256": "b54f40f504fd2ba89e34953d93592d66712cff1e16ea5d7cb8c04f5bf6f94ae8",
+      "normalized_sha256": "b54f40f504fd2ba89e34953d93592d66712cff1e16ea5d7cb8c04f5bf6f94ae8"
+    },
+    {
+      "file": "frontend/src/zcode/shared/official-mcp-tool-error.ts",
+      "upstream": "packages/shared/src/official-mcp-tool-error.ts",
+      "status": "unchanged",
+      "upstream_sha256": "74f966961b89565e035b50b93523cd643c9fe4f61cca4fab70e8c8759ef3fcc8",
+      "normalized_sha256": "74f966961b89565e035b50b93523cd643c9fe4f61cca4fab70e8c8759ef3fcc8"
+    },
+    {
+      "file": "frontend/src/zcode/shared/platform.ts",
+      "upstream": "packages/shared/src/platform.ts",
+      "status": "unchanged",
+      "upstream_sha256": "68a470a9917ace6d91bcad8a881b52662a8fb9486bcaa5b501f2f56811d814a4",
+      "normalized_sha256": "68a470a9917ace6d91bcad8a881b52662a8fb9486bcaa5b501f2f56811d814a4"
+    },
+    {
+      "file": "frontend/src/zcode/shared/process-diagnostic.ts",
+      "upstream": "packages/shared/src/process-diagnostic.ts",
+      "status": "unchanged",
+      "upstream_sha256": "e6889f1d4d6c9829019dc07053872d15ae0af2a1d25aeb97d143dc857fc13c29",
+      "normalized_sha256": "e6889f1d4d6c9829019dc07053872d15ae0af2a1d25aeb97d143dc857fc13c29"
+    },
+    {
+      "file": "frontend/src/zcode/shared/processResourceTelemetry.ts",
+      "upstream": "packages/shared/src/processResourceTelemetry.ts",
+      "status": "unchanged",
+      "upstream_sha256": "1c918b0b3ed7f2529d1dae62e0ebb366f1f50b7d7bd778b0803d01daa7ceba4a",
+      "normalized_sha256": "1c918b0b3ed7f2529d1dae62e0ebb366f1f50b7d7bd778b0803d01daa7ceba4a"
+    },
+    {
+      "file": "frontend/src/zcode/shared/protocol.ts",
+      "upstream": "packages/shared/src/protocol.ts",
+      "status": "unchanged",
+      "upstream_sha256": "8ca196294184cb0f41961bbc57360fbdccfe4ae41b95987286a47516411a6f9e",
+      "normalized_sha256": "8ca196294184cb0f41961bbc57360fbdccfe4ae41b95987286a47516411a6f9e"
+    },
+    {
+      "file": "frontend/src/zcode/shared/provider-family-connection-selection.ts",
+      "upstream": "packages/shared/src/provider-family-connection-selection.ts",
+      "status": "unchanged",
+      "upstream_sha256": "6476dca87ec40391ba3545dae56c920f6d4785e08e28d49528458ebd46ad4600",
+      "normalized_sha256": "6476dca87ec40391ba3545dae56c920f6d4785e08e28d49528458ebd46ad4600"
+    },
+    {
+      "file": "frontend/src/zcode/shared/provider-provisioning.ts",
+      "upstream": "packages/shared/src/provider-provisioning.ts",
+      "status": "unchanged",
+      "upstream_sha256": "6cb5dfcde127d923683116827c8e1009e7006428e780c27c7721eb848d449055",
+      "normalized_sha256": "6cb5dfcde127d923683116827c8e1009e7006428e780c27c7721eb848d449055"
+    },
+    {
+      "file": "frontend/src/zcode/shared/providers.ts",
+      "upstream": "packages/shared/src/providers.ts",
+      "status": "unchanged",
+      "upstream_sha256": "f5272b6b75f997d686428b8b360028b3fdcd8abc61bb8854395b76ba0221bbf7",
+      "normalized_sha256": "f5272b6b75f997d686428b8b360028b3fdcd8abc61bb8854395b76ba0221bbf7"
+    },
+    {
+      "file": "frontend/src/zcode/shared/remote-workspace-identity.ts",
+      "upstream": "packages/shared/src/remote-workspace-identity.ts",
+      "status": "unchanged",
+      "upstream_sha256": "1392ae30f222a4aedaf0427318527839a623e7b43dd455f061f5babc1264ce0f",
+      "normalized_sha256": "1392ae30f222a4aedaf0427318527839a623e7b43dd455f061f5babc1264ce0f"
+    },
+    {
+      "file": "frontend/src/zcode/shared/remoteAssetInstallMode.ts",
+      "upstream": "packages/shared/src/remoteAssetInstallMode.ts",
+      "status": "unchanged",
+      "upstream_sha256": "918dcc8a86921af3185e5af96d2b9a189899e58a0e86fb20de44c47934f6ff8c",
+      "normalized_sha256": "918dcc8a86921af3185e5af96d2b9a189899e58a0e86fb20de44c47934f6ff8c"
+    },
+    {
+      "file": "frontend/src/zcode/shared/remoteResourcePackages.ts",
+      "upstream": "packages/shared/src/remoteResourcePackages.ts",
+      "status": "unchanged",
+      "upstream_sha256": "8041390aafed41e42d272215b4c2485d027c00f9812df8307bf40d906b526e1f",
+      "normalized_sha256": "8041390aafed41e42d272215b4c2485d027c00f9812df8307bf40d906b526e1f"
+    },
+    {
+      "file": "frontend/src/zcode/shared/remoteTarget.ts",
+      "upstream": "packages/shared/src/remoteTarget.ts",
+      "status": "unchanged",
+      "upstream_sha256": "37bd8a045310956ab5ff484a5775e9f7d8992fb17e46d07f107f22715b336cdc",
+      "normalized_sha256": "37bd8a045310956ab5ff484a5775e9f7d8992fb17e46d07f107f22715b336cdc"
+    },
+    {
+      "file": "frontend/src/zcode/shared/remoteUsageTelemetry.ts",
+      "upstream": "packages/shared/src/remoteUsageTelemetry.ts",
+      "status": "unchanged",
+      "upstream_sha256": "cba734ec10059e3071f0f30a19c0062fba945f6ef37ca42fbcf07ecd01170345",
+      "normalized_sha256": "cba734ec10059e3071f0f30a19c0062fba945f6ef37ca42fbcf07ecd01170345"
+    },
+    {
+      "file": "frontend/src/zcode/shared/rendererActionTrace.ts",
+      "upstream": "packages/shared/src/rendererActionTrace.ts",
+      "status": "unchanged",
+      "upstream_sha256": "f16a27bea2934df23fa449bde40ec900509f085e4eac5ebc6013d4ff39c993bf",
+      "normalized_sha256": "f16a27bea2934df23fa449bde40ec900509f085e4eac5ebc6013d4ff39c993bf"
+    },
+    {
+      "file": "frontend/src/zcode/shared/runtimeEnv.ts",
+      "upstream": "packages/shared/src/runtimeEnv.ts",
+      "status": "unchanged",
+      "upstream_sha256": "3e74414915d475ebf90ee68d2d2b25f0470aeb8692277e9555ed60d596a0f650",
+      "normalized_sha256": "3e74414915d475ebf90ee68d2d2b25f0470aeb8692277e9555ed60d596a0f650"
+    },
+    {
+      "file": "frontend/src/zcode/shared/sessionCreateTelemetry.ts",
+      "upstream": "packages/shared/src/sessionCreateTelemetry.ts",
+      "status": "unchanged",
+      "upstream_sha256": "cabe36ab269a85d8f73e7f9e6b81ed987e5ba0d1a84c641ddd32abfbfbed3a79",
+      "normalized_sha256": "cabe36ab269a85d8f73e7f9e6b81ed987e5ba0d1a84c641ddd32abfbfbed3a79"
+    },
+    {
+      "file": "frontend/src/zcode/shared/settings-source.ts",
+      "upstream": "packages/shared/src/settings-source.ts",
+      "status": "unchanged",
+      "upstream_sha256": "2599bf5f47df27072065d08e4a0ae0eb57ed7c32873b1e60feaaaf39f5b8466e",
+      "normalized_sha256": "2599bf5f47df27072065d08e4a0ae0eb57ed7c32873b1e60feaaaf39f5b8466e"
+    },
+    {
+      "file": "frontend/src/zcode/shared/task-realtime-core.ts",
+      "upstream": "packages/shared/src/task-realtime-core.ts",
+      "status": "unchanged",
+      "upstream_sha256": "cba2956048f69d51cd4df6f9070fcab42cd3609f4a1faa3af96bea337910cb52",
+      "normalized_sha256": "cba2956048f69d51cd4df6f9070fcab42cd3609f4a1faa3af96bea337910cb52"
+    },
+    {
+      "file": "frontend/src/zcode/shared/telemetry.ts",
+      "upstream": "packages/shared/src/telemetry.ts",
+      "status": "unchanged",
+      "upstream_sha256": "9083cdb68f1047912c47bb84eba040319ff859e2bd986ff2ed919dad940aeeba",
+      "normalized_sha256": "9083cdb68f1047912c47bb84eba040319ff859e2bd986ff2ed919dad940aeeba"
+    },
+    {
+      "file": "frontend/src/zcode/shared/test-ids.ts",
+      "upstream": "packages/shared/src/test-ids.ts",
+      "status": "unchanged",
+      "upstream_sha256": "6f632a0c4bdea6044e9265184d00985f19afa1e0eba86d1873165795db1deb59",
+      "normalized_sha256": "6f632a0c4bdea6044e9265184d00985f19afa1e0eba86d1873165795db1deb59"
+    },
+    {
+      "file": "frontend/src/zcode/shared/tool-identity.ts",
+      "upstream": "packages/shared/src/tool-identity.ts",
+      "status": "unchanged",
+      "upstream_sha256": "6239f7855bf07d2af9b7738cccdabff1427208d026303d330b72512839237949",
+      "normalized_sha256": "6239f7855bf07d2af9b7738cccdabff1427208d026303d330b72512839237949"
+    },
+    {
+      "file": "frontend/src/zcode/shared/tool-plan-adapter.ts",
+      "upstream": "packages/shared/src/tool-plan-adapter.ts",
+      "status": "unchanged",
+      "upstream_sha256": "0445f8dbeca1f21ad64a65a1ad3d0a4a824292eb09ab03aae1e69a49080b4882",
+      "normalized_sha256": "0445f8dbeca1f21ad64a65a1ad3d0a4a824292eb09ab03aae1e69a49080b4882"
+    },
+    {
+      "file": "frontend/src/zcode/shared/update.ts",
+      "upstream": "packages/shared/src/update.ts",
+      "status": "unchanged",
+      "upstream_sha256": "ee59e763bc6f74621841ef28011da6acc833f74763049173072dd2a126b86245",
+      "normalized_sha256": "ee59e763bc6f74621841ef28011da6acc833f74763049173072dd2a126b86245"
+    },
+    {
+      "file": "frontend/src/zcode/shared/usage-quota.ts",
+      "upstream": "packages/shared/src/usage-quota.ts",
+      "status": "unchanged",
+      "upstream_sha256": "d1d24da014972689fedbcb22fd97151ab46ed5462b60f7998e880546eba3fd5d",
+      "normalized_sha256": "d1d24da014972689fedbcb22fd97151ab46ed5462b60f7998e880546eba3fd5d"
+    },
+    {
+      "file": "frontend/src/zcode/shared/usage-stats.ts",
+      "upstream": "packages/shared/src/usage-stats.ts",
+      "status": "unchanged",
+      "upstream_sha256": "82851d43984eec4b589a6a1c36eb3fe4ee1127fde6b77ad0bbfb3b4ebaaa178b",
+      "normalized_sha256": "82851d43984eec4b589a6a1c36eb3fe4ee1127fde6b77ad0bbfb3b4ebaaa178b"
+    },
+    {
+      "file": "frontend/src/zcode/shared/validation.ts",
+      "upstream": "packages/shared/src/validation.ts",
+      "status": "unchanged",
+      "upstream_sha256": "49d7fccf518195c1ab4eb89ee816c878bfa4e0227108e207ec3cf5a1ddb2b84c",
+      "normalized_sha256": "49d7fccf518195c1ab4eb89ee816c878bfa4e0227108e207ec3cf5a1ddb2b84c"
+    },
+    {
+      "file": "frontend/src/zcode/shared/validationAppSettings.ts",
+      "upstream": "packages/shared/src/validationAppSettings.ts",
+      "status": "unchanged",
+      "upstream_sha256": "5f5cb7f634e9b21063e27dfdd4b17995140ec26214794ff09c25b4241ac3bbdb",
+      "normalized_sha256": "5f5cb7f634e9b21063e27dfdd4b17995140ec26214794ff09c25b4241ac3bbdb"
+    },
+    {
+      "file": "frontend/src/zcode/shared/workspacePurpose.ts",
+      "upstream": "packages/shared/src/workspacePurpose.ts",
+      "status": "unchanged",
+      "upstream_sha256": "1673bb8e44793108bbf2165b23f0a7c5961bbebe892484db2d217cc525563050",
+      "normalized_sha256": "1673bb8e44793108bbf2165b23f0a7c5961bbebe892484db2d217cc525563050"
+    },
+    {
+      "file": "frontend/src/zcode/shared/wslUserValidation.ts",
+      "upstream": "packages/shared/src/wslUserValidation.ts",
+      "status": "unchanged",
+      "upstream_sha256": "96c18113f6273cc80bae560e04353cf3e991f4607ab6eb29d088954a8eec167c",
+      "normalized_sha256": "96c18113f6273cc80bae560e04353cf3e991f4607ab6eb29d088954a8eec167c"
+    },
+    {
+      "file": "frontend/src/zcode/shared/zcode-agent-policy.ts",
+      "upstream": "packages/shared/src/zcode-agent-policy.ts",
+      "status": "unchanged",
+      "upstream_sha256": "8177a83dd179627c1086a2294d8c72d3b48e98c9abe219c38040005183adccbc",
+      "normalized_sha256": "8177a83dd179627c1086a2294d8c72d3b48e98c9abe219c38040005183adccbc"
+    },
+    {
+      "file": "frontend/src/zcode/shared/zcode-media-policy.ts",
+      "upstream": "packages/shared/src/zcode-media-policy.ts",
+      "status": "unchanged",
+      "upstream_sha256": "47ccb08304cf2a24f4795dc6ded2ef5712d1ee1bad5c8bffb4d6081dc86dcde1",
+      "normalized_sha256": "47ccb08304cf2a24f4795dc6ded2ef5712d1ee1bad5c8bffb4d6081dc86dcde1"
+    },
+    {
+      "file": "frontend/src/zcode/shared/zcode-protocol-legacy-types.ts",
+      "upstream": "packages/shared/src/zcode-protocol-legacy-types.ts",
+      "status": "unchanged",
+      "upstream_sha256": "b8b8d025f8def7c5139146467993d89479d7d120abb98dc4eb7bba958e8a5e2d",
+      "normalized_sha256": "b8b8d025f8def7c5139146467993d89479d7d120abb98dc4eb7bba958e8a5e2d"
+    },
+    {
+      "file": "frontend/src/zcode/shared/zcode-protocol-v4/attachment-ref.ts",
+      "upstream": "packages/shared/src/zcode-protocol-v4/attachment-ref.ts",
+      "status": "unchanged",
+      "upstream_sha256": "74caa91a266cc2a50a35f6c1a9bd14659918be878e8f92724887baf562ddd11c",
+      "normalized_sha256": "74caa91a266cc2a50a35f6c1a9bd14659918be878e8f92724887baf562ddd11c"
+    },
+    {
+      "file": "frontend/src/zcode/shared/zcode-protocol-v4/core.ts",
+      "upstream": "packages/shared/src/zcode-protocol-v4/core.ts",
+      "status": "unchanged",
+      "upstream_sha256": "97750a7bab0a7580c1d27c8e0155981786fdbfa07373d46c77829f25eb407a39",
+      "normalized_sha256": "97750a7bab0a7580c1d27c8e0155981786fdbfa07373d46c77829f25eb407a39"
+    },
+    {
+      "file": "frontend/src/zcode/shared/zcode-protocol-v4/create-workflow-display.ts",
+      "upstream": "packages/shared/src/zcode-protocol-v4/create-workflow-display.ts",
+      "status": "unchanged",
+      "upstream_sha256": "5e7cabfbb132d4755dbcfe0efd8d2ca8b839142660984095731dd74107ba7263",
+      "normalized_sha256": "5e7cabfbb132d4755dbcfe0efd8d2ca8b839142660984095731dd74107ba7263"
+    },
+    {
+      "file": "frontend/src/zcode/shared/zcode-protocol-v4/cuaPermission.ts",
+      "upstream": "packages/shared/src/zcode-protocol-v4/cuaPermission.ts",
+      "status": "unchanged",
+      "upstream_sha256": "b9e3f0aaad5b356f2add8461fe4b3b1813fc3ea7991499df593606429a062d99",
+      "normalized_sha256": "b9e3f0aaad5b356f2add8461fe4b3b1813fc3ea7991499df593606429a062d99"
+    },
+    {
+      "file": "frontend/src/zcode/shared/zcode-protocol-v4/input-intent.ts",
+      "upstream": "packages/shared/src/zcode-protocol-v4/input-intent.ts",
+      "status": "unchanged",
+      "upstream_sha256": "b316dfb1bf89eebce5a69254c4245dc415a482382533547d31a7ef33afbaefa7",
+      "normalized_sha256": "b316dfb1bf89eebce5a69254c4245dc415a482382533547d31a7ef33afbaefa7"
+    },
+    {
+      "file": "frontend/src/zcode/shared/zcode-protocol-v4/rows.ts",
+      "upstream": "packages/shared/src/zcode-protocol-v4/rows.ts",
+      "status": "unchanged",
+      "upstream_sha256": "00f884a7b3f4c2c9442e2aafc0f64685cdb40867b0fc0cca3f7540fec7e8d23a",
+      "normalized_sha256": "00f884a7b3f4c2c9442e2aafc0f64685cdb40867b0fc0cca3f7540fec7e8d23a"
+    },
+    {
+      "file": "frontend/src/zcode/shared/zcode-protocol-v4/session-config.ts",
+      "upstream": "packages/shared/src/zcode-protocol-v4/session-config.ts",
+      "status": "unchanged",
+      "upstream_sha256": "9a261de2b2c5bfc7d6cf8dd10598a9dc681bc54dbe1b46e753cf9909fd9b51a0",
+      "normalized_sha256": "9a261de2b2c5bfc7d6cf8dd10598a9dc681bc54dbe1b46e753cf9909fd9b51a0"
+    },
+    {
+      "file": "frontend/src/zcode/shared/zcode-protocol-v4/sessions-index-workflow-activity.ts",
+      "upstream": "packages/shared/src/zcode-protocol-v4/sessions-index-workflow-activity.ts",
+      "status": "unchanged",
+      "upstream_sha256": "2602d89235e78cbd145c8af1b0a06a59e97f0986242c28b94c7a6885d6aeadb4",
+      "normalized_sha256": "2602d89235e78cbd145c8af1b0a06a59e97f0986242c28b94c7a6885d6aeadb4"
+    },
+    {
+      "file": "frontend/src/zcode/shared/zcode-protocol-v4/shared-context-import.ts",
+      "upstream": "packages/shared/src/zcode-protocol-v4/shared-context-import.ts",
+      "status": "unchanged",
+      "upstream_sha256": "fcd422a4cb073af2ed2d4e74862e8360f14a7a94f58a736d7a3e09110f88f5de",
+      "normalized_sha256": "fcd422a4cb073af2ed2d4e74862e8360f14a7a94f58a736d7a3e09110f88f5de"
+    },
+    {
+      "file": "frontend/src/zcode/shared/zcode-protocol-v4/shared-context-ref.ts",
+      "upstream": "packages/shared/src/zcode-protocol-v4/shared-context-ref.ts",
+      "status": "unchanged",
+      "upstream_sha256": "660f6beb529f853660994f22a56149761cb7c775abb3ea047b3fdd5518294c76",
+      "normalized_sha256": "660f6beb529f853660994f22a56149761cb7c775abb3ea047b3fdd5518294c76"
+    },
+    {
+      "file": "frontend/src/zcode/shared/zcode-protocol-v4/snapshot.ts",
+      "upstream": "packages/shared/src/zcode-protocol-v4/snapshot.ts",
+      "status": "unchanged",
+      "upstream_sha256": "6d2c0a0f23e1d2037f5f0c642bd3ad1888b6df38f5bc55029adefa401fc4fcff",
+      "normalized_sha256": "6d2c0a0f23e1d2037f5f0c642bd3ad1888b6df38f5bc55029adefa401fc4fcff"
+    },
+    {
+      "file": "frontend/src/zcode/shared/zcode-protocol-v4/submission.ts",
+      "upstream": "packages/shared/src/zcode-protocol-v4/submission.ts",
+      "status": "unchanged",
+      "upstream_sha256": "c27c61b36bb49b0c941a6502a788fe56d32730c3fd134c1acbc6ba28f5756e09",
+      "normalized_sha256": "c27c61b36bb49b0c941a6502a788fe56d32730c3fd134c1acbc6ba28f5756e09"
+    },
+    {
+      "file": "frontend/src/zcode/shared/zcode-protocol-v4/toolDisplay.ts",
+      "upstream": "packages/shared/src/zcode-protocol-v4/toolDisplay.ts",
+      "status": "unchanged",
+      "upstream_sha256": "a0400e1c7e37e757a2187b70c6f281eb0f4cefd3cc657d17feda163c82c023ed",
+      "normalized_sha256": "a0400e1c7e37e757a2187b70c6f281eb0f4cefd3cc657d17feda163c82c023ed"
+    },
+    {
+      "file": "frontend/src/zcode/shared/zcode-protocol-v4/workflow-artifacts.ts",
+      "upstream": "packages/shared/src/zcode-protocol-v4/workflow-artifacts.ts",
+      "status": "unchanged",
+      "upstream_sha256": "97496947c0e043fcc3e5ca62acad5f75481f239b7c295100c57bc714b8fa270d",
+      "normalized_sha256": "97496947c0e043fcc3e5ca62acad5f75481f239b7c295100c57bc714b8fa270d"
+    },
+    {
+      "file": "frontend/src/zcode/shared/zcode-protocol-v4/workflow-observation-display.ts",
+      "upstream": "packages/shared/src/zcode-protocol-v4/workflow-observation-display.ts",
+      "status": "unchanged",
+      "upstream_sha256": "4b21c1e4cbd10ca616c6a590cf1a44dab773a4458a2ec3e8bafee43dbc3466f5",
+      "normalized_sha256": "4b21c1e4cbd10ca616c6a590cf1a44dab773a4458a2ec3e8bafee43dbc3466f5"
+    },
+    {
+      "file": "frontend/src/zcode/shared/zcode-protocol-v4/workflow-row-meta.ts",
+      "upstream": "packages/shared/src/zcode-protocol-v4/workflow-row-meta.ts",
+      "status": "unchanged",
+      "upstream_sha256": "a2a2e5e997ea14ccda0c4dba6edcd3c493083fcdac169e9afc8c91d988c77fbc",
+      "normalized_sha256": "a2a2e5e997ea14ccda0c4dba6edcd3c493083fcdac169e9afc8c91d988c77fbc"
+    },
+    {
+      "file": "frontend/src/zcode/shared/zcode-protocol-v4/workflow-runs.ts",
+      "upstream": "packages/shared/src/zcode-protocol-v4/workflow-runs.ts",
+      "status": "unchanged",
+      "upstream_sha256": "ac3a8e0216379741b998a210fdb6d2a23813fe144be84e304c8c68af4a24cd7b",
+      "normalized_sha256": "ac3a8e0216379741b998a210fdb6d2a23813fe144be84e304c8c68af4a24cd7b"
+    },
+    {
+      "file": "frontend/src/zcode/shared/zcode-protocol-v4/workspace-hook-review.ts",
+      "upstream": "packages/shared/src/zcode-protocol-v4/workspace-hook-review.ts",
+      "status": "unchanged",
+      "upstream_sha256": "ff8b264a361862e5575145e635c0fa108a2ac7d82091764713e0a40b17a36ce7",
+      "normalized_sha256": "ff8b264a361862e5575145e635c0fa108a2ac7d82091764713e0a40b17a36ce7"
+    },
+    {
+      "file": "frontend/src/zcode/shared/zcode-protocol/index.ts",
+      "upstream": "packages/shared/src/zcode-protocol/index.ts",
+      "status": "unchanged",
+      "upstream_sha256": "40d455bd87ef9799f541ba4e17b7def5df9effea65291f006e2dae4789b14128",
+      "normalized_sha256": "40d455bd87ef9799f541ba4e17b7def5df9effea65291f006e2dae4789b14128"
+    },
+    {
+      "file": "frontend/src/zcode/shared/zcode-task-mode-schema.ts",
+      "upstream": "packages/shared/src/zcode-task-mode-schema.ts",
+      "status": "unchanged",
+      "upstream_sha256": "2fb40d1261b8421a4bcd757806f80f2898a934457a9c30a4224987bb13b39baa",
+      "normalized_sha256": "2fb40d1261b8421a4bcd757806f80f2898a934457a9c30a4224987bb13b39baa"
+    },
+    {
+      "file": "frontend/src/zcode/shared/zcode-task-types-core.ts",
+      "upstream": "packages/shared/src/zcode-task-types-core.ts",
+      "status": "unchanged",
+      "upstream_sha256": "e75cc0a5f7e6fcbe37acdab259fbc5a0448adcf9d69a5b1f3683b72eee5c75f0",
+      "normalized_sha256": "e75cc0a5f7e6fcbe37acdab259fbc5a0448adcf9d69a5b1f3683b72eee5c75f0"
+    },
+    {
+      "file": "frontend/src/zcode/shared/zcodeEndpoint.ts",
+      "upstream": "packages/shared/src/zcodeEndpoint.ts",
+      "status": "unchanged",
+      "upstream_sha256": "66166e1facae61f752b6d6c7a161b0712958e68144e769714a04983256091841",
+      "normalized_sha256": "66166e1facae61f752b6d6c7a161b0712958e68144e769714a04983256091841"
+    },
+    {
+      "file": "frontend/src/zcode/useTheme.ts",
+      "upstream": "packages/ui/src/useTheme.ts",
+      "status": "unchanged",
+      "upstream_sha256": "a286aa3596dd05140184d60318f014ff1cea6637d0fae104137701fc2dd1ce0e",
+      "normalized_sha256": "a286aa3596dd05140184d60318f014ff1cea6637d0fae104137701fc2dd1ce0e"
+    },
+    {
+      "file": "frontend/src/zcode/workspace-file-tree/helpers.ts",
+      "upstream": "packages/ui/src/workspace-file-tree/helpers.ts",
+      "status": "unchanged",
+      "upstream_sha256": "05816168ba01124cbe0e1159f14a0f757e8b2c9a593699909b9de04678e9c90d",
+      "normalized_sha256": "05816168ba01124cbe0e1159f14a0f757e8b2c9a593699909b9de04678e9c90d"
+    },
+    {
+      "file": "frontend/src/zcode/workspace-file-tree/model.ts",
+      "upstream": "packages/ui/src/workspace-file-tree/model.ts",
+      "status": "unchanged",
+      "upstream_sha256": "62ead3d0caa7bed08e0283b00841d6bbcd2c5618a19d19fa23d898660cf1aaf6",
+      "normalized_sha256": "62ead3d0caa7bed08e0283b00841d6bbcd2c5618a19d19fa23d898660cf1aaf6"
+    }
+  ],
+  "extractions": [
+    {
+      "file": "frontend/src/zcode/lib/markdownMath.ts",
+      "upstream": "packages/ui/src/components/ai-elements/message.tsx",
+      "symbols": [
+        "markdownFencePattern through compactCurrencyAmountStartPattern",
+        "getMarkdownFence through normalizeMessageSingleDollarMath"
+      ],
+      "adaptation": "public export added to last function"
+    }
+  ],
+  "host_adapters": [
+    "frontend/src/components/MarkdownRenderer.tsx",
+    "frontend/src/zcode/adapters/workspaceMarkdown.ts",
+    "frontend/src/zcode/adapters/serviceTypes.ts",
+    "frontend/src/zcode/hooks/useWorkspaceOpenInEditorTarget.ts",
+    "frontend/src/zcode/shared/index.ts",
+    "frontend/src/components/MessageList.tsx",
+    "frontend/src/components/ModelPicker.tsx"
+  ]
+}

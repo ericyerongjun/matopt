@@ -3,7 +3,7 @@
  */
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { fetchProviders } from "../services/providers";
+import { fetchProviders } from "../services/providers.ts";
 import type {
     ProviderCatalog,
     ProviderId,
@@ -39,9 +39,9 @@ function writeStored(partial: Record<string, string>) {
 
 export function useLlmSelection() {
     const [catalog, setCatalog] = useState<ProviderCatalog | null>(null);
-    const [provider, setProvider] = useState<ProviderId | null>(null);
-    const [model, setModel] = useState<string | null>(null);
-    const [reasoning, setReasoning] = useState<ReasoningLevel>("medium");
+    const [provider, setProvider] = useState<ProviderId | null>("deepseek");
+    const [model, setModel] = useState<string | null>("deepseek-flash");
+    const [reasoning, setReasoning] = useState<ReasoningLevel>("high");
     const [verify, setVerify] = useState(false);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
@@ -51,29 +51,18 @@ export function useLlmSelection() {
         fetchProviders()
             .then((data) => {
                 if (!active) return;
-                setCatalog(data);
+                const flash = data.providers.find((p) => p.id === "deepseek");
+                setCatalog({ ...data, providers: flash ? [{ ...flash, models: flash.models.filter((m) => m.id === "deepseek-flash") }] : [] });
                 const stored = readStored();
-                const storedProvider = data.providers.find((p) => p.id === stored.provider && p.configured);
-                const fallback = data.providers.find((p) => p.configured);
-                const nextProvider =
-                    storedProvider ??
-                    data.providers.find((p) => p.id === data.default_provider && p.configured) ??
-                    fallback ??
-                    null;
-                const nextModelId =
-                    (nextProvider && nextProvider.models.some((m) => m.id === stored.model) && stored.model) ||
-                    nextProvider?.default_model ||
-                    data.default_model ||
-                    null;
-                const spec = nextProvider?.models.find((m) => m.id === nextModelId);
-                const allowed = spec?.reasoning_levels ?? data.levels.map((l) => l.id);
+                const spec = flash?.models.find((m) => m.id === "deepseek-flash");
+                const allowed = spec?.reasoning_levels ?? ["off", "low", "high", "max"];
                 const nextReasoning: ReasoningLevel =
                     (stored.reasoning && allowed.includes(stored.reasoning) && stored.reasoning) ||
                     spec?.default_reasoning ||
-                    data.default_reasoning ||
-                    "medium";
-                setProvider(nextProvider?.id ?? null);
-                setModel(nextModelId);
+                    "high";
+                setProvider("deepseek");
+                setModel("deepseek-flash");
+                writeStored({ [PROVIDER_KEY]: "deepseek", [MODEL_KEY]: "deepseek-flash", [REASONING_KEY]: nextReasoning });
                 setReasoning(nextReasoning);
                 setVerify(stored.verify);
             })
@@ -103,13 +92,14 @@ export function useLlmSelection() {
 
     const select = useCallback(
         (nextProvider: ProviderId, nextModel: string) => {
+            if (nextProvider !== "deepseek" || nextModel !== "deepseek-flash") return;
             setProvider(nextProvider);
             setModel(nextModel);
             const spec = catalog?.providers.find((p) => p.id === nextProvider)?.models.find((m) => m.id === nextModel);
             const allowed = spec?.reasoning_levels;
             let nextReasoning = reasoning;
             if (allowed && !allowed.includes(reasoning)) {
-                nextReasoning = spec?.default_reasoning ?? "medium";
+                nextReasoning = spec?.default_reasoning ?? "high";
                 setReasoning(nextReasoning);
             }
             writeStored({
@@ -122,9 +112,10 @@ export function useLlmSelection() {
     );
 
     const selectReasoning = useCallback((level: ReasoningLevel) => {
+        if (!(modelSpec?.reasoning_levels ?? ["off", "low", "high", "max"]).includes(level)) return;
         setReasoning(level);
         writeStored({ [REASONING_KEY]: level });
-    }, []);
+    }, [modelSpec]);
 
     const selectVerify = useCallback((value: boolean) => {
         setVerify(value);
@@ -132,10 +123,10 @@ export function useLlmSelection() {
     }, []);
 
     const selectedLabel = useMemo(() => {
-        if (!catalog || !provider || !model) return "Select model";
+        if (!catalog || !provider || !model) return "DeepSeek V4.1 Flash";
         const group = catalog.providers.find((p) => p.id === provider);
         const option = group?.models.find((m) => m.id === model);
-        return option?.label ?? model;
+        return option?.label ?? "DeepSeek V4.1 Flash";
     }, [catalog, provider, model]);
 
     return {

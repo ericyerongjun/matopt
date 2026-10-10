@@ -47,6 +47,39 @@ CREATE TABLE IF NOT EXISTS messages (
     created_at REAL NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_messages_conv ON messages(conversation_id, seq);
+CREATE TABLE IF NOT EXISTS session_events (
+    conversation_id TEXT NOT NULL REFERENCES conversations(id) ON DELETE CASCADE,
+    seq INTEGER NOT NULL,
+    time REAL NOT NULL,
+    type TEXT NOT NULL,
+    data TEXT NOT NULL,
+    surface_op TEXT,
+    source_seqs TEXT,
+    ignorable INTEGER NOT NULL DEFAULT 0,
+    PRIMARY KEY (conversation_id, seq)
+);
+CREATE TABLE IF NOT EXISTS runs (
+    id TEXT PRIMARY KEY,
+    conversation_id TEXT NOT NULL REFERENCES conversations(id) ON DELETE CASCADE,
+    message_id TEXT,
+    client_run_id TEXT UNIQUE,
+    request_hash TEXT NOT NULL,
+    status TEXT NOT NULL,
+    created_at REAL NOT NULL,
+    updated_at REAL NOT NULL,
+    last_seq INTEGER NOT NULL DEFAULT 0
+);
+CREATE INDEX IF NOT EXISTS idx_runs_conversation ON runs(conversation_id, created_at DESC);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_runs_active ON runs(conversation_id)
+    WHERE status IN ('queued', 'running', 'paused');
+CREATE TABLE IF NOT EXISTS run_events (
+    run_id TEXT NOT NULL REFERENCES runs(id) ON DELETE CASCADE,
+    seq INTEGER NOT NULL,
+    time REAL NOT NULL,
+    type TEXT NOT NULL,
+    data TEXT NOT NULL,
+    PRIMARY KEY (run_id, seq)
+);
 """
 
 
@@ -65,6 +98,8 @@ class Database:
         self._conn.execute("PRAGMA foreign_keys=ON")
         with self._lock:
             self._conn.executescript(SCHEMA)
+            if self._conn.execute("PRAGMA user_version").fetchone()[0] < 1:
+                self._conn.execute("PRAGMA user_version=1")
 
     def close(self) -> None:
         with self._lock:
@@ -150,6 +185,153 @@ class Database:
         with self._lock:
             cur = self._conn.execute("DELETE FROM messages WHERE conversation_id=? AND seq>=?", (cid, seq))
         return cur.rowcount
+
+    # ── public runs ─────────────────────────────────────────────────────
+
+    def create_run(self, run_id: str, cid: str, request_hash: str,
+                   client_run_id: str | None = None) -> dict:
+        now = time.time()
+        with self._lock:
+            self._conn.execute(
+                "INSERT INTO runs (id,conversation_id,client_run_id,request_hash,status,created_at,updated_at) "
+                "VALUES (?,?,?,?,?,?,?)", (run_id, cid, client_run_id, request_hash, "queued", now, now),
+            )
+        return self.get_run(run_id)  # type: ignore[return-value]
+
+    def get_run(self, run_id: str) -> Optional[dict]:
+        with self._lock:
+            row = self._conn.execute("SELECT * FROM runs WHERE id=?", (run_id,)).fetchone()
+        return dict(row) if row else None
+
+    def get_run_by_client_id(self, client_run_id: str) -> Optional[dict]:
+        with self._lock:
+            row = self._conn.execute("SELECT * FROM runs WHERE client_run_id=?", (client_run_id,)).fetchone()
+        return dict(row) if row else None
+
+    def latest_run(self, cid: str, *, active_only: bool = False) -> Optional[dict]:
+        sql = "SELECT * FROM runs WHERE conversation_id=?"
+        if active_only:
+            sql += " AND status IN ('queued','running','paused')"
+        sql += " ORDER BY created_at DESC, rowid DESC LIMIT 1"
+        with self._lock:
+            row = self._conn.execute(sql, (cid,)).fetchone()
+        return dict(row) if row else None
+
+    def active_runs(self) -> list[dict]:
+        with self._lock:
+            rows = self._conn.execute("SELECT * FROM runs WHERE status IN ('queued','running','paused')").fetchall()
+        return [dict(row) for row in rows]
+
+    def append_run_event(self, run_id: str, event_type: str, data: dict, *,
+                         status: str | None = None, message_id: str | None = None) -> dict:
+        """Commit one already-public event and its exclusive replay cursor atomically.
+
+        The run journal never receives the private session log or raw requests.
+        RunManager owns its allowlisted projection before calling this method.
+        """
+        now = time.time()
+        with self._lock:
+            self._conn.execute("BEGIN IMMEDIATE")
+            try:
+                row = self._conn.execute("SELECT conversation_id,last_seq FROM runs WHERE id=?", (run_id,)).fetchone()
+                if row is None:
+                    raise KeyError(run_id)
+                seq = row["last_seq"] + 1
+                envelope = {**data, "run_id": run_id, "conversation_id": row["conversation_id"], "sequence": seq}
+                self._conn.execute(
+                    "INSERT INTO run_events (run_id,seq,time,type,data) VALUES (?,?,?,?,?)",
+                    (run_id, seq, now, event_type, json.dumps(envelope, ensure_ascii=False, allow_nan=False)),
+                )
+                self._conn.execute(
+                    "UPDATE runs SET last_seq=?,updated_at=?,status=COALESCE(?,status),"
+                    "message_id=COALESCE(?,message_id) WHERE id=?", (seq, now, status, message_id, run_id),
+                )
+                self._conn.execute("COMMIT")
+            except BaseException:
+                self._conn.execute("ROLLBACK")
+                raise
+        return {"seq": seq, "time": now, "type": event_type, "data": envelope}
+
+    def list_run_events(self, run_id: str, after: int = 0, limit: int = 500) -> list[dict]:
+        with self._lock:
+            rows = self._conn.execute(
+                "SELECT seq,time,type,data FROM run_events WHERE run_id=? AND seq>? ORDER BY seq LIMIT ?",
+                (run_id, after, limit),
+            ).fetchall()
+        return [{"seq": row["seq"], "time": row["time"], "type": row["type"], "data": json.loads(row["data"])} for row in rows]
+
+    # ── durable sessions ────────────────────────────────────────────────
+
+    def list_session_events(self, cid: str, from_seq: int = -1, limit: int | None = None) -> list[dict]:
+        """Return the exclusive cursor prefix/page; times are epoch seconds."""
+        sql = "SELECT * FROM session_events WHERE conversation_id=? AND seq>? ORDER BY seq"
+        values: tuple = (cid, from_seq)
+        if limit is not None:
+            sql += " LIMIT ?"
+            values += (limit,)
+        with self._lock:
+            rows = self._conn.execute(sql, values).fetchall()
+        return [self._event_row(row) for row in rows]
+
+    def append_session_events(self, cid: str, events: list[dict]) -> None:
+        """Atomically append a validated batch and update the legacy UI view.
+
+        SQLite commits whole rows/batches, so torn JSON tails are impossible.
+        An interrupted lifecycle is repaired by SessionLog.open; malformed
+        committed rows fail closed and are never silently truncated.
+        """
+        from app.agent.session.events import snapshot_json
+        from app.agent.session.validate import validate_events
+
+        batch = snapshot_json(events)
+        if not batch:
+            return
+        with self._lock:
+            self._conn.execute("BEGIN IMMEDIATE")
+            try:
+                rows = self._conn.execute(
+                    "SELECT * FROM session_events WHERE conversation_id=? ORDER BY seq", (cid,),
+                ).fetchall()
+                prior = [self._event_row(row) for row in rows]
+                validate_events(prior + batch)
+                for event in batch:
+                    self._conn.execute(
+                        "INSERT INTO session_events (conversation_id,seq,time,type,data,surface_op,source_seqs,ignorable) "
+                        "VALUES (?,?,?,?,?,?,?,?)",
+                        (cid, event["seq"], event["time"], event["type"],
+                         json.dumps(event["data"], ensure_ascii=False, allow_nan=False),
+                         json.dumps(event["surfaceOp"], ensure_ascii=False) if "surfaceOp" in event else None,
+                         json.dumps(event["sourceEventSeqs"]) if "sourceEventSeqs" in event else None,
+                         int(event.get("ignorable", False))),
+                    )
+                    if event["type"] == "ui/message":
+                        data = event["data"]
+                        row = self._conn.execute("SELECT seq FROM messages WHERE id=?", (data["message_id"],)).fetchone()
+                        seq = row[0] if row else self._conn.execute(
+                            "SELECT COALESCE(MAX(seq),0)+1 FROM messages WHERE conversation_id=?", (cid,),
+                        ).fetchone()[0]
+                        self._conn.execute(
+                            "INSERT INTO messages (id,conversation_id,seq,role,content,created_at) VALUES (?,?,?,?,?,?) "
+                            "ON CONFLICT(id) DO UPDATE SET content=excluded.content",
+                            (data["message_id"], cid, seq, data["role"],
+                             json.dumps(data["content"], ensure_ascii=False, allow_nan=False), event["time"]),
+                        )
+                self._conn.execute("UPDATE conversations SET updated_at=? WHERE id=?", (time.time(), cid))
+                self._conn.execute("COMMIT")
+            except BaseException:
+                self._conn.execute("ROLLBACK")
+                raise
+
+    @staticmethod
+    def _event_row(row: sqlite3.Row) -> dict:
+        event = {"seq": row["seq"], "time": row["time"], "type": row["type"], "data": json.loads(row["data"])}
+        if row["surface_op"] is not None:
+            event["surfaceOp"] = json.loads(row["surface_op"])
+        if row["source_seqs"] is not None:
+            event["sourceEventSeqs"] = json.loads(row["source_seqs"])
+        if row["ignorable"]:
+            event["ignorable"] = True
+        return event
 
     # ── helpers ─────────────────────────────────────────────────────────
 

@@ -16,6 +16,7 @@ export function useSkills() {
     useEffect(() => {
         let cancelled = false;
         let attempt = 0;
+        let timer: number | undefined;
 
         const load = () => {
             Promise.allSettled([listSkills(), listTools()]).then((results) => {
@@ -24,24 +25,25 @@ export function useSkills() {
                 const skillOk = skillRes.status === "fulfilled";
                 const toolOk = toolRes.status === "fulfilled";
                 if (skillOk) setSkills(skillRes.value);
-                if (toolOk) setTools(toolRes.value.length ? toolRes.value : fallbackTools());
+                if (toolOk) setTools(toolRes.value);
                 else setTools(fallbackTools());
-                if (skillOk || toolOk) {
+                if (skillOk && toolOk) {
                     setError(null);
                     return;
                 }
                 attempt += 1;
                 if (attempt < 4) {
-                    window.setTimeout(load, 400 * attempt);
+                    timer = window.setTimeout(load, 400 * attempt);
                     return;
                 }
-                setError("Could not load skills");
+                setError(!skillOk && !toolOk ? "Could not load skills and tools" : !skillOk ? "Could not load skills" : "Could not load tools");
             });
         };
 
         load();
         return () => {
             cancelled = true;
+            window.clearTimeout(timer);
         };
     }, []);
 

@@ -12,9 +12,20 @@ STATUSES = ("pending", "in_progress", "completed")
 
 class UpdatePlanTool(Tool):
     name = "update_plan"
+    # Mutates only this turn's agent state (`ctx.state["plan"]`) plus the `plan`
+    # event that renders it — nothing on disk and nothing on the host, hence
+    # scope "none" even though it is not read-only: the plan is shared mutable
+    # state, so two concurrent calls would interleave last-write-wins.
+    read_only = False
+    destructive = False
+    concurrent_safe = False
+    side_effect_scope = "none"
+    risk_level = "low"
+    needs_approval = False
     ui_kind = "plan"
     description = (
         "Create or update the step-by-step plan for a multi-step task (5+ meaningful steps). "
+        "This plan is visible to the user: use brief task milestones, never private reasoning or agent messages. "
         "Send the full list each time; mark steps in_progress/completed as you go. Skip it for simple questions."
     )
     parameters = {

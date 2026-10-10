@@ -5,13 +5,47 @@ from app.main import app
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize("option, expected", [({}, True), ({"web_search": True}, True), ({"web_search": False}, False)])
+async def test_chat_web_search_defaults_to_automatic(option, expected, monkeypatch, tmp_path):
+    from types import SimpleNamespace
+
+    from app.agent.events import ev
+    from app.api import chat as chat_api
+    from app.agent.runs import RunManager
+    from app.storage.db import Database
+
+    received = []
+
+    async def run(req, *, on_claim=None):
+        if on_claim is not None:
+            await on_claim(req.conversation_id)
+        received.append(req)
+        yield ev("done")
+
+    db = Database(tmp_path / "runs.sqlite3")
+    harness = SimpleNamespace(run=run, is_running=lambda _: False, stop=lambda _: False)
+    runtime = SimpleNamespace(
+        providers=SimpleNamespace(resolve=lambda *_: None),
+        harness=harness, db=db, runs=RunManager(db, harness),
+    )
+    monkeypatch.setattr(chat_api, "get_runtime", lambda: runtime)
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        response = await client.post("/api/chat/stream", json={"message": "What is happening today?", **option})
+    assert response.status_code == 200
+    assert received[0].web_search is expected
+    await runtime.runs.shutdown()
+    db.close()
+
+
+@pytest.mark.asyncio
 async def test_conversation_and_files_roundtrip():
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
         r = await client.get("/api/providers")
         assert r.status_code == 200
         cat = r.json()
-        assert {p["id"] for p in cat["providers"]} == {"deepseek", "openai", "qwen"}
-        assert all("reasoning_levels" in m for p in cat["providers"] for m in p["models"])
+        assert [p["id"] for p in cat["providers"]] == ["deepseek"]
+        assert [m["id"] for m in cat["providers"][0]["models"]] == ["deepseek-flash"]
+        assert cat["providers"][0]["models"][0]["reasoning_levels"] == ["off", "low", "high", "max"]
 
         r = await client.post("/api/conversations", json={"title": "t"})
         assert r.status_code == 200

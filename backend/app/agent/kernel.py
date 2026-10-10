@@ -17,12 +17,12 @@ import hashlib
 import json
 import logging
 import re
-import sys
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Awaitable, Callable, Optional
 
+from app.agent.child_env import KERNEL_MPLBACKEND, build_child_env
 from app.agent.events import Artifact
 from app.agent.workspace import Workspace
 
@@ -140,7 +140,7 @@ class KernelSession:
     async def start(self) -> None:
         from jupyter_client import AsyncKernelManager
 
-        env = dict(**_child_env())
+        env = _child_env(self.workspace.root)
         km = AsyncKernelManager(kernel_name="python3")
         await km.start_kernel(cwd=str(self.workspace.root), env=env)
         kc = km.client()
@@ -415,14 +415,11 @@ class KernelPool:
                     await self.shutdown(cid)
 
 
-def _child_env() -> dict:
-    import os
+def _child_env(workspace_root: Path | None = None) -> dict:
+    """Environment for the kernel child process (see ``app.agent.child_env``).
 
-    env = dict(os.environ)
-    env.setdefault("PYTHONUNBUFFERED", "1")
-    env["MPLBACKEND"] = "module://matplotlib_inline.backend_inline"
-    # make `python` / `pip` inside the kernel refer to the backend's venv
-    bindir = str(Path(sys.executable).parent)
-    env["PATH"] = bindir + os.pathsep + env.get("PATH", "")
-    env.pop("PYTHONHOME", None)
-    return env
+    The kernel plots through matplotlib's *inline* backend, not the shell's
+    ``Agg``, so it overrides the shared default; ``workspace_root`` becomes the
+    kernel's ``HOME`` so ``~`` is the workspace rather than the user's home.
+    """
+    return build_child_env(workspace_root=workspace_root, extra={"MPLBACKEND": KERNEL_MPLBACKEND})

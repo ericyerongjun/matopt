@@ -1,8 +1,11 @@
 import asyncio
+import dataclasses
 import json
+from typing import Optional
 
 import pytest
 
+import app.agent.harness as harness_module
 from app.agent.events import ToolResult
 from app.agent.harness import (
     REPEAT_LIMIT,
@@ -15,10 +18,11 @@ from app.agent.harness import (
     _parse_arguments,
     _record_failures,
 )
-from app.agent.tools.base import ToolRegistry
+from app.agent.tools.base import Tool, ToolRegistry
 from app.agent.tools.file_tools import ListFilesTool
 from app.agent.tools.python_tool import PythonTool
 from app.agent.tools.router import ToolRouter
+from app.agent.tools.web_search import WebFetchTool, WebSearchTool
 from app.llm.base import ToolCallSpec
 from app.agent.kernel import KernelPool
 from app.agent.workspace import Workspace
@@ -39,9 +43,13 @@ def make_harness(db, provider):
 
 
 async def collect(harness, req):
+    # Tool-policy tests use exact-output mode; live final synthesis has its own
+    # controlled streaming tests instead of consuming this tool-loop script.
+    req = dataclasses.replace(req, strict_final=True)
     events = []
-    async for ev in harness.run(req):
+    async for ev in harness.run(req, internal_events=True):
         events.append(ev.to_dict())
+    await harness.wait_side_tasks()
     return events
 
 
@@ -131,7 +139,7 @@ async def test_stop_mid_run(db):
             cid = events[0]["conversation_id"]
             assert harness.stop(cid)
         task = asyncio.create_task(stopper())
-        async for ev in harness.run(RunRequest(conversation_id=None, text="loop")):
+        async for ev in harness.run(RunRequest(conversation_id=None, text="loop"), internal_events=True):
             events.append(ev.to_dict())
         await task
     finally:
@@ -165,7 +173,7 @@ def test_expand_parts_shapes():
     assert msgs[0]["role"] == "assistant" and len(msgs[0]["tool_calls"]) == 2
     assert msgs[1]["role"] == "tool" and msgs[1]["content"] == "1"
     assert msgs[2]["role"] == "tool" and "stopped" in msgs[2]["content"]
-    assert msgs[3] == {"role": "assistant", "content": "final"}
+    assert msgs[3] == {"role": "assistant", "content": "final", "reasoning_content": ""}
     assert json.loads(msgs[0]["tool_calls"][0]["function"]["arguments"]) == {"code": "1"}
 
 
@@ -239,6 +247,52 @@ async def test_steer_slash_skill_activates_mid_turn(db):
 
 
 @pytest.mark.asyncio
+async def test_steer_is_stored_after_the_answer_it_corrected(db):
+    """A mid-turn steer must not be persisted ahead of the answer it steers.
+
+    Regression: the steer used to be written the moment it was drained, while
+    the assistant row only landed in `_run_inner`'s `finally` — so stored order
+    was `user, user(steer), assistant`. `_replay` rebuilds history from stored
+    rows in seq order, so the next turn showed the model its own correction
+    *before* the answer it corrected.
+    """
+    conv = db.create_conversation(title="steer order")
+    cid = conv["id"]
+
+    class SteerAfterFirstCall(FakeProvider):
+        async def stream(self, messages, tools, options):
+            async for delta in super().stream(messages, tools, options):
+                yield delta
+            if len(self.calls) == 1:
+                assert harness.enqueue_steer(cid, "actually use a log scale")
+
+    provider = SteerAfterFirstCall([
+        {"tool": "list_files", "args": {}},
+        {"text": "done, using a linear scale"},
+    ])
+    kernels = KernelPool(lambda cid: Workspace(cid, settings.workspace_dir))
+    harness = AgentHarness(db, kernels, settings, FakeRegistry(provider), build_tools())
+    try:
+        await collect(harness, RunRequest(conversation_id=cid, text="plot the series"))
+    finally:
+        await kernels.shutdown_all()
+
+    roles = [m["role"] for m in db.list_messages(cid)]
+    assert roles == ["user", "assistant", "user"], roles
+
+    stored_steer = db.list_messages(cid)[-1]
+    assert stored_steer["content"]["text"] == "actually use a log scale"
+    assert stored_steer["content"]["steer"] is True
+
+    # And the rebuilt history must show the correction last, not first.
+    replayed = harness._replay(db.list_messages(cid), provider)
+    user_turns = [m["content"] for m in replayed if m["role"] == "user"]
+    assert user_turns, replayed
+    assert "log scale" in user_turns[-1]
+    assert "log scale" not in user_turns[0]
+
+
+@pytest.mark.asyncio
 async def test_slash_tool_is_preferred(db):
     provider = FakeProvider([{"text": "plotted"}])
     harness, kernels = make_harness(db, provider)
@@ -309,3 +363,354 @@ async def test_identical_python_failures_are_blocked(db, monkeypatch):
     assert executes["n"] == REPEAT_LIMIT
     assert any((e.get("meta") or {}).get("blocked_repeat") for e in results)
     assert any(e["type"] == "done" for e in events)
+
+
+# ── plan §3.8a: provider visibility, turn-stopping declarations ──────────
+
+
+class RecorderTool(Tool):
+    """Synthetic tool: records exactly what the harness hands it.
+
+    `__call__` is overridden so the test can hold the *object* the harness
+    passed, not just the copy `run(**kwargs)` unbundles.
+    """
+
+    name = "recorder"
+    description = "records its input"
+    read_only = True
+
+    def __init__(self, name: str = "recorder", *, provider_visible: bool = True,
+                 stop_turn_on_success: bool = False, fail: bool = False,
+                 required_flags: tuple[str, ...] = ()):
+        self.name = name
+        self.provider_visible = provider_visible
+        self.stop_turn_on_success = stop_turn_on_success
+        self.requires_flags = required_flags
+        self.fail = fail
+        self.calls = 0
+        self.received: Optional[dict] = None
+        self.seen: Optional[dict] = None
+
+    async def __call__(self, ctx, arguments):
+        self.received = arguments
+        return await super().__call__(ctx, arguments)
+
+    async def run(self, ctx, **kwargs):
+        self.calls += 1
+        self.seen = kwargs
+        if self.fail:
+            return ToolResult(ok=False, output="", error="recorder was told to fail")
+        return ToolResult(ok=True, output="recorded")
+
+
+class SchemaRecordingProvider(FakeProvider):
+    """FakeProvider that keeps the tool schemas each model call was offered."""
+
+    def __init__(self, script):
+        super().__init__(script)
+        self.schemas: list[list[dict]] = []
+
+    async def stream(self, messages, tools, options):
+        self.schemas.append(list(tools or []))
+        async for delta in super().stream(messages, tools, options):
+            yield delta
+
+
+def schema_names(schemas: list[dict]) -> set[str]:
+    return {(s.get("function") or {}).get("name") for s in schemas}
+
+
+def make_harness_for(db, provider, tools, **kwargs):
+    kernels = KernelPool(lambda cid: Workspace(cid, settings.workspace_dir))
+    return AgentHarness(db, kernels, settings, FakeRegistry(provider), tools, **kwargs), kernels
+
+
+def tool_call_part(db, cid: str, index: int = 0) -> dict:
+    parts = db.list_messages(cid)[-1]["content"]["parts"]
+    return [p for p in parts if p["type"] == "tool_call"][index]
+
+
+@pytest.mark.asyncio
+async def test_provider_invisible_tool_is_not_advertised(db):
+    hidden = RecorderTool("hidden_one", provider_visible=False)
+    shown = RecorderTool("shown_one")
+    provider = SchemaRecordingProvider([{"text": "done"}])
+    harness, kernels = make_harness_for(db, provider, ToolRegistry([hidden, shown]))
+    try:
+        await collect(harness, RunRequest(conversation_id=None, text="hi"))
+    finally:
+        await kernels.shutdown_all()
+    names = schema_names(provider.schemas[0])
+    assert "shown_one" in names
+    assert "hidden_one" not in names
+
+
+@pytest.mark.asyncio
+async def test_web_tools_are_automatic_with_per_turn_opt_out(db):
+    """Ordinary requests can browse; an explicit opt-out does not leak into later turns."""
+    provider = SchemaRecordingProvider([{"text": label} for label in "abcde"])
+    tools = ToolRegistry([WebSearchTool(), WebFetchTool(), ListFilesTool()])
+    harness, kernels = make_harness_for(db, provider, tools)
+    try:
+        first = await collect(harness, RunRequest(conversation_id=None, text="Who is the current president?"))
+        cid = first[0]["conversation_id"]
+        assert {"web_search", "web_fetch"} <= schema_names(provider.schemas[-1])
+
+        await collect(harness, RunRequest(conversation_id=cid, text="Use only my notes", web_search=False))
+        assert not schema_names(provider.schemas[-1]) & {"web_search", "web_fetch"}
+
+        await collect(harness, RunRequest(conversation_id=cid, text="What is the weather now?"))
+        assert {"web_search", "web_fetch"} <= schema_names(provider.schemas[-1])
+
+        await collect(harness, RunRequest(conversation_id=cid, text="Check online", web_search=True))
+        assert {"web_search", "web_fetch"} <= schema_names(provider.schemas[-1])
+
+        # A slash command names a tool, not a gate: the tool's own declaration
+        # switches Web Search on (`_enable_tool_flags`).
+        await collect(harness, RunRequest(conversation_id=cid, text="/web-search latest IMO results", web_search=False))
+        assert {"web_search", "web_fetch"} <= schema_names(provider.schemas[-1])
+    finally:
+        await kernels.shutdown_all()
+
+
+@pytest.mark.asyncio
+async def test_steer_can_switch_the_web_tools_on(db):
+    """The steer path enables the same declared gate (no name check)."""
+    conv = db.create_conversation(title="steer web")
+    cid = conv["id"]
+
+    class SteerWeb(SchemaRecordingProvider):
+        async def stream(self, messages, tools, options):
+            async for delta in super().stream(messages, tools, options):
+                yield delta
+            if len(self.calls) == 1:
+                assert harness.enqueue_steer(cid, "/web-search who won")
+
+    provider = SteerWeb([{"tool": "list_files", "args": {}}, {"text": "done"}])
+    tools = ToolRegistry([WebSearchTool(), WebFetchTool(), ListFilesTool()])
+    harness, kernels = make_harness_for(db, provider, tools)
+    try:
+        await collect(harness, RunRequest(conversation_id=cid, text="find it", web_search=False))
+    finally:
+        await kernels.shutdown_all()
+    assert not schema_names(provider.schemas[0]) & {"web_search", "web_fetch"}
+    assert {"web_search", "web_fetch"} <= schema_names(provider.schemas[-1])
+
+
+@pytest.mark.asyncio
+async def test_automatic_web_search_executes_without_manual_selection(db, monkeypatch):
+    """Exercise the real tool gate and result replay without a network dependency."""
+    from app.agent.tools import web_search as web_module
+
+    searched = []
+
+    async def search(query, limit, config):
+        searched.append(query)
+        return [{"title": "Official forecast", "href": "https://example.com/forecast", "body": "Sunny today."}], "test"
+
+    monkeypatch.setattr(web_module, "search_web", search)
+    provider = SchemaRecordingProvider([
+        {"tool": "web_search", "args": {"query": "Hong Kong weather today official forecast"}},
+        {"text": "Today's forecast is sunny. [Forecast](https://example.com/forecast)"},
+    ])
+    harness, kernels = make_harness_for(db, provider, ToolRegistry([WebSearchTool(), WebFetchTool()]))
+    try:
+        events = await collect(harness, RunRequest(conversation_id=None, text="What is the weather in Hong Kong?"))
+    finally:
+        await kernels.shutdown_all()
+    assert searched == ["Hong Kong weather today official forecast"]
+    result = next(e for e in events if e["type"] == "tool_result")
+    assert result["ok"] and "https://example.com/forecast" in result["output"]
+    assert provider.calls[1][-1]["role"] == "tool"
+    assert "Sunny today" in provider.calls[1][-1]["content"]
+    assert events[-1]["type"] == "done"
+
+
+@pytest.mark.asyncio
+async def test_web_search_opt_out_blocks_an_unadvertised_model_call(db, monkeypatch):
+    from app.agent.tools import web_search as web_module
+
+    async def unexpected_search(*args, **kwargs):
+        pytest.fail("A disabled web tool must not make a network call")
+
+    monkeypatch.setattr(web_module, "search_web", unexpected_search)
+    provider = SchemaRecordingProvider([
+        {"tool": "web_search", "args": {"query": "news"}},
+        {"text": "Web access is disabled for this turn."},
+    ])
+    harness, kernels = make_harness_for(db, provider, ToolRegistry([WebSearchTool(), WebFetchTool()]))
+    try:
+        events = await collect(harness, RunRequest(conversation_id=None, text="Use my notes", web_search=False))
+    finally:
+        await kernels.shutdown_all()
+    assert not schema_names(provider.schemas[0]) & {"web_search", "web_fetch"}
+    result = next(e for e in events if e["type"] == "tool_result")
+    assert result["ok"] is False
+
+
+@pytest.mark.asyncio
+async def test_stop_turn_on_success_ends_the_turn(db):
+    stopper = RecorderTool("finish_now", stop_turn_on_success=True)
+    provider = FakeProvider([
+        {"text": "submitting", "tool": "finish_now", "args": {"payload": {"nested": [1, 2]}}},
+        {"text": "this must never be reached"},
+    ])
+    harness, kernels = make_harness_for(db, provider, ToolRegistry([stopper]))
+    try:
+        events = await collect(harness, RunRequest(conversation_id=None, text="finish"))
+    finally:
+        await kernels.shutdown_all()
+    assert stopper.calls == 1
+    assert len(provider.calls) == 1              # the loop never asked the model again
+    assert events[-1]["type"] == "done"
+    assert not any(e["type"] == "text_delta" and "never be reached" in e.get("delta", "") for e in events)
+    cid = events[0]["conversation_id"]
+    result = tool_call_part(db, cid)["result"]
+    assert result["ok"] and result["meta"]["stop_turn"] is True
+
+
+@pytest.mark.asyncio
+async def test_failed_terminal_tool_does_not_end_the_turn(db):
+    stopper = RecorderTool("finish_now", stop_turn_on_success=True, fail=True)
+    provider = FakeProvider([
+        {"tool": "finish_now", "args": {}},
+        {"text": "recovered"},
+    ])
+    harness, kernels = make_harness_for(db, provider, ToolRegistry([stopper]))
+    try:
+        events = await collect(harness, RunRequest(conversation_id=None, text="finish"))
+    finally:
+        await kernels.shutdown_all()
+    assert stopper.calls == 1
+    assert len(provider.calls) == 2              # the failure is repairable in-session
+    assert events[-1]["type"] == "done"
+
+
+# ── plan §3.8c: normalize tool input exactly once ────────────────────────
+
+# Whitespace-heavy, nested, and streamed as raw text: the model's bytes are not
+# what anything downstream should see.
+RAW_NESTED = (
+    '  { "query" : "  spaced  out  " ,\n'
+    '    "options" : { "nested" : { "list" : [ 1 , 2 , { "deep" : " x " } ] } } ,\n'
+    '    "flag" : true }   '
+)
+EXPECTED_NESTED = {
+    "query": "  spaced  out  ",
+    "options": {"nested": {"list": [1, 2, {"deep": " x "}]}},
+    "flag": True,
+}
+
+
+def patch_monitor(monkeypatch) -> list:
+    """Capture the exact object `inspect_tool_call` is handed."""
+    from app.agent import execution as execution_module
+    seen: list = []
+    real = execution_module.inspect_tool_call
+    monkeypatch.setattr(
+        execution_module, "inspect_tool_call",
+        lambda name, args: (seen.append(args), real(name, args))[1],
+    )
+    return seen
+
+
+@pytest.mark.asyncio
+async def test_normalized_arguments_are_identical_for_every_consumer(db, monkeypatch):
+    tool = RecorderTool("echo_args")
+    provider = FakeProvider([{"tool": "echo_args", "raw_args": RAW_NESTED}, {"text": "done"}])
+    monitor_seen = patch_monitor(monkeypatch)
+    harness, kernels = make_harness_for(db, provider, ToolRegistry([tool]))
+    try:
+        events = await collect(harness, RunRequest(conversation_id=None, text="hi"))
+    finally:
+        await kernels.shutdown_all()
+
+    ready = next(e for e in events if e["type"] == "tool_call_ready")
+    assert ready["arguments"] == EXPECTED_NESTED
+    assert tool.seen == EXPECTED_NESTED                       # what the handler ran with
+    assert monitor_seen == [EXPECTED_NESTED]                  # what the monitor inspected
+    # Same object, not merely equal: nothing re-parsed or re-serialized the
+    # arguments between the monitor, the event and the handler.
+    assert monitor_seen[0] is ready["arguments"] is tool.received
+    assert tool_call_part(db, events[0]["conversation_id"])["arguments"] == EXPECTED_NESTED
+
+
+@pytest.mark.asyncio
+async def test_resolve_input_normalization_reaches_every_consumer(db, monkeypatch):
+    class StrippingTool(RecorderTool):
+        """Normalizes the model's input into the execution fact (§3.8c)."""
+
+        name = "strip_args"
+
+        def resolve_input(self, arguments: dict) -> dict:
+            def clean(value):
+                if isinstance(value, str):
+                    return value.strip()
+                if isinstance(value, list):
+                    return [clean(v) for v in value]
+                if isinstance(value, dict):
+                    return {k: clean(v) for k, v in value.items()}
+                return value
+
+            return clean(arguments)
+
+    tool = StrippingTool("strip_args")
+    raw = '{ "note" : "  padded  " , "nested" : { "list" : [ " a " , " b\\n" ] } }'
+    expected = {"note": "padded", "nested": {"list": ["a", "b"]}}
+    provider = FakeProvider([{"tool": "strip_args", "raw_args": raw}, {"text": "done"}])
+    monitor_seen = patch_monitor(monkeypatch)
+    harness, kernels = make_harness_for(db, provider, ToolRegistry([tool]))
+    try:
+        events = await collect(harness, RunRequest(conversation_id=None, text="hi"))
+    finally:
+        await kernels.shutdown_all()
+
+    ready = next(e for e in events if e["type"] == "tool_call_ready")
+    assert ready["arguments"] == expected
+    assert tool.seen == expected
+    assert monitor_seen[0] is ready["arguments"] is tool.received
+    assert tool_call_part(db, events[0]["conversation_id"])["arguments"] == expected
+
+
+@pytest.mark.asyncio
+async def test_unparseable_arguments_never_reach_the_tool(db, monkeypatch):
+    tool = RecorderTool("echo_args")
+    raw = '{"query": "unterminated'
+    provider = FakeProvider([{"tool": "echo_args", "raw_args": raw}, {"text": "done"}])
+    monitor_seen = patch_monitor(monkeypatch)
+    harness, kernels = make_harness_for(db, provider, ToolRegistry([tool]))
+    try:
+        events = await collect(harness, RunRequest(conversation_id=None, text="hi"))
+    finally:
+        await kernels.shutdown_all()
+
+    assert tool.calls == 0 and monitor_seen == []
+    ready = next(e for e in events if e["type"] == "tool_call_ready")
+    assert ready["arguments"] == {"_raw": raw}
+    result = next(e for e in events if e["type"] == "tool_result")
+    assert not result["ok"] and "Could not parse tool arguments as JSON" in result["error"]
+    assert tool_call_part(db, events[0]["conversation_id"])["arguments"] == {"_raw": raw}
+
+
+@pytest.mark.asyncio
+async def test_failed_normalization_never_reaches_the_tool(db, monkeypatch):
+    class BrokenTool(RecorderTool):
+        name = "broken_args"
+
+        def resolve_input(self, arguments: dict) -> dict:
+            raise ValueError("cannot normalize this")
+
+    tool = BrokenTool("broken_args")
+    provider = FakeProvider([{"tool": "broken_args", "args": {"a": 1}}, {"text": "done"}])
+    monitor_seen = patch_monitor(monkeypatch)
+    harness, kernels = make_harness_for(db, provider, ToolRegistry([tool]))
+    try:
+        events = await collect(harness, RunRequest(conversation_id=None, text="hi"))
+    finally:
+        await kernels.shutdown_all()
+
+    assert tool.calls == 0 and monitor_seen == []
+    ready = next(e for e in events if e["type"] == "tool_call_ready")
+    assert ready["arguments"] == {"_raw": '{"a": 1}'}
+    result = next(e for e in events if e["type"] == "tool_result")
+    assert not result["ok"] and "Could not normalize tool arguments: ValueError" in result["error"]

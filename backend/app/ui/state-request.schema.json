@@ -1,0 +1,26 @@
+{
+  "$defs": {
+    "JsonValue": {}
+  },
+  "additionalProperties": false,
+  "properties": {
+    "revision": {
+      "minimum": 1,
+      "title": "Revision",
+      "type": "integer"
+    },
+    "state": {
+      "additionalProperties": {
+        "$ref": "#/$defs/JsonValue"
+      },
+      "title": "State",
+      "type": "object"
+    }
+  },
+  "required": [
+    "revision",
+    "state"
+  ],
+  "title": "UIStateRequest",
+  "type": "object"
+}

@@ -1,0 +1,20 @@
+# The combined image needs both frontend and backend. The context-root
+# .dockerignore intentionally excludes frontend for the separate backend image.
+.git
+.github
+.codex
+.agents
+**/.venv
+**/node_modules
+**/dist
+**/__pycache__
+**/.pytest_cache
+**/.mypy_cache
+**/*.pyc
+**/.env
+**/.env.*
+backend/data
+backend/tests
+docs
+scripts
+vendor

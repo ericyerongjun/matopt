@@ -1,0 +1,1312 @@
+{
+  "benchmark": "deterministic-tool-discovery-v1",
+  "seed": 104729,
+  "python": "3.12.14",
+  "platform": "macOS-27.0.1-arm64-arm-64bit",
+  "fixture_sha256": "57261b4a3b195b428883ea1310e9652790ca2deb356881fcda64dcd62d285c8e",
+  "repeats": 3,
+  "results": [
+    {
+      "catalog_size": 30,
+      "cases": 30,
+      "cold_index_search_ms": 0.384,
+      "baseline_initial_recall": 0.9,
+      "candidate_initial_recall": 1.0,
+      "candidate_discovery_recall_at_8": 1.0,
+      "by_category": {
+        "literal": {
+          "baseline_hit": 1.0,
+          "candidate_hit": 1.0,
+          "discovery_hit": 1.0
+        },
+        "paraphrase": {
+          "baseline_hit": 0.7,
+          "candidate_hit": 1.0,
+          "discovery_hit": 1.0
+        },
+        "confusing_names": {
+          "baseline_hit": 1.0,
+          "candidate_hit": 1.0,
+          "discovery_hit": 1.0
+        },
+        "midtask_change": {
+          "baseline_hit": 1.0,
+          "candidate_hit": 1.0,
+          "discovery_hit": 1.0
+        }
+      },
+      "wrong_dispatch": {
+        "probes": 10,
+        "baseline": 7,
+        "candidate": 0
+      },
+      "known_dispatch_accuracy": {
+        "cases": 32,
+        "baseline": 1.0,
+        "candidate": 1.0
+      },
+      "pinned_retained": {
+        "selected": 12,
+        "baseline": 8,
+        "candidate": 12
+      },
+      "schema_prompt_bytes_mean": {
+        "baseline": 4073,
+        "candidate_including_discovery_tools": 14118,
+        "full_catalog": 12894,
+        "discovery_tools_alone": 1225
+      },
+      "schema_count_mean": {
+        "baseline": 9.57,
+        "candidate": 32
+      },
+      "latency": {
+        "baseline_select": {
+          "median_ms": 0.065,
+          "p95_ms": 0.071,
+          "samples": 90
+        },
+        "candidate_select": {
+          "median_ms": 0.009,
+          "p95_ms": 0.012,
+          "samples": 90
+        },
+        "candidate_metadata_search": {
+          "median_ms": 0.027,
+          "p95_ms": 0.036,
+          "samples": 90
+        }
+      },
+      "cases_detail": [
+        {
+          "category": "literal",
+          "query": "Search Gmail messages by sender Maya",
+          "expected": "gmail_search_messages",
+          "baseline_hit": true,
+          "candidate_hit": true,
+          "discovery_hit": true,
+          "baseline_schema_bytes": 5151,
+          "candidate_schema_bytes": 14118,
+          "baseline_count": 12,
+          "candidate_count": 32
+        },
+        {
+          "category": "literal",
+          "query": "Read full Gmail message headers",
+          "expected": "gmail_read_message",
+          "baseline_hit": true,
+          "candidate_hit": true,
+          "discovery_hit": true,
+          "baseline_schema_bytes": 4693,
+          "candidate_schema_bytes": 14118,
+          "baseline_count": 11,
+          "candidate_count": 32
+        },
+        {
+          "category": "literal",
+          "query": "Create a calendar event with attendees",
+          "expected": "calendar_create_event",
+          "baseline_hit": true,
+          "candidate_hit": true,
+          "discovery_hit": true,
+          "baseline_schema_bytes": 4695,
+          "candidate_schema_bytes": 14118,
+          "baseline_count": 11,
+          "candidate_count": 32
+        },
+        {
+          "category": "literal",
+          "query": "Download a cloud drive file",
+          "expected": "drive_download_file",
+          "baseline_hit": true,
+          "candidate_hit": true,
+          "discovery_hit": true,
+          "baseline_schema_bytes": 4256,
+          "candidate_schema_bytes": 14118,
+          "baseline_count": 10,
+          "candidate_count": 32
+        },
+        {
+          "category": "literal",
+          "query": "Search GitHub repository issues by label",
+          "expected": "github_search_issues",
+          "baseline_hit": true,
+          "candidate_hit": true,
+          "discovery_hit": true,
+          "baseline_schema_bytes": 5129,
+          "candidate_schema_bytes": 14118,
+          "baseline_count": 12,
+          "candidate_count": 32
+        },
+        {
+          "category": "literal",
+          "query": "Create a Notion page",
+          "expected": "notion_create_page",
+          "baseline_hit": true,
+          "candidate_hit": true,
+          "discovery_hit": true,
+          "baseline_schema_bytes": 4257,
+          "candidate_schema_bytes": 14118,
+          "baseline_count": 10,
+          "candidate_count": 32
+        },
+        {
+          "category": "literal",
+          "query": "Extract text from a scanned PDF",
+          "expected": "vision_extract_text",
+          "baseline_hit": true,
+          "candidate_hit": true,
+          "discovery_hit": true,
+          "baseline_schema_bytes": 4253,
+          "candidate_schema_bytes": 14118,
+          "baseline_count": 10,
+          "candidate_count": 32
+        },
+        {
+          "category": "literal",
+          "query": "Query sales totals by region",
+          "expected": "analytics_query_sales",
+          "baseline_hit": true,
+          "candidate_hit": true,
+          "discovery_hit": true,
+          "baseline_schema_bytes": 5131,
+          "candidate_schema_bytes": 14118,
+          "baseline_count": 12,
+          "candidate_count": 32
+        },
+        {
+          "category": "literal",
+          "query": "github_read_file",
+          "expected": "github_read_file",
+          "baseline_hit": true,
+          "candidate_hit": true,
+          "discovery_hit": true,
+          "baseline_schema_bytes": 5105,
+          "candidate_schema_bytes": 14118,
+          "baseline_count": 12,
+          "candidate_count": 32
+        },
+        {
+          "category": "literal",
+          "query": "gmail_delete_draft",
+          "expected": "gmail_delete_draft",
+          "baseline_hit": true,
+          "candidate_hit": true,
+          "discovery_hit": true,
+          "baseline_schema_bytes": 5102,
+          "candidate_schema_bytes": 14118,
+          "baseline_count": 12,
+          "candidate_count": 32
+        },
+        {
+          "category": "paraphrase",
+          "query": "Locate correspondence in my inbox",
+          "expected": "gmail_search_messages",
+          "baseline_hit": false,
+          "candidate_hit": true,
+          "discovery_hit": true,
+          "baseline_schema_bytes": 2102,
+          "candidate_schema_bytes": 14118,
+          "baseline_count": 5,
+          "candidate_count": 32
+        },
+        {
+          "category": "paraphrase",
+          "query": "Add an appointment with my colleagues",
+          "expected": "calendar_create_event",
+          "baseline_hit": true,
+          "candidate_hit": true,
+          "discovery_hit": true,
+          "baseline_schema_bytes": 2974,
+          "candidate_schema_bytes": 14118,
+          "baseline_count": 7,
+          "candidate_count": 32
+        },
+        {
+          "category": "paraphrase",
+          "query": "Modify the schedule of our existing meeting",
+          "expected": "calendar_update_event",
+          "baseline_hit": true,
+          "candidate_hit": true,
+          "discovery_hit": true,
+          "baseline_schema_bytes": 2556,
+          "candidate_schema_bytes": 14118,
+          "baseline_count": 6,
+          "candidate_count": 32
+        },
+        {
+          "category": "paraphrase",
+          "query": "Remove the unsent mail draft",
+          "expected": "gmail_delete_draft",
+          "baseline_hit": true,
+          "candidate_hit": true,
+          "discovery_hit": true,
+          "baseline_schema_bytes": 2546,
+          "candidate_schema_bytes": 14118,
+          "baseline_count": 6,
+          "candidate_count": 32
+        },
+        {
+          "category": "paraphrase",
+          "query": "Locate tickets in the repo",
+          "expected": "github_search_issues",
+          "baseline_hit": false,
+          "candidate_hit": true,
+          "discovery_hit": true,
+          "baseline_schema_bytes": 2102,
+          "candidate_schema_bytes": 14118,
+          "baseline_count": 5,
+          "candidate_count": 32
+        },
+        {
+          "category": "paraphrase",
+          "query": "Retrieve repository document contents",
+          "expected": "github_read_file",
+          "baseline_hit": true,
+          "candidate_hit": true,
+          "discovery_hit": true,
+          "baseline_schema_bytes": 3835,
+          "candidate_schema_bytes": 14118,
+          "baseline_count": 9,
+          "candidate_count": 32
+        },
+        {
+          "category": "paraphrase",
+          "query": "Read words in a photo",
+          "expected": "vision_extract_text",
+          "baseline_hit": false,
+          "candidate_hit": true,
+          "discovery_hit": true,
+          "baseline_schema_bytes": 2537,
+          "candidate_schema_bytes": 14118,
+          "baseline_count": 6,
+          "candidate_count": 32
+        },
+        {
+          "category": "paraphrase",
+          "query": "Let collaborators see this drive document",
+          "expected": "drive_share_file",
+          "baseline_hit": true,
+          "candidate_hit": true,
+          "discovery_hit": true,
+          "baseline_schema_bytes": 3818,
+          "candidate_schema_bytes": 14118,
+          "baseline_count": 9,
+          "candidate_count": 32
+        },
+        {
+          "category": "paraphrase",
+          "query": "Locate a customer using their company",
+          "expected": "crm_find_contact",
+          "baseline_hit": true,
+          "candidate_hit": true,
+          "discovery_hit": true,
+          "baseline_schema_bytes": 2095,
+          "candidate_schema_bytes": 14118,
+          "baseline_count": 5,
+          "candidate_count": 32
+        },
+        {
+          "category": "paraphrase",
+          "query": "Prepare an email without delivering it",
+          "expected": "gmail_create_draft",
+          "baseline_hit": true,
+          "candidate_hit": true,
+          "discovery_hit": true,
+          "baseline_schema_bytes": 4267,
+          "candidate_schema_bytes": 14118,
+          "baseline_count": 10,
+          "candidate_count": 32
+        },
+        {
+          "category": "confusing_names",
+          "query": "Remove a calendar event, keep the drive file",
+          "expected": "calendar_delete_event",
+          "baseline_hit": true,
+          "candidate_hit": true,
+          "discovery_hit": true,
+          "baseline_schema_bytes": 5112,
+          "candidate_schema_bytes": 14118,
+          "baseline_count": 12,
+          "candidate_count": 32
+        },
+        {
+          "category": "confusing_names",
+          "query": "Find messages in Slack, not Gmail",
+          "expected": "slack_search_messages",
+          "baseline_hit": true,
+          "candidate_hit": true,
+          "discovery_hit": true,
+          "baseline_schema_bytes": 5139,
+          "candidate_schema_bytes": 14118,
+          "baseline_count": 12,
+          "candidate_count": 32
+        },
+        {
+          "category": "confusing_names",
+          "query": "Read file contents in GitHub repository",
+          "expected": "github_read_file",
+          "baseline_hit": true,
+          "candidate_hit": true,
+          "discovery_hit": true,
+          "baseline_schema_bytes": 5128,
+          "candidate_schema_bytes": 14118,
+          "baseline_count": 12,
+          "candidate_count": 32
+        },
+        {
+          "category": "confusing_names",
+          "query": "Write a draft in Gmail without sending a message",
+          "expected": "gmail_create_draft",
+          "baseline_hit": true,
+          "candidate_hit": true,
+          "discovery_hit": true,
+          "baseline_schema_bytes": 4693,
+          "candidate_schema_bytes": 14118,
+          "baseline_count": 11,
+          "candidate_count": 32
+        },
+        {
+          "category": "confusing_names",
+          "query": "Upload a local file to drive, not download",
+          "expected": "drive_upload_file",
+          "baseline_hit": true,
+          "candidate_hit": true,
+          "discovery_hit": true,
+          "baseline_schema_bytes": 4256,
+          "candidate_schema_bytes": 14118,
+          "baseline_count": 10,
+          "candidate_count": 32
+        },
+        {
+          "category": "confusing_names",
+          "query": "Delete repository branch, keep the issues",
+          "expected": "github_delete_branch",
+          "baseline_hit": true,
+          "candidate_hit": true,
+          "discovery_hit": true,
+          "baseline_schema_bytes": 4692,
+          "candidate_schema_bytes": 14118,
+          "baseline_count": 11,
+          "candidate_count": 32
+        },
+        {
+          "category": "midtask_change",
+          "query": "Now inspect sales revenue by region",
+          "expected": "analytics_query_sales",
+          "baseline_hit": true,
+          "candidate_hit": true,
+          "discovery_hit": true,
+          "baseline_schema_bytes": 5131,
+          "candidate_schema_bytes": 14118,
+          "baseline_count": 12,
+          "candidate_count": 32
+        },
+        {
+          "category": "midtask_change",
+          "query": "Now send the summary to a Slack channel",
+          "expected": "slack_send_message",
+          "baseline_hit": true,
+          "candidate_hit": true,
+          "discovery_hit": true,
+          "baseline_schema_bytes": 2936,
+          "candidate_schema_bytes": 14118,
+          "baseline_count": 7,
+          "candidate_count": 32
+        },
+        {
+          "category": "midtask_change",
+          "query": "Now grant collaborator access to the drive file",
+          "expected": "drive_share_file",
+          "baseline_hit": true,
+          "candidate_hit": true,
+          "discovery_hit": true,
+          "baseline_schema_bytes": 4256,
+          "candidate_schema_bytes": 14118,
+          "baseline_count": 10,
+          "candidate_count": 32
+        },
+        {
+          "category": "midtask_change",
+          "query": "Now fetch the public web page text",
+          "expected": "browser_fetch_page",
+          "baseline_hit": true,
+          "candidate_hit": true,
+          "discovery_hit": true,
+          "baseline_schema_bytes": 4253,
+          "candidate_schema_bytes": 14118,
+          "baseline_count": 10,
+          "candidate_count": 32
+        }
+      ]
+    },
+    {
+      "catalog_size": 300,
+      "cases": 30,
+      "cold_index_search_ms": 2.919,
+      "baseline_initial_recall": 0.8333333333333334,
+      "candidate_initial_recall": 0.9666666666666667,
+      "candidate_discovery_recall_at_8": 0.9666666666666667,
+      "by_category": {
+        "literal": {
+          "baseline_hit": 1.0,
+          "candidate_hit": 1.0,
+          "discovery_hit": 1.0
+        },
+        "paraphrase": {
+          "baseline_hit": 0.5,
+          "candidate_hit": 0.9,
+          "discovery_hit": 0.9
+        },
+        "confusing_names": {
+          "baseline_hit": 1.0,
+          "candidate_hit": 1.0,
+          "discovery_hit": 1.0
+        },
+        "midtask_change": {
+          "baseline_hit": 1.0,
+          "candidate_hit": 1.0,
+          "discovery_hit": 1.0
+        }
+      },
+      "wrong_dispatch": {
+        "probes": 10,
+        "baseline": 7,
+        "candidate": 0
+      },
+      "known_dispatch_accuracy": {
+        "cases": 32,
+        "baseline": 1.0,
+        "candidate": 1.0
+      },
+      "pinned_retained": {
+        "selected": 12,
+        "baseline": 8,
+        "candidate": 12
+      },
+      "schema_prompt_bytes_mean": {
+        "baseline": 4738,
+        "candidate_including_discovery_tools": 6369,
+        "full_catalog": 139868,
+        "discovery_tools_alone": 1225
+      },
+      "schema_count_mean": {
+        "baseline": 10.77,
+        "candidate": 13.87
+      },
+      "latency": {
+        "baseline_select": {
+          "median_ms": 1.022,
+          "p95_ms": 1.062,
+          "samples": 90
+        },
+        "candidate_select": {
+          "median_ms": 0.256,
+          "p95_ms": 0.462,
+          "samples": 90
+        },
+        "candidate_metadata_search": {
+          "median_ms": 0.21,
+          "p95_ms": 0.415,
+          "samples": 90
+        }
+      },
+      "cases_detail": [
+        {
+          "category": "literal",
+          "query": "Search Gmail messages by sender Maya",
+          "expected": "gmail_search_messages",
+          "baseline_hit": true,
+          "candidate_hit": true,
+          "discovery_hit": true,
+          "baseline_schema_bytes": 5372,
+          "candidate_schema_bytes": 6432,
+          "baseline_count": 12,
+          "candidate_count": 14
+        },
+        {
+          "category": "literal",
+          "query": "Read full Gmail message headers",
+          "expected": "gmail_read_message",
+          "baseline_hit": true,
+          "candidate_hit": true,
+          "discovery_hit": true,
+          "baseline_schema_bytes": 5344,
+          "candidate_schema_bytes": 6505,
+          "baseline_count": 12,
+          "candidate_count": 14
+        },
+        {
+          "category": "literal",
+          "query": "Create a calendar event with attendees",
+          "expected": "calendar_create_event",
+          "baseline_hit": true,
+          "candidate_hit": true,
+          "discovery_hit": true,
+          "baseline_schema_bytes": 5268,
+          "candidate_schema_bytes": 6476,
+          "baseline_count": 12,
+          "candidate_count": 14
+        },
+        {
+          "category": "literal",
+          "query": "Download a cloud drive file",
+          "expected": "drive_download_file",
+          "baseline_hit": true,
+          "candidate_hit": true,
+          "discovery_hit": true,
+          "baseline_schema_bytes": 5223,
+          "candidate_schema_bytes": 6457,
+          "baseline_count": 12,
+          "candidate_count": 14
+        },
+        {
+          "category": "literal",
+          "query": "Search GitHub repository issues by label",
+          "expected": "github_search_issues",
+          "baseline_hit": true,
+          "candidate_hit": true,
+          "discovery_hit": true,
+          "baseline_schema_bytes": 5407,
+          "candidate_schema_bytes": 6510,
+          "baseline_count": 12,
+          "candidate_count": 14
+        },
+        {
+          "category": "literal",
+          "query": "Create a Notion page",
+          "expected": "notion_create_page",
+          "baseline_hit": true,
+          "candidate_hit": true,
+          "discovery_hit": true,
+          "baseline_schema_bytes": 5300,
+          "candidate_schema_bytes": 6423,
+          "baseline_count": 12,
+          "candidate_count": 14
+        },
+        {
+          "category": "literal",
+          "query": "Extract text from a scanned PDF",
+          "expected": "vision_extract_text",
+          "baseline_hit": true,
+          "candidate_hit": true,
+          "discovery_hit": true,
+          "baseline_schema_bytes": 4253,
+          "candidate_schema_bytes": 5477,
+          "baseline_count": 10,
+          "candidate_count": 12
+        },
+        {
+          "category": "literal",
+          "query": "Query sales totals by region",
+          "expected": "analytics_query_sales",
+          "baseline_hit": true,
+          "candidate_hit": true,
+          "discovery_hit": true,
+          "baseline_schema_bytes": 5415,
+          "candidate_schema_bytes": 6355,
+          "baseline_count": 12,
+          "candidate_count": 14
+        },
+        {
+          "category": "literal",
+          "query": "github_read_file",
+          "expected": "github_read_file",
+          "baseline_hit": true,
+          "candidate_hit": true,
+          "discovery_hit": true,
+          "baseline_schema_bytes": 5373,
+          "candidate_schema_bytes": 6430,
+          "baseline_count": 12,
+          "candidate_count": 14
+        },
+        {
+          "category": "literal",
+          "query": "gmail_delete_draft",
+          "expected": "gmail_delete_draft",
+          "baseline_hit": true,
+          "candidate_hit": true,
+          "discovery_hit": true,
+          "baseline_schema_bytes": 5327,
+          "candidate_schema_bytes": 6326,
+          "baseline_count": 12,
+          "candidate_count": 14
+        },
+        {
+          "category": "paraphrase",
+          "query": "Locate correspondence in my inbox",
+          "expected": "gmail_search_messages",
+          "baseline_hit": false,
+          "candidate_hit": true,
+          "discovery_hit": true,
+          "baseline_schema_bytes": 2102,
+          "candidate_schema_bytes": 6402,
+          "baseline_count": 5,
+          "candidate_count": 14
+        },
+        {
+          "category": "paraphrase",
+          "query": "Add an appointment with my colleagues",
+          "expected": "calendar_create_event",
+          "baseline_hit": false,
+          "candidate_hit": true,
+          "discovery_hit": true,
+          "baseline_schema_bytes": 3042,
+          "candidate_schema_bytes": 6394,
+          "baseline_count": 7,
+          "candidate_count": 14
+        },
+        {
+          "category": "paraphrase",
+          "query": "Modify the schedule of our existing meeting",
+          "expected": "calendar_update_event",
+          "baseline_hit": true,
+          "candidate_hit": true,
+          "discovery_hit": true,
+          "baseline_schema_bytes": 2556,
+          "candidate_schema_bytes": 6484,
+          "baseline_count": 6,
+          "candidate_count": 14
+        },
+        {
+          "category": "paraphrase",
+          "query": "Remove the unsent mail draft",
+          "expected": "gmail_delete_draft",
+          "baseline_hit": true,
+          "candidate_hit": true,
+          "discovery_hit": true,
+          "baseline_schema_bytes": 2546,
+          "candidate_schema_bytes": 6329,
+          "baseline_count": 6,
+          "candidate_count": 14
+        },
+        {
+          "category": "paraphrase",
+          "query": "Locate tickets in the repo",
+          "expected": "github_search_issues",
+          "baseline_hit": false,
+          "candidate_hit": true,
+          "discovery_hit": true,
+          "baseline_schema_bytes": 2102,
+          "candidate_schema_bytes": 6502,
+          "baseline_count": 5,
+          "candidate_count": 14
+        },
+        {
+          "category": "paraphrase",
+          "query": "Retrieve repository document contents",
+          "expected": "github_read_file",
+          "baseline_hit": false,
+          "candidate_hit": true,
+          "discovery_hit": true,
+          "baseline_schema_bytes": 5452,
+          "candidate_schema_bytes": 6468,
+          "baseline_count": 12,
+          "candidate_count": 14
+        },
+        {
+          "category": "paraphrase",
+          "query": "Read words in a photo",
+          "expected": "vision_extract_text",
+          "baseline_hit": false,
+          "candidate_hit": false,
+          "discovery_hit": false,
+          "baseline_schema_bytes": 5379,
+          "candidate_schema_bytes": 6575,
+          "baseline_count": 12,
+          "candidate_count": 14
+        },
+        {
+          "category": "paraphrase",
+          "query": "Let collaborators see this drive document",
+          "expected": "drive_share_file",
+          "baseline_hit": true,
+          "candidate_hit": true,
+          "discovery_hit": true,
+          "baseline_schema_bytes": 5415,
+          "candidate_schema_bytes": 6455,
+          "baseline_count": 12,
+          "candidate_count": 14
+        },
+        {
+          "category": "paraphrase",
+          "query": "Locate a customer using their company",
+          "expected": "crm_find_contact",
+          "baseline_hit": true,
+          "candidate_hit": true,
+          "discovery_hit": true,
+          "baseline_schema_bytes": 5408,
+          "candidate_schema_bytes": 6632,
+          "baseline_count": 12,
+          "candidate_count": 14
+        },
+        {
+          "category": "paraphrase",
+          "query": "Prepare an email without delivering it",
+          "expected": "gmail_create_draft",
+          "baseline_hit": true,
+          "candidate_hit": true,
+          "discovery_hit": true,
+          "baseline_schema_bytes": 4267,
+          "candidate_schema_bytes": 5491,
+          "baseline_count": 10,
+          "candidate_count": 12
+        },
+        {
+          "category": "confusing_names",
+          "query": "Remove a calendar event, keep the drive file",
+          "expected": "calendar_delete_event",
+          "baseline_hit": true,
+          "candidate_hit": true,
+          "discovery_hit": true,
+          "baseline_schema_bytes": 5153,
+          "candidate_schema_bytes": 6336,
+          "baseline_count": 12,
+          "candidate_count": 14
+        },
+        {
+          "category": "confusing_names",
+          "query": "Find messages in Slack, not Gmail",
+          "expected": "slack_search_messages",
+          "baseline_hit": true,
+          "candidate_hit": true,
+          "discovery_hit": true,
+          "baseline_schema_bytes": 5139,
+          "candidate_schema_bytes": 6344,
+          "baseline_count": 12,
+          "candidate_count": 14
+        },
+        {
+          "category": "confusing_names",
+          "query": "Read file contents in GitHub repository",
+          "expected": "github_read_file",
+          "baseline_hit": true,
+          "candidate_hit": true,
+          "discovery_hit": true,
+          "baseline_schema_bytes": 5253,
+          "candidate_schema_bytes": 6452,
+          "baseline_count": 12,
+          "candidate_count": 14
+        },
+        {
+          "category": "confusing_names",
+          "query": "Write a draft in Gmail without sending a message",
+          "expected": "gmail_create_draft",
+          "baseline_hit": true,
+          "candidate_hit": true,
+          "discovery_hit": true,
+          "baseline_schema_bytes": 5292,
+          "candidate_schema_bytes": 6351,
+          "baseline_count": 12,
+          "candidate_count": 14
+        },
+        {
+          "category": "confusing_names",
+          "query": "Upload a local file to drive, not download",
+          "expected": "drive_upload_file",
+          "baseline_hit": true,
+          "candidate_hit": true,
+          "discovery_hit": true,
+          "baseline_schema_bytes": 5236,
+          "candidate_schema_bytes": 6437,
+          "baseline_count": 12,
+          "candidate_count": 14
+        },
+        {
+          "category": "confusing_names",
+          "query": "Delete repository branch, keep the issues",
+          "expected": "github_delete_branch",
+          "baseline_hit": true,
+          "candidate_hit": true,
+          "discovery_hit": true,
+          "baseline_schema_bytes": 5299,
+          "candidate_schema_bytes": 6424,
+          "baseline_count": 12,
+          "candidate_count": 14
+        },
+        {
+          "category": "midtask_change",
+          "query": "Now inspect sales revenue by region",
+          "expected": "analytics_query_sales",
+          "baseline_hit": true,
+          "candidate_hit": true,
+          "discovery_hit": true,
+          "baseline_schema_bytes": 5415,
+          "candidate_schema_bytes": 6355,
+          "baseline_count": 12,
+          "candidate_count": 14
+        },
+        {
+          "category": "midtask_change",
+          "query": "Now send the summary to a Slack channel",
+          "expected": "slack_send_message",
+          "baseline_hit": true,
+          "candidate_hit": true,
+          "discovery_hit": true,
+          "baseline_schema_bytes": 5315,
+          "candidate_schema_bytes": 6495,
+          "baseline_count": 12,
+          "candidate_count": 14
+        },
+        {
+          "category": "midtask_change",
+          "query": "Now grant collaborator access to the drive file",
+          "expected": "drive_share_file",
+          "baseline_hit": true,
+          "candidate_hit": true,
+          "discovery_hit": true,
+          "baseline_schema_bytes": 5240,
+          "candidate_schema_bytes": 6410,
+          "baseline_count": 12,
+          "candidate_count": 14
+        },
+        {
+          "category": "midtask_change",
+          "query": "Now fetch the public web page text",
+          "expected": "browser_fetch_page",
+          "baseline_hit": true,
+          "candidate_hit": true,
+          "discovery_hit": true,
+          "baseline_schema_bytes": 4253,
+          "candidate_schema_bytes": 6350,
+          "baseline_count": 10,
+          "candidate_count": 14
+        }
+      ]
+    },
+    {
+      "catalog_size": 3000,
+      "cases": 30,
+      "cold_index_search_ms": 29.656,
+      "baseline_initial_recall": 0.8333333333333334,
+      "candidate_initial_recall": 0.9666666666666667,
+      "candidate_discovery_recall_at_8": 0.9666666666666667,
+      "by_category": {
+        "literal": {
+          "baseline_hit": 1.0,
+          "candidate_hit": 1.0,
+          "discovery_hit": 1.0
+        },
+        "paraphrase": {
+          "baseline_hit": 0.5,
+          "candidate_hit": 0.9,
+          "discovery_hit": 0.9
+        },
+        "confusing_names": {
+          "baseline_hit": 1.0,
+          "candidate_hit": 1.0,
+          "discovery_hit": 1.0
+        },
+        "midtask_change": {
+          "baseline_hit": 1.0,
+          "candidate_hit": 1.0,
+          "discovery_hit": 1.0
+        }
+      },
+      "wrong_dispatch": {
+        "probes": 10,
+        "baseline": 7,
+        "candidate": 0
+      },
+      "known_dispatch_accuracy": {
+        "cases": 32,
+        "baseline": 1.0,
+        "candidate": 1.0
+      },
+      "pinned_retained": {
+        "selected": 12,
+        "baseline": 8,
+        "candidate": 12
+      },
+      "schema_prompt_bytes_mean": {
+        "baseline": 4759,
+        "candidate_including_discovery_tools": 6375,
+        "full_catalog": 1409614,
+        "discovery_tools_alone": 1225
+      },
+      "schema_count_mean": {
+        "baseline": 10.77,
+        "candidate": 13.87
+      },
+      "latency": {
+        "baseline_select": {
+          "median_ms": 11.174,
+          "p95_ms": 11.368,
+          "samples": 90
+        },
+        "candidate_select": {
+          "median_ms": 2.642,
+          "p95_ms": 5.468,
+          "samples": 90
+        },
+        "candidate_metadata_search": {
+          "median_ms": 2.147,
+          "p95_ms": 4.906,
+          "samples": 90
+        }
+      },
+      "cases_detail": [
+        {
+          "category": "literal",
+          "query": "Search Gmail messages by sender Maya",
+          "expected": "gmail_search_messages",
+          "baseline_hit": true,
+          "candidate_hit": true,
+          "discovery_hit": true,
+          "baseline_schema_bytes": 5380,
+          "candidate_schema_bytes": 6473,
+          "baseline_count": 12,
+          "candidate_count": 14
+        },
+        {
+          "category": "literal",
+          "query": "Read full Gmail message headers",
+          "expected": "gmail_read_message",
+          "baseline_hit": true,
+          "candidate_hit": true,
+          "discovery_hit": true,
+          "baseline_schema_bytes": 5382,
+          "candidate_schema_bytes": 6467,
+          "baseline_count": 12,
+          "candidate_count": 14
+        },
+        {
+          "category": "literal",
+          "query": "Create a calendar event with attendees",
+          "expected": "calendar_create_event",
+          "baseline_hit": true,
+          "candidate_hit": true,
+          "discovery_hit": true,
+          "baseline_schema_bytes": 5311,
+          "candidate_schema_bytes": 6500,
+          "baseline_count": 12,
+          "candidate_count": 14
+        },
+        {
+          "category": "literal",
+          "query": "Download a cloud drive file",
+          "expected": "drive_download_file",
+          "baseline_hit": true,
+          "candidate_hit": true,
+          "discovery_hit": true,
+          "baseline_schema_bytes": 5260,
+          "candidate_schema_bytes": 6455,
+          "baseline_count": 12,
+          "candidate_count": 14
+        },
+        {
+          "category": "literal",
+          "query": "Search GitHub repository issues by label",
+          "expected": "github_search_issues",
+          "baseline_hit": true,
+          "candidate_hit": true,
+          "discovery_hit": true,
+          "baseline_schema_bytes": 5421,
+          "candidate_schema_bytes": 6485,
+          "baseline_count": 12,
+          "candidate_count": 14
+        },
+        {
+          "category": "literal",
+          "query": "Create a Notion page",
+          "expected": "notion_create_page",
+          "baseline_hit": true,
+          "candidate_hit": true,
+          "discovery_hit": true,
+          "baseline_schema_bytes": 5412,
+          "candidate_schema_bytes": 6427,
+          "baseline_count": 12,
+          "candidate_count": 14
+        },
+        {
+          "category": "literal",
+          "query": "Extract text from a scanned PDF",
+          "expected": "vision_extract_text",
+          "baseline_hit": true,
+          "candidate_hit": true,
+          "discovery_hit": true,
+          "baseline_schema_bytes": 4253,
+          "candidate_schema_bytes": 5477,
+          "baseline_count": 10,
+          "candidate_count": 12
+        },
+        {
+          "category": "literal",
+          "query": "Query sales totals by region",
+          "expected": "analytics_query_sales",
+          "baseline_hit": true,
+          "candidate_hit": true,
+          "discovery_hit": true,
+          "baseline_schema_bytes": 5421,
+          "candidate_schema_bytes": 6355,
+          "baseline_count": 12,
+          "candidate_count": 14
+        },
+        {
+          "category": "literal",
+          "query": "github_read_file",
+          "expected": "github_read_file",
+          "baseline_hit": true,
+          "candidate_hit": true,
+          "discovery_hit": true,
+          "baseline_schema_bytes": 5327,
+          "candidate_schema_bytes": 6469,
+          "baseline_count": 12,
+          "candidate_count": 14
+        },
+        {
+          "category": "literal",
+          "query": "gmail_delete_draft",
+          "expected": "gmail_delete_draft",
+          "baseline_hit": true,
+          "candidate_hit": true,
+          "discovery_hit": true,
+          "baseline_schema_bytes": 5394,
+          "candidate_schema_bytes": 6326,
+          "baseline_count": 12,
+          "candidate_count": 14
+        },
+        {
+          "category": "paraphrase",
+          "query": "Locate correspondence in my inbox",
+          "expected": "gmail_search_messages",
+          "baseline_hit": false,
+          "candidate_hit": true,
+          "discovery_hit": true,
+          "baseline_schema_bytes": 2102,
+          "candidate_schema_bytes": 6400,
+          "baseline_count": 5,
+          "candidate_count": 14
+        },
+        {
+          "category": "paraphrase",
+          "query": "Add an appointment with my colleagues",
+          "expected": "calendar_create_event",
+          "baseline_hit": false,
+          "candidate_hit": true,
+          "discovery_hit": true,
+          "baseline_schema_bytes": 3046,
+          "candidate_schema_bytes": 6392,
+          "baseline_count": 7,
+          "candidate_count": 14
+        },
+        {
+          "category": "paraphrase",
+          "query": "Modify the schedule of our existing meeting",
+          "expected": "calendar_update_event",
+          "baseline_hit": true,
+          "candidate_hit": true,
+          "discovery_hit": true,
+          "baseline_schema_bytes": 2556,
+          "candidate_schema_bytes": 6494,
+          "baseline_count": 6,
+          "candidate_count": 14
+        },
+        {
+          "category": "paraphrase",
+          "query": "Remove the unsent mail draft",
+          "expected": "gmail_delete_draft",
+          "baseline_hit": true,
+          "candidate_hit": true,
+          "discovery_hit": true,
+          "baseline_schema_bytes": 2546,
+          "candidate_schema_bytes": 6329,
+          "baseline_count": 6,
+          "candidate_count": 14
+        },
+        {
+          "category": "paraphrase",
+          "query": "Locate tickets in the repo",
+          "expected": "github_search_issues",
+          "baseline_hit": false,
+          "candidate_hit": true,
+          "discovery_hit": true,
+          "baseline_schema_bytes": 2102,
+          "candidate_schema_bytes": 6449,
+          "baseline_count": 5,
+          "candidate_count": 14
+        },
+        {
+          "category": "paraphrase",
+          "query": "Retrieve repository document contents",
+          "expected": "github_read_file",
+          "baseline_hit": false,
+          "candidate_hit": true,
+          "discovery_hit": true,
+          "baseline_schema_bytes": 5468,
+          "candidate_schema_bytes": 6472,
+          "baseline_count": 12,
+          "candidate_count": 14
+        },
+        {
+          "category": "paraphrase",
+          "query": "Read words in a photo",
+          "expected": "vision_extract_text",
+          "baseline_hit": false,
+          "candidate_hit": false,
+          "discovery_hit": false,
+          "baseline_schema_bytes": 5397,
+          "candidate_schema_bytes": 6547,
+          "baseline_count": 12,
+          "candidate_count": 14
+        },
+        {
+          "category": "paraphrase",
+          "query": "Let collaborators see this drive document",
+          "expected": "drive_share_file",
+          "baseline_hit": true,
+          "candidate_hit": true,
+          "discovery_hit": true,
+          "baseline_schema_bytes": 5433,
+          "candidate_schema_bytes": 6467,
+          "baseline_count": 12,
+          "candidate_count": 14
+        },
+        {
+          "category": "paraphrase",
+          "query": "Locate a customer using their company",
+          "expected": "crm_find_contact",
+          "baseline_hit": true,
+          "candidate_hit": true,
+          "discovery_hit": true,
+          "baseline_schema_bytes": 5420,
+          "candidate_schema_bytes": 6630,
+          "baseline_count": 12,
+          "candidate_count": 14
+        },
+        {
+          "category": "paraphrase",
+          "query": "Prepare an email without delivering it",
+          "expected": "gmail_create_draft",
+          "baseline_hit": true,
+          "candidate_hit": true,
+          "discovery_hit": true,
+          "baseline_schema_bytes": 4267,
+          "candidate_schema_bytes": 5491,
+          "baseline_count": 10,
+          "candidate_count": 12
+        },
+        {
+          "category": "confusing_names",
+          "query": "Remove a calendar event, keep the drive file",
+          "expected": "calendar_delete_event",
+          "baseline_hit": true,
+          "candidate_hit": true,
+          "discovery_hit": true,
+          "baseline_schema_bytes": 5155,
+          "candidate_schema_bytes": 6336,
+          "baseline_count": 12,
+          "candidate_count": 14
+        },
+        {
+          "category": "confusing_names",
+          "query": "Find messages in Slack, not Gmail",
+          "expected": "slack_search_messages",
+          "baseline_hit": true,
+          "candidate_hit": true,
+          "discovery_hit": true,
+          "baseline_schema_bytes": 5139,
+          "candidate_schema_bytes": 6344,
+          "baseline_count": 12,
+          "candidate_count": 14
+        },
+        {
+          "category": "confusing_names",
+          "query": "Read file contents in GitHub repository",
+          "expected": "github_read_file",
+          "baseline_hit": true,
+          "candidate_hit": true,
+          "discovery_hit": true,
+          "baseline_schema_bytes": 5327,
+          "candidate_schema_bytes": 6501,
+          "baseline_count": 12,
+          "candidate_count": 14
+        },
+        {
+          "category": "confusing_names",
+          "query": "Write a draft in Gmail without sending a message",
+          "expected": "gmail_create_draft",
+          "baseline_hit": true,
+          "candidate_hit": true,
+          "discovery_hit": true,
+          "baseline_schema_bytes": 5292,
+          "candidate_schema_bytes": 6351,
+          "baseline_count": 12,
+          "candidate_count": 14
+        },
+        {
+          "category": "confusing_names",
+          "query": "Upload a local file to drive, not download",
+          "expected": "drive_upload_file",
+          "baseline_hit": true,
+          "candidate_hit": true,
+          "discovery_hit": true,
+          "baseline_schema_bytes": 5326,
+          "candidate_schema_bytes": 6455,
+          "baseline_count": 12,
+          "candidate_count": 14
+        },
+        {
+          "category": "confusing_names",
+          "query": "Delete repository branch, keep the issues",
+          "expected": "github_delete_branch",
+          "baseline_hit": true,
+          "candidate_hit": true,
+          "discovery_hit": true,
+          "baseline_schema_bytes": 5366,
+          "candidate_schema_bytes": 6524,
+          "baseline_count": 12,
+          "candidate_count": 14
+        },
+        {
+          "category": "midtask_change",
+          "query": "Now inspect sales revenue by region",
+          "expected": "analytics_query_sales",
+          "baseline_hit": true,
+          "candidate_hit": true,
+          "discovery_hit": true,
+          "baseline_schema_bytes": 5421,
+          "candidate_schema_bytes": 6355,
+          "baseline_count": 12,
+          "candidate_count": 14
+        },
+        {
+          "category": "midtask_change",
+          "query": "Now send the summary to a Slack channel",
+          "expected": "slack_send_message",
+          "baseline_hit": true,
+          "candidate_hit": true,
+          "discovery_hit": true,
+          "baseline_schema_bytes": 5339,
+          "candidate_schema_bytes": 6511,
+          "baseline_count": 12,
+          "candidate_count": 14
+        },
+        {
+          "category": "midtask_change",
+          "query": "Now grant collaborator access to the drive file",
+          "expected": "drive_share_file",
+          "baseline_hit": true,
+          "candidate_hit": true,
+          "discovery_hit": true,
+          "baseline_schema_bytes": 5244,
+          "candidate_schema_bytes": 6414,
+          "baseline_count": 12,
+          "candidate_count": 14
+        },
+        {
+          "category": "midtask_change",
+          "query": "Now fetch the public web page text",
+          "expected": "browser_fetch_page",
+          "baseline_hit": true,
+          "candidate_hit": true,
+          "discovery_hit": true,
+          "baseline_schema_bytes": 4253,
+          "candidate_schema_bytes": 6350,
+          "baseline_count": 10,
+          "candidate_count": 14
+        }
+      ]
+    }
+  ]
+}

@@ -14,6 +14,12 @@ All JSON. Times are Unix seconds (floats).
 | DELETE | `/api/conversations/{id}` | | `{deleted: true}` (stops run, kills kernel, deletes workspace) |
 | POST | `/api/conversations/{id}/kernel/restart` | | `{restarted: true}` |
 | GET | `/api/conversations/{id}/export?format=markdown\|ipynb` | | file download (`Content-Disposition`) |
+| GET | `/api/conversations/{id}/events?from_seq=-1&limit=200` | Exclusive cursor; limit 1–1000 | `{events: SessionEvent[], next_seq: number, has_more: boolean}` |
+| GET | `/api/conversations/{id}/requests/{seq}` | Sequence must point to `request/header` | Exact `{messages, tools, config}` or 404 |
+| GET | `/api/conversations/{id}/trajectory` | | Grouped turns/steps/records and whole-log `stats` |
+| GET | `/api/conversations/{id}/usage` | | Exact-or-unknown usage, coverage, configured cost, context estimate |
+| GET | `/api/conversations/{id}/stats` | | Timing and counts from the whole log |
+| GET | `/api/conversations/{id}/context` | | Latest matching route's prompt pressure and labelled estimate |
 
 ```ts
 interface Conversation {
@@ -30,35 +36,127 @@ interface Attachment { name: string; path: string; url?: string; size?: number; 
 interface AssistantContent {
   parts: Part[]; model: string; provider: string; reasoning: string;
   usage: Usage; status: "complete" | "stopped" | "error";
-  plan: PlanStep[]; stats: { llm_calls: number; tool_calls: number };
+  plan?: PlanStep[]; stats: { llm_calls: number; tool_calls: number };
+  presentation: "final"; work: WorkSummary; earlier_drafts?: string[]; notice?: string;
 }
 interface Usage { prompt_tokens?: number; completion_tokens?: number; total_tokens?: number; reasoning_tokens?: number; cached_tokens?: number }
 interface PlanStep { content: string; status: "pending" | "in_progress" | "completed" }
 ```
 
-### Parts (ordered; this is what the UI renders)
+### Durable history
+
+The ledger is enabled by default (`SESSION_LOG_ENABLED=true`). Existing message
+history is seeded once with a legacy marker; it does not gain exact historical
+usage. The ledger retains exact private execution records for provider replay.
+Normal conversation reads and exports apply the same public presentation as the
+live stream: one final answer, deliverables, public progress and identified activity.
+Raw `/events`, `/requests/{seq}` and `/trajectory` endpoints return 404 unless
+the operator explicitly enables `DIAGNOSTICS_ENABLED=true`. Normal chat and
+Activity never request them; numeric `/usage`, `/stats` and `/context` remain available. Reading the conversation or exporting it repairs interrupted durable
+turns before returning materialized messages. Disabling the flag restores the
+legacy message replay path.
+
+```ts
+interface SessionEvent {
+  seq: number; time: number; type: string; data: Record<string, unknown>;
+  surfaceOp?: "append" | { op: "replace"; startSeq: number; endSeq: number };
+  sourceEventSeqs?: (number | [number, number])[];
+  ignorable?: true;
+}
+```
+
+Sequence numbers are contiguous and session-local. Timestamps are epoch
+seconds. Stored values are lossless, browser-safe JSON; nanosecond filesystem
+timestamps use decimal strings. Source ranges refer to earlier event sequences.
+The surface fold follows live node positions, so replacements are not simply
+numeric sequence ranges. A request endpoint freezes the surface, tools and
+config at its header.
+
+Trajectory inputs carry `request_seq` plus a config/tools summary. Load the
+exact request only when its Input inspector opens. Trajectory timing/counts
+cover the whole log independently of paged events or the UI's 50-record tail.
+`stats.turns` counts distinct turns with at least one closed step. Step zero
+contains the turn input.
+
+`usage.exact` is `null` if any attempt or legacy history lacks enough
+evidence. `coverage` reports attempts, reported attempts, incomplete turns,
+side tasks and legacy history. The last cumulative usage sample replaces
+earlier samples; retry attempts are separate. Auxiliary title/follow-up calls
+use paired `llm/side-task` records and are counted once. Prompt tokens include
+cache tokens, and reasoning tokens are a subset of output; these subsets are
+never added to the total a second time. Optional cache/reasoning buckets are
+omitted when not reported across every attempt.
+
+`usage.cost` is `null` without complete usage and operator-supplied
+`MODEL_PRICING`. Rates per million tokens are keyed by `provider/model` and
+use `input`, `output`, optional `cache_read`/`cache_write`, `currency`, `as_of`.
+No current rates are assumed. Optional `MAX_TURN_COST` and
+`MAX_CONVERSATION_COST` check observed spend before the next provider request;
+one request can exceed a limit. The context estimate uses four characters per
+token plus framing and is explicitly approximate.
+
+### Public presentation
 
 ```ts
 type Part =
-  | { type: "text"; text: string; phase?: Phase }
-  | { type: "reasoning"; text: string; phase?: Phase }
-  | { type: "tool_call"; id: string; name: string; arguments: Record<string, unknown>;
-      result: ToolResult | null; status: "running" | "completed" | "error" | "stopped"; phase?: Phase }
-  | { type: "phase"; phase: "verify" | "revise"; round: number }
-  | { type: "verification"; verdict: "correct" | "incorrect" | "uncertain"; report: string; round: number }
-  | { type: "skills"; names: string[]; auto?: boolean }
-  | { type: "options"; items: string[] }
-  | { type: "monitor"; level: string; summary: string; tool?: string };
-type Phase = "answer" | "verify" | "revise";   // default "answer"
-
-interface ToolResult { ok: boolean; output: string; artifacts: Artifact[]; error: string | null; meta: Record<string, unknown> }
+  | { type: "text"; text: string; phase?: "answer" }
+  | { type: "ui"; surface: UISurface }
+  | { type: "artifact"; artifact: Artifact }
+  | { type: "options"; items: string[] };
+interface WorkSummary {
+  status: "running" | "paused" | "complete" | "stopped" | "error";
+  tool_count: number;
+  verification: {
+    status: "not_requested" | "skipped" | "correct" | "incorrect" | "uncertain" | "limit_reached" | "error";
+    rounds: number;
+  };
+  steps: { label: string; status: "running" | "complete" | "error" }[];
+  items?: ActivityItem[];
+  current_progress?: ProgressUpdate | null;
+  started_at?: number; finished_at?: number; duration_ms?: number;
+}
+interface ProgressUpdate {
+  id: string; seq: number; text: string; created_at: number;
+  phase: "work" | "check" | "final"; item_id?: string;
+}
+interface ActivityItem {
+  id: string; parent_id: string | null; seq: number;
+  kind: "phase" | "tool" | "agent" | "control";
+  phase: "work" | "check" | "final";
+  label: string; purpose: string; summary?: string; tool?: string;
+  status: "queued" | "running" | "completed" | "failed" | "cancelled" | "paused";
+  started_at: number | null; updated_at: number; finished_at: number | null;
+  attempt: number;
+  progress?: { completed: number; total?: number; unit?: string };
+  outputs: { kind: "file" | "source" | "artifact" | "ui"; label: string;
+    url?: string; path?: string; surface_id?: string }[];
+}
 interface Artifact {
   kind: "image" | "plotly" | "html" | "file" | "markdown" | "json" | "html_file";
   name: string; path?: string; url?: string; mime?: string; size?: number;
-  data?: unknown;   // plotly: {data, layout, config?}; html: string (DataFrame table)
-  digest?: string;  // sha256 of image/plotly bytes (used to skip identical recaptures)
+  data?: unknown; digest?: string;
 }
 ```
+
+Legacy `steps` use fixed work labels. New `items` have stable identities, safe
+purposes and outcomes, real timestamps, and explicit output links. Parallel calls
+remain distinct even when they use the same tool. Item `seq` is its revision,
+independent of the run-level event cursor. Public progress is explicitly authored
+through the progress mechanism or generated from observed execution milestones;
+ordinary model narration is not promoted automatically. Raw reasoning, tool
+arguments/stdout, agent messages, and verifier reports are excluded by nested
+server allowlists. Public artifact or source links are intentional exceptions
+for inspecting outputs and evidence; an extraction link does not make it a final
+deliverable. See [live agent execution](AGENT-STREAMING.md) for UX and privacy details.
+An older conversation with a separately saved partial correction can include
+`earlier_drafts` plus a `notice`. Those drafts remain explicitly labelled and
+collapsed; they are not represented as a fully corrected answer.
+
+### Internal execution records
+
+Private persisted parts additionally contain reasoning, tool calls/results,
+verification reports, phases, plans and monitoring records. These are for exact
+replay and operator diagnostics, not the normal chat renderer or exports.
 
 Tool names and their arguments: `python {code, timeout?, reset?}`, `bash {command, timeout?}`,
 `read_file {path, start_line?, max_lines?}`, `write_file {path, content}`, `edit_file {path, old_string, new_string, replace_all?}`,
@@ -66,18 +164,21 @@ Tool names and their arguments: `python {code, timeout?, reset?}`, `bash {comman
 `parse_document {path, backend?, pages?, lang?}`, `check_equivalence {expression_a, expression_b}`,
 `update_plan {steps: PlanStep[]}`, `wolfram_alpha {query}` (only when configured),
 `search_skills {query, limit?}`, `load_skill {name}`, `lambda_data_agent {message, autonomous?, language?}`,
-`web_search {query, max_results?}` and `web_fetch {url}` (only advertised when the client sends `web_search: true`).
+`web_search {query, max_results?}` and `web_fetch {url}` (available by default when server web search is enabled).
 Extra MCP tools appear as `{server}_{tool}` when `mcp.json` lists servers.
 `result.meta` for `python` includes `status`, `duration_ms`, `execution_count`, `stdout`, `stderr`; for `bash` `exit_code`, `duration_ms`;
 for `update_plan` `steps`; for `load_skill` `name`, `path`, `files`.
 
-A `skills` SSE event (`{names, auto}`) is emitted when the router auto-activates playbooks. `status` also names them.
+Raw skill instructions and tool payloads remain internal. Public activity may
+show skill loading, identified tools, safe outcomes, output references, and
+measured progress. The internal `report_progress` tool accepts brief public
+commentary through an explicit contract; it never exposes provider reasoning.
 
 ## Skills
 
 `GET /api/skills` → `{skills: [{name, description, source, license, files}]}`.
 `GET /api/skills/{name}` → full `SKILL.md` body plus metadata.
-`GET /api/tools` → `{tools: [{name, description, kind, source}]}` for the composer `/` menu (hides `load_skill` / `search_skills`).
+`GET /api/tools` → `{tools: [{name, description, kind, source}]}` for the composer `/` menu (hides skill loaders and the internal UI tools).
 
 Skill folders live in `skills/matopt/`, `skills/lambda/`, and `skills/anthropic/` (Agent Skills spec). LAMBDA data work is split like Anthropic's catalog: `/lambda-eda`, `/lambda-report`, `/lambda-slides`, `/lambda-notebook`, `/lambda-data-agent`. The harness scores the user message and attachments, injects up to two matching `SKILL.md` bodies, and copies the folder into the conversation workspace at `skills/<name>/`. Docker images copy that tree to `/app/skills` (compose also bind-mounts it).
 
@@ -115,9 +216,44 @@ The previous RestrictedPython eval loop is replaced by the conversation kernel, 
 | POST | `/api/conversations/{id}/files` | multipart, field `files` (repeatable). Returns `{files: [{name, path, url, size, kind, card}]}`; `card` is a Markdown dataset summary for CSV/XLSX/… or null |
 | DELETE | `/api/conversations/{id}/files/{path}` | |
 | GET | `/api/files/{id}/{path}?download=1` | serves any workspace file (images inline) |
+| GET | `/api/files/{id}/pdf-preview/{path}?page=1` | one PNG page, `X-PDF-Pages` and `X-PDF-Page` headers; 1-based, 25 MB file limit, at most 1600px per side |
 
 Workspace layout: `uploads/` (user files), `figures/` (captured plots: `fig_001.png`, `plot_001.json`), `parsed/` (document Markdown), anything else the agent writes.
 **Relative links** in assistant Markdown such as `![caption](figures/fig_001.png)` or `parsed/paper/images/x.jpg` must be rewritten by the UI to `/api/files/{conversation_id}/<path>`.
+
+Attached PDFs and raster images are automatically processed by `parse_document`
+before the main answer when document reading is enabled. The configured DeepSeek
+vision model receives bounded page images; the assistant receives page-labelled
+Markdown and coverage/error notes. Originals stay in `uploads/`, readings in
+`parsed/`. Explicit `backend` values are `auto`, `multimodal`, `fast` and `mineru`.
+OCR emits controlled public reading progress and internal accounted `llm/side-task` events;
+automatic tool calls are marked so recovery does not treat them as missing model
+dispatches. See [document reading](../backend/README.md#pdfs-screenshots-and-scanned-documents)
+for page, file, image and timeout limits.
+
+## Interactive UI
+
+Chat requests advertise `ui_version: 1`. Compatible clients may receive ordered
+`{type:"ui",surface:UISurface}` parts. The generated public types and JSON Schema
+come from `backend/app/ui/contracts.py`; clients should keep their readable
+fallback when the surface kind is disabled or unavailable.
+
+| Method | Path | Body / response |
+|---|---|---|
+| GET | `/api/ui/capabilities` | `{version:1,native,mini_apps,node_types}` |
+| GET | `/api/conversations/{id}/ui/{surface_id}` | `{surface}` |
+| PATCH | `/api/conversations/{id}/ui/{surface_id}/state` | `{revision,state}` → `{surface}` |
+| POST | `/api/conversations/{id}/ui/{surface_id}/actions` | `{action_id,revision,values,idempotency_key}` → SSE |
+
+Internally, `ui_start`, `ui_patch` and `ui_commit` each carry a complete `{surface}`
+snapshot. Chat stages them until the final answer is ready, then publishes only
+committed surfaces. Only committed surfaces enable controls. Internal `ui_error` carries
+`{surface_id,revision,error,fallback}`. State edits do not invoke the model;
+registered actions execute versioned Python handlers through the conversation
+kernel and return a new committed revision. Stale revisions are refused and
+idempotency keys replay their original result. Final message snapshots and
+history preserve committed surfaces. See [interactive UI architecture](INTELLIGENT-UI.md)
+for streaming, repair, state, cancellation and isolated mini-app details.
 
 ## Providers
 
@@ -125,7 +261,7 @@ Workspace layout: `uploads/` (user files), `figures/` (captured plots: `fig_001.
 ```ts
 {
   default_provider: string|null; default_model: string|null; default_reasoning: string; verify_available: true;
-  levels: {id: "off"|"low"|"medium"|"high"|"max"; label: string}[];   // global slider order
+  levels: {id: "off"|"low"|"high"|"max"; label: string}[];   // thinking effort order
   providers: {
     id: string; label: string; configured: boolean; env_key: string; docs_url: string; default_model: string;
     models: { id: string; label: string; family: string; description: string; context_window: number; max_output: number;
@@ -133,59 +269,143 @@ Workspace layout: `uploads/` (user files), `figures/` (captured plots: `fig_001.
   }[];
 }
 ```
-The reasoning slider shows only the stops in `model.reasoning_levels` (ordered as in `levels`); default position = `default_reasoning`.
+The catalog contains exactly one provider/model: `deepseek` / `deepseek-flash`
+(DeepSeek V4.1 Flash). `configured` indicates whether `DEEPSEEK_API_KEY` is
+present. New turns, verification and auxiliary requests use that route only.
+The composer exposes `off`, `low`, `high`, `max`, defaulting to `high`; old
+`medium` effort normalizes to `high`. Known obsolete saved model IDs normalize
+for new turns; arbitrary providers or models are rejected. Historical ledger
+requests keep their original labels.
+[DeepSeek API contract](https://api-docs.deepseek.com/api/create-chat-completion/).
 
 ## Chat stream
 
 `POST /api/chat/stream` with
 ```ts
 { conversation_id?: string; message: string; attachments?: Attachment[]; provider?: string; model?: string;
-  reasoning?: string; verify?: boolean; temperature?: number; skills?: string[]; tools?: string[]; web_search?: boolean }
+  reasoning?: string; verify?: boolean; strict_final?: boolean; temperature?: number;
+  skills?: string[]; tools?: string[]; web_search?: boolean; ui_version?: number; client_run_id?: string }
 ```
 `skills` force-activates those playbooks for the turn (even when auto-activate is off). `tools` prefers those native tools. Leading `/skill-name` and `/tool-name` tokens in `message` do the same and are stripped before the LLM sees the prompt (`/web-search` maps to `web_search`).
-`web_search: true` advertises `web_search` / `web_fetch` (open metasearch: `ddgs`, or SearXNG / Tavily / Brave when configured). Slash-invoking those tools also turns them on for the turn.
-`POST /api/chat/{id}/steer` `{message, skills?, tools?}` folds a correction into the running turn at the next tool boundary (Claude/Astra-style mid-turn steering). Slash skills in a steer are materialised immediately — same as a first-prompt `/frontend-design`.
+Omitting `web_search` (or sending `true`) advertises `web_search` / `web_fetch` by default (open metasearch: `ddgs`, or SearXNG / Tavily / Brave when configured). The agent automatically searches for time-sensitive information and cites current sources; stable tasks do not require browsing. `web_search: false` explicitly disables the capability for a turn. A subsequent explicit slash invocation or steer can enable it. `WEB_SEARCH_ENABLED=false` disables both tools globally. User instructions not to browse are respected.
+Response: `text/event-stream`, with `X-Run-Id` identifying the durable run. Each
+public event has an SSE `id: <seq>` and a JSON envelope containing `type`,
+`run_id`, `conversation_id`, and run-local `seq`. Errors before streaming include
+HTTP 400 for invalid provider selection and 409 for a conflicting active run or
+reused `client_run_id` with a different request.
 
-Response: `text/event-stream`; each frame is `data: <json>\n\n` with a `type` field. Errors before streaming: HTTP 400 (no provider configured), 409 (run already in progress).
-`POST /api/chat/{conversation_id}/stop` cancels (kernel interrupted, partial turn persisted, stream ends with `stopped`).
+`client_run_id` makes accepted starts idempotent: retrying the same request
+reattaches to its run instead of repeating execution. The run manager owns the
+producer. Closing or losing an SSE connection closes only that subscription.
+All public events, including text deltas, are journaled separately from private
+session events.
 
-Event order for a typical turn:
+| Method | Path | Behavior |
+|---|---|---|
+| GET | `/api/chat/{conversation_id}/run` | `{run: Run \| null}` for the active or latest run |
+| GET | `/api/runs/{run_id}` | `{run: Run}`, or 404 |
+| GET | `/api/runs/{run_id}/events?after=0` | Replays the public event prefix and tails the same run |
+| POST | `/api/chat/{conversation_id}/pause` | `{accepted: true, run_id}` or 409; pauses at a safe boundary |
+| POST | `/api/chat/{conversation_id}/resume` | `{accepted: true, run_id}` or 409; releases the pause |
+| POST | `/api/chat/{conversation_id}/steer` | `{message, skills?, tools?}` → `{accepted: true, run_id}` or 409 |
+| POST | `/api/chat/{conversation_id}/stop` | `{stopped: boolean, run_id}`; explicitly cancels execution and interrupts the kernel |
+
+`Run` contains `id`, `conversation_id`, `message_id`, `status`, `created_at`,
+`updated_at`, and `last_seq`. Lifecycle statuses are `queued`, `running`,
+`paused`, `completed`, `stopped`, `failed`, and `interrupted`.
+
+The events endpoint also accepts `Last-Event-ID`; it uses the later of that
+cursor and `after`. Clients deduplicate using `(run_id, seq)`. Reconnection must
+subscribe to this endpoint rather than restart the work. A heartbeat is an SSE
+comment (`: keepalive`), with no sequence number or execution claim. A closed
+connection is not a successful terminal event.
+
+Controls distinguish queued acknowledgment from applied state. Pause waits for
+an in-flight operation to finish or reach a safe boundary, including boundaries
+during final output. Steering is applied before final writing; requests arriving
+too late are rejected rather than claimed as applied. A backend restart repairs
+orphaned active runs from saved checkpoints, settles unfinished activity items,
+and marks them `interrupted`, retaining completed outputs. If a complete final
+answer was committed before its terminal SSE event, recovery marks the run
+completed without regenerating it. No model or tool is automatically replayed.
+Cross-process execution continuation and multiworker scheduling are not
+implemented; the runtime uses process-owned tasks, SQLite, and one Uvicorn worker.
+In-process pause/resume does not repeat completed actions.
+
+The public run cursor is unrelated to `/conversations/{id}/events`, which is the
+operator-only private session ledger. Normal UI uses public run events and
+canonical `/conversations/{id}` state.
+
+`POST /api/followups` accepts `{content, count?, provider?, model?, conversation_id?}`
+and returns `{followups, usage}`. Supplying a conversation attributes the
+auxiliary attempt to its ledger. `GET /api/suggestions` returns provider usage
+when available, but its global welcome prompts have no conversation to charge.
+
+Public events (progress, activity, usage, and controls can interleave):
 
 | type | fields | meaning |
 |---|---|---|
-| `conversation` | `conversation_id, title` | always first; the id may be new |
-| `message_start` | `message_id, provider, model, reasoning` | assistant turn begins |
-| `status` | `message, id?` | human readable progress line (retrying, OCR running…) |
-| `skills` | `names, auto` | playbooks activated for this turn (`auto` is false when the user picked `/skill`) |
-| `options` | `items` | next-step chips the user can pick |
-| `monitor` | `level, summary, tool` | local alignment watch/block on a tool call |
-| `steer_applied` | `text` | mid-turn steering was folded into the job |
-| `reasoning_delta` | `delta` | model thinking text (when the provider exposes it) |
-| `text_delta` | `delta` | visible assistant text |
-| `tool_call_start` | `id, name` | the model started emitting a tool call (show a card immediately) |
-| `tool_call_delta` | `id, delta` | streamed JSON of the arguments (for `python` the `code` field streams in; show it live if you can parse partial JSON, otherwise show raw) |
-| `tool_call_ready` | `id, name, arguments` | arguments parsed; tool is executing (`arguments` is an object; `{_raw}` if unparsable) |
-| `tool_progress` | `id, delta` | live stdout while the tool runs |
-| `plan` | `steps` | plan checklist changed |
-| `tool_result` | `id, name, ok, output, error, artifacts, meta` | tool finished |
-| `usage` | `prompt_tokens, completion_tokens, …` | one LLM call's usage |
-| `phase` | `phase: "verify"\|"revise", round` | verify mode only |
-| `verification` | `verdict, report, round` | verifier report (verify mode) |
-| `message_end` | `message_id, status, content` | the persisted assistant message (`content` is `AssistantContent`) — use it to replace the streamed state |
-| `done` | `conversation_id, message_id` | success (never sent after `error`) |
-| `stopped` | `conversation_id, message_id` | cancelled |
-| `error` | `message` | failure; the stream ends after it (after `message_end`) |
-| `keepalive` | `ts` | heartbeat every 10 s while waiting |
+| `conversation` | `conversation_id, title` | identifies the chat |
+| `message_start` | `message_id, provider, model, reasoning` | turn begins; `reasoning` is the effort setting, never thought text |
+| `run_state` | `status` | authoritative run lifecycle, including safe-boundary pause/resume |
+| `progress` | `update: ProgressUpdate` | latest useful public update |
+| `activity` | `item: ActivityItem` | inserts or updates one identified work item |
+| `work` | `work: WorkSummary` | complete public work snapshot |
+| `usage` | token counts | one provider call's numeric usage |
+| `control_ack` | `action, status, control_id` | queued/applied acknowledgment for pause, resume, stop, or steer |
+| `steer_applied` | `text` | acknowledges the user's own steering input |
+| `final_start` | `message_id, mode: "streaming" \| "buffered"` | begins the answer; preserve work and existing output identities |
+| `text_delta` | `delta` | provider-generated final text, or explicitly buffered strict-mode delivery |
+| `ui_start`, `ui_patch` | `surface` | validated native preview versions |
+| `ui_commit` | `surface` | completed interactive result |
+| `ui_error` | `surface_id, revision?, fallback?, error` | safe interactive-result failure |
+| `artifact` | `artifact` | user-facing generated output |
+| `options` | `items` | optional next-step chips |
+| `message_end` | `message_id, status, content` | canonical public snapshot; replace streamed content, never append a duplicate answer |
+| `done` | `conversation_id, message_id` | successful completion |
+| `stopped` | `conversation_id, message_id` | cancellation |
+| `error` | `message` | safe failure message |
 
-Reasoning, text and tool calls interleave across steps: build the message as an ordered `parts[]` — a `reasoning_delta` after a `tool_result` opens a *new* reasoning part, a `text_delta` after a tool result opens a new text part, etc. Tool-call parts are keyed by `id`.
+Internal text, reasoning, tool code/stdout and verification reports are never
+forwarded as public deltas. Eligible simple replies stream directly. Tool-heavy
+runs perform requested checks before a separate tool-free final writing pass,
+which streams actual provider deltas from the result bundle and is instructed
+not to add research, calculations, or unsupported claims. This writing step does
+not guarantee exact-wording preservation. For that requirement, API callers use
+`verify: true, strict_final: true`: the accepted answer is buffered through the
+checking path and released without an additional rewriting call. Strict mode
+alone does not enable checks or imply that an inconclusive check passed.
+
+Validated native UI can update during execution; executable HTML is admitted
+only as a complete committed surface. Strict mode withholds intermediate UI.
+Cancellation or failure does not promote a private draft into a final answer.
+The canonical `message_end` content settles any streamed preview in place.
+
+Verification is opt-in per turn. Trivial greetings/acknowledgements are skipped.
+A substantive answer has at most two independent checks and one correction,
+with bounded tool steps. Correct or inconclusive results end checking; only an
+explicit incorrect verdict permits correction. A correction must replace the
+whole answer, including all questions, before the last check. The final check
+never starts an unchecked extra revision. Inconclusive, failed or exhausted
+checks get an honest short notice. The UI never displays the private report.
 
 ## Rendering notes
 
-- Assistant text: Markdown + KaTeX (`$…$`, `$$…$$`), fenced code, `mermaid`, tables; rewrite relative image/file links as above.
-- `python` tool card: code (syntax highlighted), status pill (running / ok / error), duration, stdout/stderr, `text/html` artifacts (DataFrames) in a scrollable container, `image` artifacts inline, `plotly` artifacts rendered with `react-plotly.js` from `artifact.data` (fallback: fetch `url`).
-- `bash` card: command + terminal-style output. File tools: compact one-liners with the path. `parse_document`: backend/statistics + link to the Markdown. `check_equivalence`: verdict badge. `update_plan`: checklist with progress.
-- `reasoning` parts: collapsible "Thinking" block, collapsed once the answer text starts.
-- `verification` parts: card with verdict colour (green/red/amber) and the report; `phase` parts render as a small divider ("Verifying…", "Revising…").
-- Stopped/errored messages keep their partial parts and show a small notice.
-- Tool traces, plan, monitor chips, and figures live in the compact Work pane (not the main bubble).
-- `options` parts render as next-step chips under the answer; clicking one starts the next turn.
+- Live commentary and active tool items appear above the answer. One collapsed
+  work disclosure preserves completed actions, and manual expansion survives
+  completion. Activity groups phase/agent/tool entries with purposes, outcomes,
+  durations, actual retries, and file/source links; filters select running work,
+  failures, or outputs. Private reasoning and raw payloads remain inaccessible.
+- Final text uses Markdown, KaTeX, code, Mermaid and tables. Generated outputs
+  and validated interactive surfaces remain usable inline and in the canvas.
+  Explicit source fences stay literal. Incoming final text renders directly;
+  there is no timed animation pretending buffered output is live generation.
+- Running indicators use restrained motion and respect reduced motion. Elapsed
+  time is based on actual timestamps; percentages require a measured total.
+- `earlier_drafts`, when present on legacy messages, stay collapsed and labelled
+  as unverified. Copy copies only the current final answer.
+- After a terminal stream, GET `/conversations/{id}` reconciles saved messages
+  and IDs in place. Preserve the current chat, unsent draft, scroll position and
+  newer turns. A failed refresh keeps the terminal streamed answer.
+- Optional follow-up generation runs after the busy state ends and cannot
+  overwrite a newer conversation or turn.

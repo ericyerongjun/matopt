@@ -82,6 +82,29 @@ def test_router_csv_analysis_activates_lambda():
     assert any(n.startswith("lambda-") for n in names)
 
 
+@pytest.mark.parametrize("extension", ["csv", "tsv", "parquet"])
+@pytest.mark.parametrize("query", [
+    "What is 6 times 7?",
+    "Read the first three rows of the uploaded table",
+    "Compute the mean of the revenue column",
+    "Rename the columns in the uploaded file",
+])
+def test_bounded_work_does_not_autoload_full_delegation_from_a_table(extension, query):
+    plan = SkillRouter(_registry()).plan(query, files=[f"uploads/sales.{extension}"])
+    assert "lambda-data-agent" not in [skill.name for skill in plan.activate]
+
+
+@pytest.mark.parametrize("query", [
+    "Run LAMBDA to compute the mean of this table",
+    "Use the LAMBDA agent to analyze these files",
+    "Run a full analysis pipeline with EDA, charts, a report, slides and a notebook",
+    "Do autonomous exploration of the uploaded dataset",
+])
+def test_delegated_workflow_request_beats_incidental_file_routing(query):
+    plan = SkillRouter(_registry()).plan(query, files=["uploads/sales.csv"])
+    assert plan.activate[0].name == "lambda-data-agent"
+
+
 def test_router_lambda_report_and_slides():
     report = SkillRouter(_registry()).plan("Write a LaTeX analysis report of the EDA")
     assert report.activate and report.activate[0].name == "lambda-report"

@@ -7,7 +7,11 @@ import re
 from typing import Any
 
 from app.agent.events import ToolResult
-from app.agent.tools.base import Tool, ToolContext, truncate_text
+from app.agent.tools.base import Tool, ToolContext, output_bound_bytes, truncate_text
+from app.agent.tools.read_state import (
+    ReadStateError, assert_fresh, assert_observed, latest_read, mutation_lock, publish_text,
+    read_revision, record_read,
+)
 from app.agent.workspace import WorkspaceError
 
 MAX_READ_BYTES = 2_000_000
@@ -17,9 +21,15 @@ BINARY_EXT = {".pdf", ".png", ".jpg", ".jpeg", ".gif", ".webp", ".zip", ".xlsx",
 class ReadFileTool(Tool):
     name = "read_file"
     read_only = True
+    concurrent_safe = True
+    side_effect_scope = "none"
+    risk_level = "low"
+    max_output_bytes = output_bound_bytes(40_000)   # truncate_text(..., 40_000)
     ui_kind = "file"
     description = (
         "Read a text file from the workspace, optionally a line range. Returns numbered lines. "
+        "A complete requested line range permits exact edits anywhere in that file; a tool-truncated view does not. "
+        "Unchanged repeated reads of the same range refer to the previous result. "
         "For PDFs and images use parse_document instead; for tabular data prefer pandas in the python tool."
     )
     parameters = {
@@ -42,8 +52,12 @@ class ReadFileTool(Tool):
             return ToolResult(ok=True, output="\n".join(f["path"] for f in listing) or "(empty directory)")
         if p.suffix.lower() in BINARY_EXT:
             return ToolResult(ok=False, output="", error=f"{p.name} is a binary file. Use parse_document (PDF/images) or pandas (tables).")
-        size = p.stat().st_size
-        raw = p.read_bytes()[:MAX_READ_BYTES]
+        try:
+            revision = read_revision(p, max_bytes=MAX_READ_BYTES)
+        except ReadStateError as exc:
+            return ToolResult(ok=False, output="", error=str(exc), meta=exc.metadata())
+        size = revision.size_bytes
+        raw = revision.content
         if b"\x00" in raw[:4096]:
             return ToolResult(ok=False, output="", error=f"{p.name} looks binary; use parse_document or python instead.")
         text = raw.decode("utf-8", errors="replace")
@@ -52,18 +66,53 @@ class ReadFileTool(Tool):
         start = max(1, int(start_line or 1))
         count = max(1, min(int(max_lines or 400), 2000))
         chunk = lines[start - 1:start - 1 + count]
+        rel = ctx.workspace.relpath(p)
+        full_view = start == 1 and len(chunk) == total and not revision.content_truncated
+        offset, limit = (None, None) if full_view else (start, count)
+        prior = latest_read(ctx.state, rel)
+        if (
+            prior is not None and prior.source_tool == self.name and not prior.is_partial_view
+            and prior.offset == offset and prior.limit == limit
+            and prior.revision_id == revision.revision_id and prior.mtime_ns == revision.mtime_ns
+            and prior.size_bytes == size
+        ):
+            return ToolResult(
+                ok=True,
+                output=f"{rel}: file_unchanged. Wasted call — file unchanged since your last Read. Refer to that earlier tool_result instead.",
+                meta={"file_unchanged": True, **record_read(
+                    ctx.state, rel, revision, prior.content, source_tool=self.name,
+                    offset=offset, limit=limit,
+                )},
+            )
         width = len(str(start + len(chunk)))
         body = "\n".join(f"{i:>{width}}| {line}" for i, line in enumerate(chunk, start=start))
-        header = f"{ctx.workspace.relpath(p)} — lines {start}-{start + len(chunk) - 1} of {total} ({size} bytes)"
+        header = f"{rel} — lines {start}-{start + len(chunk) - 1} of {total} ({size} bytes)"
+        if revision.content_truncated:
+            header += f"; only the first {MAX_READ_BYTES} bytes were read"
         if start + len(chunk) - 1 < total:
             header += f"; continue with start_line={start + len(chunk)}"
-        return ToolResult(ok=True, output=truncate_text(f"{header}\n{body}", 40000), meta={"total_lines": total, "size": size})
+        output = f"{header}\n{body}"
+        partial = revision.content_truncated or len(output) > 40000
+        meta = record_read(
+            ctx.state, rel, revision, "\n".join(chunk)[:40000], source_tool=self.name,
+            offset=offset, limit=limit, is_partial_view=partial,
+        )
+        return ToolResult(ok=True, output=truncate_text(output, 40000), meta={"total_lines": total, "size": size, **meta})
 
 
 class WriteFileTool(Tool):
     name = "write_file"
+    # Writes are not intrinsically destructive (ZCode marks Write the same
+    # way): what a write *destroys* is decided by its arguments — a fresh path
+    # destroys nothing. `destructive` stays reserved for argument-independent
+    # operations, and `needs_approval` is the flag a future broker gates on.
+    destructive = False
+    concurrent_safe = False
+    side_effect_scope = "workspace"
+    risk_level = "medium"
+    needs_approval = True
     ui_kind = "file"
-    description = "Create or overwrite a text file in the workspace (parent directories are created). Returns the file as an artifact."
+    description = "Create or overwrite a text file in the workspace (parent directories are created). Existing files require a fresh read_file view without tool truncation. Returns the file as an artifact."
     parameters = {
         "type": "object",
         "properties": {
@@ -78,18 +127,44 @@ class WriteFileTool(Tool):
             p = ctx.workspace.resolve(path)
         except WorkspaceError as exc:
             return ToolResult(ok=False, output="", error=str(exc))
-        p.parent.mkdir(parents=True, exist_ok=True)
-        p.write_text(content or "", encoding="utf-8")
+        rel = ctx.workspace.relpath(p)
+        prior = latest_read(ctx.state, rel)
+        try:
+            async with mutation_lock(p):
+                # Resolve again after waiting, retaining Workspace containment.
+                checked = ctx.workspace.resolve(path)
+                if checked != p:
+                    raise ReadStateError("FS_STALE_VERSION", rel, "Resolved file changed while waiting. Read it again before writing.")
+                if p.exists():
+                    assert_observed(prior, rel)
+                current = read_revision(p) if p.exists() else None
+                if current is not None:
+                    assert_fresh(prior, current, rel)
+                elif prior is not None:
+                    raise ReadStateError("FS_STALE_VERSION", rel, "File was removed since read. Read it again before writing.")
+                revision = publish_text(p, content or "", current, rel)
+                meta = record_read(ctx.state, rel, revision, (content or "")[:40000], source_tool=self.name)
+        except ReadStateError as exc:
+            return ToolResult(ok=False, output="", error=str(exc), meta=exc.metadata())
         art = ctx.workspace.artifact_for(p)
         n_lines = (content or "").count("\n") + (1 if content else 0)
-        return ToolResult(ok=True, output=f"Wrote {art.path} ({len(content or '')} chars, {n_lines} lines).", artifacts=[art], meta={"path": art.path})
+        return ToolResult(ok=True, output=f"Wrote {art.path} ({len(content or '')} chars, {n_lines} lines).", artifacts=[art], meta={"path": art.path, **meta})
 
 
 class EditFileTool(Tool):
     name = "edit_file"
+    # Same reasoning as write_file: a targeted replacement, medium risk, no
+    # argument-independent destructiveness.
+    destructive = False
+    concurrent_safe = False
+    side_effect_scope = "workspace"
+    risk_level = "medium"
+    needs_approval = True
     ui_kind = "file"
     description = (
-        "Replace an exact text snippet in a workspace file. `old_string` must occur exactly once unless replace_all is true."
+        "Replace an exact text snippet in a workspace file after a fresh read_file view without tool truncation. "
+        "A complete requested line range permits edits anywhere in the file. "
+        "`old_string` must be nonempty and occur exactly once unless replace_all is true."
     )
     parameters = {
         "type": "object",
@@ -107,21 +182,43 @@ class EditFileTool(Tool):
             p = ctx.workspace.resolve(path, must_exist=True)
         except WorkspaceError as exc:
             return ToolResult(ok=False, output="", error=str(exc))
-        text = p.read_text(encoding="utf-8", errors="replace")
-        n = text.count(old_string)
-        if n == 0:
-            return ToolResult(ok=False, output="", error="old_string not found in file.")
-        if n > 1 and not replace_all:
-            return ToolResult(ok=False, output="", error=f"old_string occurs {n} times; provide more context or set replace_all=true.")
-        new_text = text.replace(old_string, new_string) if replace_all else text.replace(old_string, new_string, 1)
-        p.write_text(new_text, encoding="utf-8")
+        rel = ctx.workspace.relpath(p)
+        prior = latest_read(ctx.state, rel)
+        if not old_string:
+            return ToolResult(ok=False, output="", error="old_string must not be empty.", meta={"code": "FS_EDIT_EMPTY", "path": rel})
+        try:
+            async with mutation_lock(p):
+                checked = ctx.workspace.resolve(path, must_exist=True)
+                if checked != p:
+                    raise ReadStateError("FS_STALE_VERSION", rel, "Resolved file changed while waiting. Read it again before editing.")
+                assert_observed(prior, rel)
+                revision = read_revision(p)
+                assert_fresh(prior, revision, rel)
+                if revision.content_truncated:
+                    return ToolResult(ok=False, output="", error=f"{rel}: file exceeds the {MAX_READ_BYTES} byte edit limit; use python for large files.")
+                # Preserve CRLF and refuse invalid UTF-8 rather than silently
+                # normalizing/replacing bytes outside the requested edit.
+                text = revision.content.decode("utf-8")
+                n = text.count(old_string)
+                if n == 0:
+                    return ToolResult(ok=False, output="", error="old_string not found in file.")
+                if n > 1 and not replace_all:
+                    return ToolResult(ok=False, output="", error=f"old_string occurs {n} times; provide more context or set replace_all=true.")
+                new_text = text.replace(old_string, new_string) if replace_all else text.replace(old_string, new_string, 1)
+                after = publish_text(p, new_text, revision, rel)
+                meta = record_read(ctx.state, rel, after, new_text[:40000], source_tool=self.name)
+        except ReadStateError as exc:
+            return ToolResult(ok=False, output="", error=str(exc), meta=exc.metadata())
         art = ctx.workspace.artifact_for(p)
-        return ToolResult(ok=True, output=f"Edited {art.path}: replaced {n if replace_all else 1} occurrence(s).", artifacts=[art])
+        return ToolResult(ok=True, output=f"Edited {art.path}: replaced {n if replace_all else 1} occurrence(s).", artifacts=[art], meta=meta)
 
 
 class ListFilesTool(Tool):
     name = "list_files"
     read_only = True
+    concurrent_safe = True
+    side_effect_scope = "none"
+    risk_level = "low"
     ui_kind = "file"
     description = "List files in the workspace, optionally filtered by a glob pattern (e.g. *.csv, figures/*.png)."
     parameters = {
@@ -146,6 +243,10 @@ class ListFilesTool(Tool):
 class GrepTool(Tool):
     name = "grep"
     read_only = True
+    concurrent_safe = True
+    side_effect_scope = "none"
+    risk_level = "low"
+    max_output_bytes = output_bound_bytes(30_000)   # truncate_text(..., 30_000)
     ui_kind = "file"
     description = "Search text files in the workspace with a regular expression; returns path:line: text matches."
     parameters = {

@@ -1,18 +1,19 @@
 """
-Typed streaming events emitted by the agent harness.
+Internal execution events and shared event/artifact containers.
 
-Every event is serialised to a Server-Sent Events frame
-(``data: {json}\n\n``) with a ``type`` field. The frontend renders a
-message as an ordered list of *parts* (text, reasoning, tool calls,
-artifacts) that it rebuilds from these events.
+``to_sse`` serialises an event, but does not grant it public visibility.
+The harness and RunManager project an explicit public allowlist before calling
+it. Private reasoning, tool arguments/stdout and verifier/agent messages are
+execution-journal data, never ordinary chat SSE. The public contract is defined
+by activity.py, presentation.py, runs.py and docs/PROTOCOL.md.
 
-Event types
+Selected internal event types
 -----------
 conversation      {conversation_id, title}                 new/known conversation
 message_start     {message_id, model, provider}            assistant turn started
 phase             {phase: "answer"|"verify"|"revise", round} harness phase change
 text_delta        {delta}                                  visible assistant text
-reasoning_delta   {delta}                                  model thinking (when exposed)
+reasoning_delta   {delta}                                  private provider reasoning
 tool_call_start   {id, name}                               model began a tool call
 tool_call_delta   {id, delta}                              streamed JSON arguments
 tool_call_ready   {id, name, arguments}                    arguments parsed, executing
@@ -78,19 +79,21 @@ class ToolResult:
 class Event:
     type: str
     data: dict = field(default_factory=dict)
+    seq: Optional[int] = None                 # private checkpoint or public run cursor, according to the projection
 
     def to_dict(self) -> dict:
-        return {"type": self.type, **self.data}
+        return {"type": self.type, **self.data, **({"seq": self.seq} if self.seq is not None else {})}
 
     def to_sse(self) -> str:
         payload = json.dumps(self.to_dict(), ensure_ascii=False, default=str)
-        return f"data: {payload}\n\n"
+        prefix = f"id: {self.seq}\n" if self.seq is not None else ""
+        return f"{prefix}data: {payload}\n\n"
 
 
 # ── convenience constructors ────────────────────────────────────────────
 
-def ev(type_: str, **data: Any) -> Event:
-    return Event(type_, data)
+def ev(type_: str, *, seq: Optional[int] = None, **data: Any) -> Event:
+    return Event(type_, data, seq)
 
 
 def keepalive() -> Event:

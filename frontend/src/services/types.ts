@@ -5,17 +5,7 @@ export interface SuggestionResponseBody {
 }
 
 export interface FollowUpRequestBody {
-    content: string;
-    count?: number;
-    provider?: string;
-    model?: string;
-}
-
-export interface SuggestionResponseBody {
-    suggestions: string[];
-}
-
-export interface FollowUpRequestBody {
+    conversation_id?: string;
     content: string;
     count?: number;
     provider?: string;

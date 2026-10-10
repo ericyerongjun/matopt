@@ -1,7 +1,7 @@
 /** GET /api/skills and /api/tools — slash catalog (Cursor / Claude / Codex). */
 
-import apiClient from "./api";
-import { commandToken, parseSlashCommands, parseSlashSkillTokens } from "./slash";
+import apiClient from "./api.ts";
+import { commandToken, parseSlashCommands, parseSlashSkillTokens } from "./slash.ts";
 
 export { commandToken, parseSlashCommands, parseSlashSkillTokens };
 
@@ -11,6 +11,7 @@ export interface SkillInfo {
     source: string;
     license?: string | null;
     files?: string[];
+    available?: boolean;
 }
 
 export interface ToolInfo {
@@ -18,6 +19,7 @@ export interface ToolInfo {
     description: string;
     kind?: string;
     source: string;
+    available?: boolean;
 }
 
 export type CommandKind = "skill" | "tool";
@@ -27,6 +29,7 @@ export interface CommandInfo {
     name: string;
     description: string;
     source: string;
+    available?: boolean;
 }
 
 const FALLBACK_TOOLS: ToolInfo[] = [
@@ -48,7 +51,7 @@ export async function listTools(): Promise<ToolInfo[]> {
 }
 
 export function fallbackTools(): ToolInfo[] {
-    return FALLBACK_TOOLS;
+    return FALLBACK_TOOLS.map((tool) => ({ ...tool, available: false }));
 }
 
 export function toCommands(skills: SkillInfo[], tools: ToolInfo[]): CommandInfo[] {
@@ -58,12 +61,14 @@ export function toCommands(skills: SkillInfo[], tools: ToolInfo[]): CommandInfo[
             name: tool.name,
             description: tool.description,
             source: tool.source || "matopt",
+            available: tool.available ?? true,
         })),
         ...skills.map((skill) => ({
             kind: "skill" as const,
             name: skill.name,
             description: skill.description,
             source: skill.source,
+            available: skill.available ?? true,
         })),
     ];
 }

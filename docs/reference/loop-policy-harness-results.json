@@ -1,0 +1,73 @@
+{
+  "cases": {
+    "parallel_alias_and_unrelated_control": {
+      "boundary": "Actual harness, scheduler, execution service and journal; offline stateful fake provider; declared concurrent synthetic Python-named tool with async gate requiring all three initial calls to start, plus unrelated read-only tool; final answer oracle depends on corrected-call receipt.",
+      "policies": {
+        "legacy": {
+          "blocks": 2,
+          "executions": 4,
+          "model_requests": 3,
+          "oracle_pass": false
+        },
+        "operation": {
+          "blocks": 1,
+          "executions": 5,
+          "model_requests": 3,
+          "oracle_pass": true
+        }
+      },
+      "shared_settings": {
+        "agent_max_steps": 8,
+        "strict_final": true,
+        "verify": false,
+        "web_search": false
+      }
+    },
+    "stateful_python_correction": {
+      "boundary": "Actual harness, PythonTool, execution service and journal; offline stateful fake provider; fixed Python programs executed in one persistent in-process dict instead of Jupyter; final answer oracle depends on the actual tool receipt.",
+      "policies": {
+        "legacy": {
+          "blocked_calls": 1,
+          "counter": 3,
+          "durable_tool_calls": 4,
+          "durable_tool_results": 4,
+          "executions": 3,
+          "final_status": "complete",
+          "known_failures": 3,
+          "model_requests": 5,
+          "oracle_pass": false,
+          "running_events": 3
+        },
+        "operation": {
+          "blocked_calls": 0,
+          "counter": 3,
+          "durable_tool_calls": 4,
+          "durable_tool_results": 4,
+          "executions": 4,
+          "final_status": "complete",
+          "known_failures": 3,
+          "model_requests": 5,
+          "oracle_pass": true,
+          "running_events": 4
+        }
+      },
+      "shared_settings": {
+        "agent_max_steps": 12,
+        "strict_final": true,
+        "verify": false,
+        "web_search": false
+      }
+    }
+  },
+  "evaluation": "deterministic_actual_native_harness",
+  "generated_at": "2026-10-10T04:01:42.675509+00:00",
+  "schema_version": 1,
+  "source_sha256": {
+    "backend/app/agent/execution.py": "93da32bb83e3e407c8132cef9fd410394de8a9fa79b09bfd996686eec1436a15",
+    "backend/app/agent/harness.py": "a6948af8fc9c8843cfe37e9b8f68fc5957b57a8d228beb24fb29300c5d1959e4",
+    "backend/app/agent/loop_policy.py": "9e756cec5362100ca8afdec873d4b36e9874ffe0743ce0faca0aa240763edeba",
+    "backend/app/agent/tools/python_tool.py": "00fc9301127ad94d4ccd813294627556511f564203e2129b5a47db23f1f87962",
+    "backend/app/config.py": "ca883020dfd81b5ba880b52c4ba2428bf7da1b8bcfc0e91edca3d89a5b10d367",
+    "backend/tests/test_loop_policy_harness.py": "5aa7018c1ef48da81a9eb16598a5d90a4ef0c4dc2756d53de190f8a7b67fec62"
+  }
+}

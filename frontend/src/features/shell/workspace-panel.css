@@ -1,0 +1,57 @@
+/* Workspace chrome belongs to the panel; colors come from the app theme. */
+.matopt-result-workspace { display: grid; grid-template-columns: minmax(0, 1fr) 52px; grid-template-rows: auto minmax(0, 1fr); height: 100%; min-width: 0; min-height: 0; background: var(--color-panel); container: workspace-panel / inline-size; }
+.matopt-result-workspace .matopt-workspace-header { display: contents; }
+.matopt-workspace-heading { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+.matopt-workspace-header > .matopt-chrome-button { grid-area: 1 / 2; align-self: center; justify-self: start; }
+.matopt-workspace-tabs { grid-area: 1 / 1; display: flex; flex-shrink: 0; min-width: 0; gap: 20px; padding: 0 8px 0 20px; background: var(--color-panel); }
+.matopt-workspace-tabs > button { position: relative; display: inline-flex; align-items: center; justify-content: center; min-height: 42px; gap: 7px; padding: 9px 0 11px; border: 0; border-radius: 0; background: transparent; color: var(--color-foreground-subtle); font: inherit; font-size: var(--matopt-text-compact, 14px); cursor: pointer; }
+.matopt-workspace-tabs > button::after { content: ""; position: absolute; height: 2px; border-radius: 2px; inset: auto 0 -1px; background: transparent; }
+.matopt-workspace-tabs > button:hover { color: var(--color-foreground); }
+.matopt-workspace-tabs > button[aria-selected="true"] { color: var(--color-foreground); background: transparent; font-weight: 600; }
+.matopt-workspace-tabs > button[aria-selected="true"]::after { background: var(--color-ring); }
+.matopt-workspace-tabs > button > svg { width: 16px; height: 16px; flex-shrink: 0; }
+.matopt-tab-count { display: inline-grid; min-width: 19px; min-height: 19px; place-items: center; padding-inline: 5px; border-radius: 5px; background: var(--color-surface); color: var(--color-foreground-subtle); font-size: max(12px, calc(var(--ui-font-size, 14px) - 2px)); font-weight: 500; font-variant-numeric: tabular-nums; line-height: 1.3; }
+.matopt-workspace-view { grid-area: 2 / 1 / 3 / -1; min-width: 0; min-height: 0; overflow: hidden; border-top: 1px solid var(--color-border); }
+.matopt-workspace-view[hidden] { display: none; }
+.matopt-results { display: flex; height: 100%; min-width: 0; min-height: 0; flex-direction: column; }
+.matopt-result-library { flex-shrink: 0; min-width: 0; padding-block: 14px 12px; border-bottom: 1px solid var(--color-border); background: var(--color-panel); }
+.matopt-result-library-label { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 0 20px 9px; color: var(--color-foreground-subtle); font-size: max(12px, calc(var(--ui-font-size, 14px) - 2px)); line-height: 1.4; }
+.matopt-result-library-label > span:last-child { white-space: nowrap; font-variant-numeric: tabular-nums; }
+.matopt-result-index { display: flex; min-width: 0; gap: 6px; padding: 0 16px 3px; overflow-x: auto; overscroll-behavior-x: contain; scrollbar-width: thin; border: 0; }
+.matopt-result-index > button { display: inline-flex; align-items: center; flex: 0 0 auto; min-width: 144px; max-width: 248px; gap: 10px; padding: 9px 12px; border: 1px solid transparent; border-radius: 9px; background: transparent; color: var(--color-foreground-subtle); font: inherit; text-align: left; cursor: pointer; }
+.matopt-result-index > button:hover { background: var(--color-surface-hover); }
+.matopt-result-index > button[aria-pressed="true"] { border-color: var(--color-border); background: var(--color-surface); color: var(--color-foreground); }
+.matopt-result-index > button > svg { width: 18px; height: 18px; flex-shrink: 0; }
+.matopt-result-index-label { display: flex; min-width: 0; flex-direction: column; gap: 3px; }
+.matopt-result-index-label > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: var(--matopt-text-compact, 14px); font-weight: 500; line-height: 1.4; }
+.matopt-result-index-label > small { color: var(--color-foreground-subtle); font-size: max(12px, calc(var(--ui-font-size, 14px) - 2px)); line-height: 1.4; }
+.matopt-result-document { min-width: 0; min-height: 0; flex: 1; overflow: auto; overscroll-behavior: contain; background: var(--color-panel); }
+.matopt-results-empty { display: flex; height: 100%; min-height: 180px; flex-direction: column; align-items: center; justify-content: center; gap: 12px; padding: 32px 24px; text-align: center; }
+.matopt-workspace-empty-icon { display: grid; width: 48px; height: 48px; margin-bottom: 4px; place-items: center; border: 1px solid var(--color-border); border-radius: 12px; background: var(--color-surface); color: var(--color-foreground-subtle); }
+.matopt-workspace-empty-icon > svg { width: 22px; height: 22px; }
+.matopt-results-empty h3 { margin: 0; color: var(--color-foreground); font-size: var(--matopt-text-base, 16px); font-weight: 550; line-height: 1.4; letter-spacing: -.015em; }
+.matopt-results-empty p { max-width: 34ch; margin: 0; color: var(--color-foreground-subtle); font-size: var(--matopt-text-compact, 14px); line-height: 1.65; }
+.matopt-result-workspace :is(.matopt-workspace-tabs, .matopt-result-index) > button:focus-visible { outline: 2px solid var(--color-ring); outline-offset: -2px; border-radius: 6px; }
+@container workspace-panel (max-width: 420px) {
+  .matopt-workspace-tabs { padding-left: 16px; }
+  .matopt-result-library-label { padding-inline: 16px; }
+  .matopt-result-index { padding-inline: 12px; }
+  .matopt-result-index > button { max-width: 220px; }
+}
+/* The selected result already has a canvas title; keep its picker compact. */
+@container workspace-panel (max-width: 640px) {
+  .matopt-result-library { padding-block: 8px 6px; }
+  .matopt-result-library-label { display: none; }
+  .matopt-result-index > button { min-height: 44px; max-width: min(280px, calc(100cqw - 32px)); padding: 8px 10px; }
+  .matopt-result-index-label { gap: 0; }
+  .matopt-result-index-label > small { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+}
+@media (pointer: coarse), (max-width: 767px) {
+  .matopt-workspace-tabs > button { min-height: 52px; }
+  .matopt-result-workspace .matopt-chrome-button { width: 44px; height: 44px; }
+}
+@media (max-height: 600px) {
+  .matopt-result-library { padding-block: 8px 6px; }
+  .matopt-result-library-label { display: none; }
+  .matopt-results-empty { min-height: 120px; padding-block: 20px; }
+}

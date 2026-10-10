@@ -1,171 +1,167 @@
-.chat-input-wrapper {
-    width: 100%;
-    max-width: var(--content-max-width);
+.matopt-composer-modern,
+.matopt-command-menu-modern,
+.matopt-composer-attachment-menu {
+  --composer-surface: var(--mo-surface, var(--color-background));
+  --composer-muted: var(--mo-surface-secondary, var(--color-surface));
+  --composer-hover: var(--mo-surface-hover, var(--color-surface-hover));
+  --composer-border: var(--mo-border, var(--color-border));
+  --composer-text: var(--mo-text, var(--color-foreground));
+  --composer-secondary: var(--mo-text-muted, var(--color-foreground-subtle));
+  --composer-focus: var(--mo-accent, var(--color-primary));
+  color: var(--composer-text);
+}
+.matopt-composer-modern { container: matopt-composer / inline-size; }
+.matopt-composer-modern [data-slot="input-group"] {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  width: 100%;
+  height: auto;
+  gap: 0;
+  padding: 6px;
+  overflow: hidden;
+  border: 1px solid var(--composer-border);
+  border-radius: var(--mo-radius-composer, 18px);
+  background: var(--composer-surface);
+  box-shadow: var(--mo-shadow-subtle, none);
+  transition: border-color 150ms ease, box-shadow 150ms ease;
+}
+.matopt-composer-modern [data-slot="input-group"]:focus-within {
+  border-color: var(--composer-focus);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--composer-focus) 10%, transparent);
+}
+.matopt-composer-modern .matopt-composer-body { display: block; width: 100%; min-width: 0; }
+.matopt-composer-modern textarea {
+  display: block;
+  width: 100%;
+  min-height: 64px;
+  max-height: min(220px, 30dvh);
+  padding: 10px 12px 12px;
+  margin: 0;
+  border: 0;
+  border-radius: 0;
+  resize: none;
+  font-family: inherit;
+  font-size: var(--matopt-text-composer, 16px);
+  font-weight: 400;
+  line-height: 1.6;
+  color: var(--composer-text);
+  background: transparent;
+  box-shadow: none;
+  outline: none;
+  overflow-y: auto;
+  scrollbar-width: thin;
+}
+.matopt-composer-modern textarea::placeholder { color: var(--composer-secondary); opacity: 1; }
+.matopt-composer-modern textarea:focus-visible { outline: none; box-shadow: none; }
+.matopt-composer-footer { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-width: 0; padding: 2px 2px 2px 4px; }
+.matopt-composer-modern .matopt-composer-add { flex: 1; min-width: 0; gap: 4px; }
+.matopt-composer-modern .matopt-composer-add-button[data-size="icon-sm"] {
+  flex-shrink: 0;
+  width: 36px;
+  height: 36px;
+  min-width: 36px;
+  min-height: 36px;
+  padding: 0;
+  border-radius: 9px;
+  color: var(--composer-secondary);
+  background: transparent;
+}
+.matopt-composer-modern .matopt-composer-add-button[data-size="icon-sm"]:hover:not(:disabled) { background: var(--composer-hover); color: var(--composer-text); }
+.matopt-composer-modern .matopt-composer-actions { flex-shrink: 0; gap: 12px; }
+.matopt-composer-modern .matopt-composer-send[data-slot="button"][data-size="icon-sm"] {
+  flex-shrink: 0;
+  width: 36px;
+  height: 36px;
+  min-width: 36px;
+  min-height: 36px;
+  padding: 0;
+  border-radius: 11px;
+  color: var(--composer-surface);
+  background: var(--composer-text);
+  border: 0;
+  transition: opacity 150ms ease, background-color 150ms ease;
+}
+.matopt-composer-modern .matopt-composer-add-button > svg,
+.matopt-composer-modern .matopt-composer-send[data-slot="button"] > svg { width: 20px; height: 20px; stroke-width: 1.8; }
+.matopt-composer-modern .matopt-composer-send[data-slot="button"][aria-label="Stop"] > svg { width: 14px; height: 14px; }
+.matopt-composer-modern .matopt-composer-send:hover:not(:disabled) { opacity: .82; }
+.matopt-composer-modern .matopt-composer-send[data-slot="button"][data-size="icon-sm"]:disabled { color: var(--composer-secondary); background: var(--composer-muted); opacity: 1; }
+.matopt-composer-modern .matopt-composer-toolbar { display: flex; align-items: center; min-width: 0; max-width: 100%; font-size: var(--matopt-text-compact, 14px); }
+.matopt-composer-modern .matopt-composer-toolbar button { min-width: 0; max-width: 100%; height: auto; min-height: 36px; padding-block: 5px; border-radius: 9px; font-size: var(--matopt-text-compact, 14px); line-height: 1.4; font-weight: 500; color: var(--composer-secondary); }
+.matopt-composer-modern .matopt-composer-toolbar button > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.matopt-composer-modern .matopt-composer-toolbar button:hover { color: var(--composer-text); }
+.matopt-composer-command-hint { display: inline-flex; align-items: center; gap: 5px; color: var(--composer-secondary); font-size: var(--text-ui-xs, 12px); white-space: nowrap; }
+.matopt-composer-command-hint kbd { display: grid; place-items: center; width: 18px; height: 20px; border: 1px solid var(--composer-border); border-radius: 4px; font: inherit; }
+.matopt-composer-disclaimer { margin: 10px 0 0; color: var(--composer-secondary); text-align: center; font-size: var(--text-ui-xs, 12px); line-height: 1.5; }
+.matopt-composer-modern .matopt-composer-selections { width: 100%; padding: 8px 10px 0; margin: 0; cursor: default; }
+.matopt-composer-modern .matopt-composer-selection-list { min-width: 0; max-width: 100%; gap: 6px; align-items: center; }
+.matopt-command-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  max-width: min(100%, 320px);
+  min-height: 32px;
+  padding: 3px 4px 3px 10px;
+  border: 1px solid var(--composer-border);
+  border-radius: 18px;
+  background: var(--composer-muted);
+  color: var(--composer-text);
+  font-size: var(--matopt-text-compact, 14px);
+  font-weight: 400;
+  line-height: 1.45;
+}
+.matopt-command-chip > svg { flex-shrink: 0; }
+.matopt-command-chip-label { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.matopt-command-chip-remove { display: grid; place-items: center; flex-shrink: 0; width: 24px; height: 24px; padding: 0; border-radius: 50%; color: var(--composer-secondary); cursor: pointer; }
+.matopt-command-chip-remove:hover:not(:disabled) { color: var(--composer-text); background: var(--composer-hover); }
+.matopt-command-chip-remove:disabled { cursor: default; opacity: .4; }
+.matopt-composer-modern .matopt-composer-file { height: auto; min-height: 34px; max-width: 100%; border-radius: 12px; background: var(--composer-muted); border-color: var(--composer-border); font-weight: 400; }
+.matopt-composer-modern button:focus-visible,
+.matopt-command-menu-modern [cmdk-item]:focus-visible { outline: 2px solid var(--composer-focus); outline-offset: 2px; }
+.matopt-command-menu-modern {
+  overflow: hidden;
+  border: 1px solid var(--composer-border);
+  border-radius: 14px;
+  background: var(--composer-surface);
+  box-shadow: var(--mo-shadow-float, none);
+  font-size: var(--matopt-text-compact, 14px);
+  line-height: 1.45;
+}
+.matopt-command-menu-modern [cmdk-root] { height: auto; padding: 4px; border-radius: inherit; background: transparent; color: inherit; }
+.matopt-command-menu-modern [cmdk-list] { scroll-padding: 6px; }
+.matopt-command-menu-modern [cmdk-group] { padding: 0; }
+.matopt-command-menu-modern [cmdk-group-heading] { padding: 8px 12px 6px; color: var(--composer-secondary); font-size: var(--text-ui-xs, 12px); line-height: 1.4; font-weight: 500; }
+.matopt-command-menu-modern [cmdk-item] { display: flex; align-items: center; gap: 10px; padding: 8px 10px; min-height: 56px; border-radius: 10px; background: transparent; color: var(--composer-text); font-size: var(--matopt-text-compact, 14px); line-height: 1.45; }
+.matopt-command-menu-modern [cmdk-item][data-selected="true"] { background: var(--composer-hover); color: var(--composer-text); }
+.matopt-command-menu-modern [cmdk-item][data-disabled="true"] { opacity: .48; }
+.matopt-command-icon { display: grid; place-items: center; flex-shrink: 0; width: 28px; height: 28px; }
+.matopt-command-menu-modern [cmdk-item] .matopt-command-icon > svg { width: 20px; height: 20px; stroke-width: 1.8; }
+.matopt-command-copy { display: flex; flex: 1; flex-direction: column; gap: 2px; min-width: 0; }
+.matopt-command-menu-modern [cmdk-item] .matopt-command-label { font-size: var(--matopt-text-compact, 14px); line-height: 1.45; font-weight: 500; }
+.matopt-command-description { display: -webkit-box; overflow: hidden; -webkit-box-orient: vertical; -webkit-line-clamp: 2; color: var(--composer-secondary); font-size: var(--text-ui-xs, 12px); line-height: 1.4; }
+.matopt-command-kind { flex-shrink: 0; color: var(--composer-secondary); font-size: var(--text-ui-xs, 12px); line-height: 1.4; }
+.matopt-command-menu-modern [cmdk-empty] { padding: 22px 14px; color: var(--composer-secondary); font-size: var(--matopt-text-compact, 14px); }
+.matopt-composer-attachment-menu { border-radius: 14px; border-color: var(--composer-border); background: var(--composer-surface); padding: 5px; }
+.matopt-composer-attachment-menu [role="menuitem"] { min-height: 40px; border-radius: 9px; font-size: var(--matopt-text-compact, 14px); }
+.matopt-composer-attachment-menu [role="menuitem"] svg { width: 20px; height: 20px; stroke-width: 1.8; }
+/* A docked workspace can narrow the composer on a wide desktop viewport. */
+@container matopt-composer (max-width: 480px) {
+  .matopt-composer-command-hint,
+  .matopt-composer-modern .matopt-model-effort { display: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .matopt-composer-modern *, .matopt-command-menu-modern * { transition-duration: 0s; animation-duration: 0s; }
 }
 
-.chat-input {
-    position: relative;
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-    background: var(--input-bg);
-    border: 1px solid var(--input-border);
-    border-radius: 28px;
-    padding: 12px 14px 10px;
-    transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
-    box-shadow: var(--shadow-soft);
+@media (max-width: 640px) {
+  .matopt-composer-command-hint { display: none; }
+  .matopt-composer-modern textarea { padding-inline: 10px; min-height: 56px; }
+  .matopt-composer-modern .matopt-composer-add-button[data-size="icon-sm"],
+  .matopt-composer-modern .matopt-composer-send[data-slot="button"][data-size="icon-sm"] { width: 40px; height: 40px; min-width: 40px; min-height: 40px; }
+  .matopt-composer-modern .matopt-composer-toolbar button { padding-inline: 8px; min-height: 40px; }
 }
-
-.chat-input:focus-within {
-    border-color: var(--input-focus-border);
-}
-
-.chat-input--drag {
-    outline: 1px dashed var(--color-brand);
-}
-
-.chat-input__main {
-    flex: 1;
-    min-width: 0;
-    display: flex;
-    flex-direction: column;
-}
-
-.chat-input__chips {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 6px;
-    padding: 6px 0 0;
-}
-
-.chat-input__chip {
-    display: inline-flex;
-    align-items: center;
-    gap: 4px;
-    background: var(--color-ash);
-    color: var(--color-graphite-ink);
-    border-radius: var(--radius-full);
-    padding: 2px 8px;
-    font-size: 0.75rem;
-}
-
-.chat-input__chip button {
-    background: none;
-    border: none;
-    color: var(--text-muted);
-    display: inline-flex;
-}
-
-.chat-input__textarea {
-    flex: 1;
-    border: none;
-    background: transparent;
-    resize: none;
-    font-size: 1rem;
-    line-height: 1.5;
-    color: var(--text-primary);
-    padding: 6px 8px;
-    max-height: 200px;
-    overflow-y: auto;
-    font-family: inherit;
-}
-
-.chat-input__textarea:focus {
-    outline: none;
-}
-
-.chat-input__textarea::placeholder {
-    color: var(--text-muted);
-}
-
-.chat-input__bar {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 8px;
-}
-
-.chat-input__bar-left {
-    display: flex;
-    align-items: center;
-    gap: 2px;
-}
-
-.chat-input__bar-right {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    margin-left: auto;
-}
-
-.chat-input__attach {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 36px;
-    height: 36px;
-    border: none;
-    border-radius: var(--radius-full);
-    background: transparent;
-    color: var(--text-secondary);
-    flex-shrink: 0;
-    transition: color var(--transition-fast), background var(--transition-fast);
-}
-
-.chat-input__attach:hover {
-    background: var(--accent-soft);
-    color: var(--text-primary);
-}
-
-.chat-input__attach--on {
-    color: var(--oai-teal-hover);
-    background: var(--oai-teal-light);
-}
-
-.chat-input__search {
-    width: auto;
-    gap: 6px;
-    padding: 0 10px;
-    font-size: 0.78rem;
-    font-weight: 600;
-}
-
-.chat-input__send {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 32px;
-    height: 32px;
-    border: none;
-    border-radius: var(--radius-full);
-    background: var(--oai-gray-300);
-    color: var(--color-paper);
-    flex-shrink: 0;
-    transition: background var(--transition-fast), color var(--transition-fast);
-}
-
-.chat-input__send:disabled:not(.chat-input__send--active) {
-    opacity: 1;
-    background: var(--oai-gray-300);
-    color: var(--color-paper);
-}
-
-.chat-input__send--active {
-    background: var(--color-ink-press);
-    color: var(--color-paper);
-}
-
-.chat-input__send--active:hover {
-    background: var(--oai-gray-800);
-}
-
-.chat-input__disclaimer {
-    margin-top: 8px;
-    text-align: center;
-    font-size: 0.72rem;
-    color: var(--text-muted);
-}
-
-.main--home .chat-input__disclaimer {
-    display: none;
+@media (max-height: 560px) {
+  .matopt-composer-modern textarea { min-height: 40px; max-height: 22dvh; padding-block: 6px; }
+  .matopt-composer-disclaimer { margin-top: 6px; }
 }

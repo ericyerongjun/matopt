@@ -1,0 +1,1928 @@
+{
+  "schema_version": 1,
+  "experiment": "inherited-menu diagnostic pilot, 2026-10-10",
+  "comparison_validity": "Confounded as a clean delegation comparison: restricted delegated tool registry retained generic native/skill/discovery tool instructions and unavailable discovery error hints. Keep all trials; corrected registry-menu pilot is separate.",
+  "redactions": [
+    "Absolute temporary state directory replaced by a placeholder.",
+    "Conversation IDs and generated child model/tool IDs consistently pseudonymized.",
+    "Raw provider request bodies, private reasoning, tool arguments/output, credentials, and model messages are not included in the audit export."
+  ],
+  "original_file_sha256": {
+    "matopt-delegation-live.json": "66b849159ffc0f7e59004332e1f3abe47bc3816f2c7d84297630d041db7268d0",
+    "matopt-delegation-live.receipts.jsonl": "3e7a08111a5172b2718e52329e6564fa21d028ebec1bab67bec9727b132f429a",
+    "matopt-delegation-live.runs.jsonl": "90cfa2e12ac573700d8d4273f2228752be305c99f17b66b0b12637dbe8797e27"
+  },
+  "sanitized_file_sha256": {
+    "delegation-live-2026-10-10-inherited.json": "a2931e6e10c3da62fc3861e4fc797faea92c6381ae3cc889ffcafc5a86c9bf09",
+    "delegation-live-2026-10-10-inherited.receipts.jsonl": "98302543499f20a2544d5ca7bef581f2fa67bf5733e915075683b3c392ecba7d",
+    "delegation-live-2026-10-10-inherited.runs.jsonl": "0237e89e6a9b91c337ba3a186fba15b323a28a2244615027a5ec1560cb237013"
+  },
+  "source_parity": {
+    "file_count": 121,
+    "before_equals_after": true,
+    "script_sha256": "c5d88d0d576fb907ca30990f18570edb155c3c50544a014b4e58bb60c2dd8741"
+  },
+  "journal_checks": {
+    "provider_start": 40,
+    "provider_usage": 40,
+    "provider_end": 40,
+    "unique_matching_provider_keys": true,
+    "run_end": 8,
+    "all_run_ends_equal_report": true,
+    "ledger_required_tokens_equal_each_observed_receipt_sum": true,
+    "unknown_usage_attempts": 0,
+    "unsettled_attempts": 0,
+    "native_retry_attempts": 0,
+    "all_sdk_provider_outcomes_completed": true,
+    "sdk_automatic_retries": 0,
+    "sdk_retry_configuration_evidence": [
+      "backend/app/llm/openai_compat.py:28",
+      "backend/lambda_app/services/llm_service.py:16"
+    ]
+  },
+  "aggregates": {
+    "direct": {
+      "runs": 4,
+      "status_counts": {
+        "complete": 4
+      },
+      "environment_passes": 4,
+      "exact_answer_passes": 4,
+      "median_elapsed_ms": 13584.0,
+      "tokens": {
+        "prompt_tokens": 42625,
+        "completion_tokens": 1441,
+        "total_tokens": 44066
+      },
+      "actual_requests": 16,
+      "unknown_tool_results": 0,
+      "budget_control_tool_results": 0,
+      "actual_tool_starts": 8,
+      "finish_reasons": {
+        "tool_calls": 8,
+        "stop": 8
+      }
+    },
+    "delegated": {
+      "runs": 4,
+      "status_counts": {
+        "error": 3,
+        "complete": 1
+      },
+      "environment_passes": 4,
+      "exact_answer_passes": 1,
+      "median_elapsed_ms": 19240.701500000003,
+      "tokens": {
+        "prompt_tokens": 91822,
+        "completion_tokens": 5988,
+        "total_tokens": 97810
+      },
+      "actual_requests": 24,
+      "unknown_tool_results": 8,
+      "budget_control_tool_results": 2,
+      "actual_tool_starts": 12,
+      "finish_reasons": {
+        "tool_calls": 18,
+        "stop": 6
+      }
+    }
+  },
+  "paired_median_delegation_overhead_ms": 5666.348,
+  "cost": {
+    "amount": null,
+    "reason": "All usage is reported, but configured rates did not produce a price. No dollar estimate is inferred."
+  },
+  "phase_evidence": [
+    {
+      "id": "invoice-r1-direct",
+      "diagnosis": "Completed the task and final JSON within the shared allowance.",
+      "notice": null,
+      "session_events": [
+        {
+          "seq": 5,
+          "type": "step/start",
+          "data": {
+            "turn": 1,
+            "step": 1,
+            "phase": "answer"
+          }
+        },
+        {
+          "seq": 6,
+          "type": "request/header",
+          "step": 1,
+          "attempt": 1,
+          "reason": "dispatch",
+          "config": {
+            "provider": "deepseek",
+            "model": "deepseek-flash",
+            "reasoning": "high",
+            "max_tokens": 2048
+          },
+          "advertised_tools": [
+            "python",
+            "read_file",
+            "write_file",
+            "list_files"
+          ]
+        },
+        {
+          "seq": 9,
+          "type": "tool/call",
+          "step": 1,
+          "name": "python"
+        },
+        {
+          "seq": 10,
+          "type": "tool/result",
+          "step": 1,
+          "name": "python",
+          "ok": true,
+          "error": null,
+          "meta": {
+            "duration_ms": 2
+          }
+        },
+        {
+          "seq": 11,
+          "type": "step/end",
+          "data": {
+            "turn": 1,
+            "step": 1
+          }
+        },
+        {
+          "seq": 12,
+          "type": "step/start",
+          "data": {
+            "turn": 1,
+            "step": 2,
+            "phase": "answer"
+          }
+        },
+        {
+          "seq": 13,
+          "type": "request/header",
+          "step": 2,
+          "attempt": 1,
+          "reason": "dispatch",
+          "config": {
+            "provider": "deepseek",
+            "model": "deepseek-flash",
+            "reasoning": "high",
+            "max_tokens": 2048
+          },
+          "advertised_tools": [
+            "python",
+            "read_file",
+            "write_file",
+            "list_files"
+          ]
+        },
+        {
+          "seq": 16,
+          "type": "tool/call",
+          "step": 2,
+          "name": "python"
+        },
+        {
+          "seq": 17,
+          "type": "tool/result",
+          "step": 2,
+          "name": "python",
+          "ok": true,
+          "error": null,
+          "meta": {
+            "duration_ms": 7
+          }
+        },
+        {
+          "seq": 18,
+          "type": "step/end",
+          "data": {
+            "turn": 1,
+            "step": 2
+          }
+        },
+        {
+          "seq": 19,
+          "type": "step/start",
+          "data": {
+            "turn": 1,
+            "step": 3,
+            "phase": "answer"
+          }
+        },
+        {
+          "seq": 20,
+          "type": "request/header",
+          "step": 3,
+          "attempt": 1,
+          "reason": "dispatch",
+          "config": {
+            "provider": "deepseek",
+            "model": "deepseek-flash",
+            "reasoning": "high",
+            "max_tokens": 2048
+          },
+          "advertised_tools": [
+            "python",
+            "read_file",
+            "write_file",
+            "list_files"
+          ]
+        },
+        {
+          "seq": 23,
+          "type": "step/end",
+          "data": {
+            "turn": 1,
+            "step": 3
+          }
+        },
+        {
+          "seq": 24,
+          "type": "step/start",
+          "data": {
+            "turn": 1,
+            "step": 4,
+            "phase": "final"
+          }
+        },
+        {
+          "seq": 28,
+          "type": "request/header",
+          "step": 4,
+          "attempt": 1,
+          "reason": "dispatch",
+          "config": {
+            "provider": "deepseek",
+            "model": "deepseek-flash",
+            "reasoning": "off",
+            "max_tokens": 2048
+          },
+          "advertised_tools": []
+        },
+        {
+          "seq": 31,
+          "type": "step/end",
+          "data": {
+            "turn": 1,
+            "step": 4
+          }
+        },
+        {
+          "seq": 40,
+          "type": "ui/message",
+          "status": "complete",
+          "final_ready": true,
+          "notice": null
+        },
+        {
+          "seq": 41,
+          "type": "turn/end",
+          "data": {
+            "turn": 1,
+            "reason": {
+              "kind": "completed"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "invoice-r1-delegated",
+      "diagnosis": "After the first LAMBDA call completed, the next outer worker model admission was denied at six used attempts; no final model request was dispatched.",
+      "notice": "The run's model attempt limit was reached. Completed work and available partial results were saved.",
+      "session_events": [
+        {
+          "seq": 5,
+          "type": "step/start",
+          "data": {
+            "turn": 1,
+            "step": 1,
+            "phase": "answer"
+          }
+        },
+        {
+          "seq": 6,
+          "type": "request/header",
+          "step": 1,
+          "attempt": 1,
+          "reason": "dispatch",
+          "config": {
+            "provider": "deepseek",
+            "model": "deepseek-flash",
+            "reasoning": "high",
+            "max_tokens": 2048
+          },
+          "advertised_tools": [
+            "lambda_data_agent"
+          ]
+        },
+        {
+          "seq": 9,
+          "type": "tool/call",
+          "step": 1,
+          "name": "python"
+        },
+        {
+          "seq": 10,
+          "type": "tool/result",
+          "step": 1,
+          "name": "python",
+          "ok": false,
+          "error": "Unknown tool 'python'. No tool was executed. Search with search_tools. Available examples: lambda_data_agent.",
+          "meta": {
+            "duration_ms": 0
+          }
+        },
+        {
+          "seq": 11,
+          "type": "step/end",
+          "data": {
+            "turn": 1,
+            "step": 1
+          }
+        },
+        {
+          "seq": 12,
+          "type": "step/start",
+          "data": {
+            "turn": 1,
+            "step": 2,
+            "phase": "answer"
+          }
+        },
+        {
+          "seq": 13,
+          "type": "request/header",
+          "step": 2,
+          "attempt": 1,
+          "reason": "dispatch",
+          "config": {
+            "provider": "deepseek",
+            "model": "deepseek-flash",
+            "reasoning": "high",
+            "max_tokens": 2048
+          },
+          "advertised_tools": [
+            "lambda_data_agent"
+          ]
+        },
+        {
+          "seq": 16,
+          "type": "tool/call",
+          "step": 2,
+          "name": "search_skills"
+        },
+        {
+          "seq": 17,
+          "type": "tool/result",
+          "step": 2,
+          "name": "search_skills",
+          "ok": false,
+          "error": "Unknown tool 'search_skills'. No tool was executed. Search with search_tools. Available examples: lambda_data_agent.",
+          "meta": {
+            "duration_ms": 2
+          }
+        },
+        {
+          "seq": 18,
+          "type": "tool/call",
+          "step": 2,
+          "name": "read_file"
+        },
+        {
+          "seq": 19,
+          "type": "tool/result",
+          "step": 2,
+          "name": "read_file",
+          "ok": false,
+          "error": "Unknown tool 'read_file'. No tool was executed. Search with search_tools. Available examples: lambda_data_agent.",
+          "meta": {
+            "duration_ms": 2
+          }
+        },
+        {
+          "seq": 20,
+          "type": "step/end",
+          "data": {
+            "turn": 1,
+            "step": 2
+          }
+        },
+        {
+          "seq": 21,
+          "type": "step/start",
+          "data": {
+            "turn": 1,
+            "step": 3,
+            "phase": "answer"
+          }
+        },
+        {
+          "seq": 22,
+          "type": "request/header",
+          "step": 3,
+          "attempt": 1,
+          "reason": "dispatch",
+          "config": {
+            "provider": "deepseek",
+            "model": "deepseek-flash",
+            "reasoning": "high",
+            "max_tokens": 2048
+          },
+          "advertised_tools": [
+            "lambda_data_agent"
+          ]
+        },
+        {
+          "seq": 25,
+          "type": "tool/call",
+          "step": 3,
+          "name": "search_tools"
+        },
+        {
+          "seq": 26,
+          "type": "tool/result",
+          "step": 3,
+          "name": "search_tools",
+          "ok": false,
+          "error": "Unknown tool 'search_tools'. No tool was executed. Search with search_tools. Available examples: lambda_data_agent.",
+          "meta": {
+            "duration_ms": 4
+          }
+        },
+        {
+          "seq": 27,
+          "type": "step/end",
+          "data": {
+            "turn": 1,
+            "step": 3
+          }
+        },
+        {
+          "seq": 28,
+          "type": "step/start",
+          "data": {
+            "turn": 1,
+            "step": 4,
+            "phase": "answer"
+          }
+        },
+        {
+          "seq": 29,
+          "type": "request/header",
+          "step": 4,
+          "attempt": 1,
+          "reason": "dispatch",
+          "config": {
+            "provider": "deepseek",
+            "model": "deepseek-flash",
+            "reasoning": "high",
+            "max_tokens": 2048
+          },
+          "advertised_tools": [
+            "lambda_data_agent"
+          ]
+        },
+        {
+          "seq": 32,
+          "type": "tool/call",
+          "step": 4,
+          "name": "lambda_data_agent"
+        },
+        {
+          "seq": 33,
+          "type": "llm/side-task",
+          "step": 4,
+          "task": "lambda",
+          "status": "started",
+          "usage": null
+        },
+        {
+          "seq": 34,
+          "type": "llm/side-task",
+          "step": 4,
+          "task": "lambda",
+          "status": "completed",
+          "usage": {
+            "prompt_tokens": 5175,
+            "completion_tokens": 365,
+            "total_tokens": 5540,
+            "reasoning_tokens": 48
+          }
+        },
+        {
+          "seq": 35,
+          "type": "llm/side-task",
+          "step": 4,
+          "task": "lambda",
+          "status": "started",
+          "usage": null
+        },
+        {
+          "seq": 36,
+          "type": "llm/side-task",
+          "step": 4,
+          "task": "lambda",
+          "status": "completed",
+          "usage": {
+            "prompt_tokens": 5836,
+            "completion_tokens": 300,
+            "total_tokens": 6136,
+            "reasoning_tokens": 18
+          }
+        },
+        {
+          "seq": 37,
+          "type": "tool/result",
+          "step": 4,
+          "name": "lambda_data_agent",
+          "ok": true,
+          "error": null,
+          "meta": {
+            "duration_ms": 13974
+          }
+        },
+        {
+          "seq": 38,
+          "type": "step/end",
+          "data": {
+            "turn": 1,
+            "step": 4
+          }
+        },
+        {
+          "seq": 39,
+          "type": "step/start",
+          "data": {
+            "turn": 1,
+            "step": 5,
+            "phase": "answer"
+          }
+        },
+        {
+          "seq": 40,
+          "type": "step/end",
+          "data": {
+            "turn": 1,
+            "step": 5
+          }
+        },
+        {
+          "seq": 41,
+          "type": "ui/message",
+          "status": "error",
+          "final_ready": false,
+          "notice": "The run's model attempt limit was reached. Completed work and available partial results were saved."
+        },
+        {
+          "seq": 42,
+          "type": "turn/end",
+          "data": {
+            "turn": 1,
+            "reason": {
+              "kind": "blocked"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "ledger-r1-delegated",
+      "diagnosis": "The first LAMBDA call completed and wrote the correct file. A second LAMBDA read-back call dispatched one child model request and two successful reads, then its next model admission was denied; no final model request was dispatched.",
+      "notice": "The run's model attempt limit was reached. Completed work and available partial results were saved.",
+      "session_events": [
+        {
+          "seq": 5,
+          "type": "step/start",
+          "data": {
+            "turn": 1,
+            "step": 1,
+            "phase": "answer"
+          }
+        },
+        {
+          "seq": 6,
+          "type": "request/header",
+          "step": 1,
+          "attempt": 1,
+          "reason": "dispatch",
+          "config": {
+            "provider": "deepseek",
+            "model": "deepseek-flash",
+            "reasoning": "high",
+            "max_tokens": 2048
+          },
+          "advertised_tools": [
+            "lambda_data_agent"
+          ]
+        },
+        {
+          "seq": 9,
+          "type": "tool/call",
+          "step": 1,
+          "name": "python"
+        },
+        {
+          "seq": 10,
+          "type": "tool/result",
+          "step": 1,
+          "name": "python",
+          "ok": false,
+          "error": "Unknown tool 'python'. No tool was executed. Search with search_tools. Available examples: lambda_data_agent.",
+          "meta": {
+            "duration_ms": 2
+          }
+        },
+        {
+          "seq": 11,
+          "type": "step/end",
+          "data": {
+            "turn": 1,
+            "step": 1
+          }
+        },
+        {
+          "seq": 12,
+          "type": "step/start",
+          "data": {
+            "turn": 1,
+            "step": 2,
+            "phase": "answer"
+          }
+        },
+        {
+          "seq": 13,
+          "type": "request/header",
+          "step": 2,
+          "attempt": 1,
+          "reason": "dispatch",
+          "config": {
+            "provider": "deepseek",
+            "model": "deepseek-flash",
+            "reasoning": "high",
+            "max_tokens": 2048
+          },
+          "advertised_tools": [
+            "lambda_data_agent"
+          ]
+        },
+        {
+          "seq": 16,
+          "type": "tool/call",
+          "step": 2,
+          "name": "lambda_data_agent"
+        },
+        {
+          "seq": 17,
+          "type": "llm/side-task",
+          "step": 2,
+          "task": "lambda",
+          "status": "started",
+          "usage": null
+        },
+        {
+          "seq": 18,
+          "type": "llm/side-task",
+          "step": 2,
+          "task": "lambda",
+          "status": "completed",
+          "usage": {
+            "prompt_tokens": 5153,
+            "completion_tokens": 492,
+            "total_tokens": 5645,
+            "reasoning_tokens": 158
+          }
+        },
+        {
+          "seq": 19,
+          "type": "llm/side-task",
+          "step": 2,
+          "task": "lambda",
+          "status": "started",
+          "usage": null
+        },
+        {
+          "seq": 20,
+          "type": "llm/side-task",
+          "step": 2,
+          "task": "lambda",
+          "status": "completed",
+          "usage": {
+            "prompt_tokens": 5816,
+            "completion_tokens": 96,
+            "total_tokens": 5912,
+            "reasoning_tokens": 0
+          }
+        },
+        {
+          "seq": 21,
+          "type": "tool/result",
+          "step": 2,
+          "name": "lambda_data_agent",
+          "ok": true,
+          "error": null,
+          "meta": {
+            "duration_ms": 13466
+          }
+        },
+        {
+          "seq": 22,
+          "type": "step/end",
+          "data": {
+            "turn": 1,
+            "step": 2
+          }
+        },
+        {
+          "seq": 23,
+          "type": "step/start",
+          "data": {
+            "turn": 1,
+            "step": 3,
+            "phase": "answer"
+          }
+        },
+        {
+          "seq": 24,
+          "type": "request/header",
+          "step": 3,
+          "attempt": 1,
+          "reason": "dispatch",
+          "config": {
+            "provider": "deepseek",
+            "model": "deepseek-flash",
+            "reasoning": "high",
+            "max_tokens": 2048
+          },
+          "advertised_tools": [
+            "lambda_data_agent"
+          ]
+        },
+        {
+          "seq": 27,
+          "type": "tool/call",
+          "step": 3,
+          "name": "lambda_data_agent"
+        },
+        {
+          "seq": 28,
+          "type": "llm/side-task",
+          "step": 3,
+          "task": "lambda",
+          "status": "started",
+          "usage": null
+        },
+        {
+          "seq": 29,
+          "type": "llm/side-task",
+          "step": 3,
+          "task": "lambda",
+          "status": "completed",
+          "usage": {
+            "prompt_tokens": 5748,
+            "completion_tokens": 269,
+            "total_tokens": 6017,
+            "reasoning_tokens": 53
+          }
+        },
+        {
+          "seq": 30,
+          "type": "tool/result",
+          "step": 3,
+          "name": "lambda_data_agent",
+          "ok": false,
+          "error": "The run's model attempt limit was reached.",
+          "meta": {
+            "code": "RUN_BUDGET_EXHAUSTED",
+            "budget_dimension": "model_attempts",
+            "budget_limit": 6,
+            "budget_used": 6,
+            "dispatched": true,
+            "duration_ms": 1610
+          }
+        },
+        {
+          "seq": 31,
+          "type": "step/end",
+          "data": {
+            "turn": 1,
+            "step": 3
+          }
+        },
+        {
+          "seq": 32,
+          "type": "ui/message",
+          "status": "error",
+          "final_ready": false,
+          "notice": "The run's model attempt limit was reached. Completed work and available partial results were saved."
+        },
+        {
+          "seq": 33,
+          "type": "turn/end",
+          "data": {
+            "turn": 1,
+            "reason": {
+              "kind": "blocked"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "ledger-r1-direct",
+      "diagnosis": "Completed the task and final JSON within the shared allowance.",
+      "notice": null,
+      "session_events": [
+        {
+          "seq": 5,
+          "type": "step/start",
+          "data": {
+            "turn": 1,
+            "step": 1,
+            "phase": "answer"
+          }
+        },
+        {
+          "seq": 6,
+          "type": "request/header",
+          "step": 1,
+          "attempt": 1,
+          "reason": "dispatch",
+          "config": {
+            "provider": "deepseek",
+            "model": "deepseek-flash",
+            "reasoning": "high",
+            "max_tokens": 2048
+          },
+          "advertised_tools": [
+            "python",
+            "read_file",
+            "write_file",
+            "list_files"
+          ]
+        },
+        {
+          "seq": 9,
+          "type": "tool/call",
+          "step": 1,
+          "name": "python"
+        },
+        {
+          "seq": 10,
+          "type": "tool/result",
+          "step": 1,
+          "name": "python",
+          "ok": true,
+          "error": null,
+          "meta": {
+            "duration_ms": 6
+          }
+        },
+        {
+          "seq": 11,
+          "type": "step/end",
+          "data": {
+            "turn": 1,
+            "step": 1
+          }
+        },
+        {
+          "seq": 12,
+          "type": "step/start",
+          "data": {
+            "turn": 1,
+            "step": 2,
+            "phase": "answer"
+          }
+        },
+        {
+          "seq": 13,
+          "type": "request/header",
+          "step": 2,
+          "attempt": 1,
+          "reason": "dispatch",
+          "config": {
+            "provider": "deepseek",
+            "model": "deepseek-flash",
+            "reasoning": "high",
+            "max_tokens": 2048
+          },
+          "advertised_tools": [
+            "python",
+            "read_file",
+            "write_file",
+            "list_files"
+          ]
+        },
+        {
+          "seq": 16,
+          "type": "tool/call",
+          "step": 2,
+          "name": "python"
+        },
+        {
+          "seq": 17,
+          "type": "tool/result",
+          "step": 2,
+          "name": "python",
+          "ok": true,
+          "error": null,
+          "meta": {
+            "duration_ms": 25
+          }
+        },
+        {
+          "seq": 18,
+          "type": "step/end",
+          "data": {
+            "turn": 1,
+            "step": 2
+          }
+        },
+        {
+          "seq": 19,
+          "type": "step/start",
+          "data": {
+            "turn": 1,
+            "step": 3,
+            "phase": "answer"
+          }
+        },
+        {
+          "seq": 20,
+          "type": "request/header",
+          "step": 3,
+          "attempt": 1,
+          "reason": "dispatch",
+          "config": {
+            "provider": "deepseek",
+            "model": "deepseek-flash",
+            "reasoning": "high",
+            "max_tokens": 2048
+          },
+          "advertised_tools": [
+            "python",
+            "read_file",
+            "write_file",
+            "list_files"
+          ]
+        },
+        {
+          "seq": 23,
+          "type": "step/end",
+          "data": {
+            "turn": 1,
+            "step": 3
+          }
+        },
+        {
+          "seq": 24,
+          "type": "step/start",
+          "data": {
+            "turn": 1,
+            "step": 4,
+            "phase": "final"
+          }
+        },
+        {
+          "seq": 28,
+          "type": "request/header",
+          "step": 4,
+          "attempt": 1,
+          "reason": "dispatch",
+          "config": {
+            "provider": "deepseek",
+            "model": "deepseek-flash",
+            "reasoning": "off",
+            "max_tokens": 2048
+          },
+          "advertised_tools": []
+        },
+        {
+          "seq": 31,
+          "type": "step/end",
+          "data": {
+            "turn": 1,
+            "step": 4
+          }
+        },
+        {
+          "seq": 40,
+          "type": "ui/message",
+          "status": "complete",
+          "final_ready": true,
+          "notice": null
+        },
+        {
+          "seq": 41,
+          "type": "turn/end",
+          "data": {
+            "turn": 1,
+            "reason": {
+              "kind": "completed"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "invoice-r2-delegated",
+      "diagnosis": "The first LAMBDA call completed and wrote the correct file. A second LAMBDA read-back call was denied on its first child model admission because six attempts were already used; no final model request was dispatched.",
+      "notice": "The run's model attempt limit was reached. Completed work and available partial results were saved.",
+      "session_events": [
+        {
+          "seq": 5,
+          "type": "step/start",
+          "data": {
+            "turn": 1,
+            "step": 1,
+            "phase": "answer"
+          }
+        },
+        {
+          "seq": 6,
+          "type": "request/header",
+          "step": 1,
+          "attempt": 1,
+          "reason": "dispatch",
+          "config": {
+            "provider": "deepseek",
+            "model": "deepseek-flash",
+            "reasoning": "high",
+            "max_tokens": 2048
+          },
+          "advertised_tools": [
+            "lambda_data_agent"
+          ]
+        },
+        {
+          "seq": 9,
+          "type": "tool/call",
+          "step": 1,
+          "name": "python"
+        },
+        {
+          "seq": 10,
+          "type": "tool/result",
+          "step": 1,
+          "name": "python",
+          "ok": false,
+          "error": "Unknown tool 'python'. No tool was executed. Search with search_tools. Available examples: lambda_data_agent.",
+          "meta": {
+            "duration_ms": 0
+          }
+        },
+        {
+          "seq": 11,
+          "type": "step/end",
+          "data": {
+            "turn": 1,
+            "step": 1
+          }
+        },
+        {
+          "seq": 12,
+          "type": "step/start",
+          "data": {
+            "turn": 1,
+            "step": 2,
+            "phase": "answer"
+          }
+        },
+        {
+          "seq": 13,
+          "type": "request/header",
+          "step": 2,
+          "attempt": 1,
+          "reason": "dispatch",
+          "config": {
+            "provider": "deepseek",
+            "model": "deepseek-flash",
+            "reasoning": "high",
+            "max_tokens": 2048
+          },
+          "advertised_tools": [
+            "lambda_data_agent"
+          ]
+        },
+        {
+          "seq": 16,
+          "type": "tool/call",
+          "step": 2,
+          "name": "read_file"
+        },
+        {
+          "seq": 17,
+          "type": "tool/result",
+          "step": 2,
+          "name": "read_file",
+          "ok": false,
+          "error": "Unknown tool 'read_file'. No tool was executed. Search with search_tools. Available examples: lambda_data_agent.",
+          "meta": {
+            "duration_ms": 3
+          }
+        },
+        {
+          "seq": 18,
+          "type": "step/end",
+          "data": {
+            "turn": 1,
+            "step": 2
+          }
+        },
+        {
+          "seq": 19,
+          "type": "step/start",
+          "data": {
+            "turn": 1,
+            "step": 3,
+            "phase": "answer"
+          }
+        },
+        {
+          "seq": 20,
+          "type": "request/header",
+          "step": 3,
+          "attempt": 1,
+          "reason": "dispatch",
+          "config": {
+            "provider": "deepseek",
+            "model": "deepseek-flash",
+            "reasoning": "high",
+            "max_tokens": 2048
+          },
+          "advertised_tools": [
+            "lambda_data_agent"
+          ]
+        },
+        {
+          "seq": 23,
+          "type": "tool/call",
+          "step": 3,
+          "name": "lambda_data_agent"
+        },
+        {
+          "seq": 24,
+          "type": "llm/side-task",
+          "step": 3,
+          "task": "lambda",
+          "status": "started",
+          "usage": null
+        },
+        {
+          "seq": 25,
+          "type": "llm/side-task",
+          "step": 3,
+          "task": "lambda",
+          "status": "completed",
+          "usage": {
+            "prompt_tokens": 5144,
+            "completion_tokens": 448,
+            "total_tokens": 5592,
+            "reasoning_tokens": 141
+          }
+        },
+        {
+          "seq": 26,
+          "type": "llm/side-task",
+          "step": 3,
+          "task": "lambda",
+          "status": "started",
+          "usage": null
+        },
+        {
+          "seq": 27,
+          "type": "llm/side-task",
+          "step": 3,
+          "task": "lambda",
+          "status": "completed",
+          "usage": {
+            "prompt_tokens": 5887,
+            "completion_tokens": 286,
+            "total_tokens": 6173,
+            "reasoning_tokens": 0
+          }
+        },
+        {
+          "seq": 28,
+          "type": "tool/result",
+          "step": 3,
+          "name": "lambda_data_agent",
+          "ok": true,
+          "error": null,
+          "meta": {
+            "duration_ms": 13432
+          }
+        },
+        {
+          "seq": 29,
+          "type": "step/end",
+          "data": {
+            "turn": 1,
+            "step": 3
+          }
+        },
+        {
+          "seq": 30,
+          "type": "step/start",
+          "data": {
+            "turn": 1,
+            "step": 4,
+            "phase": "answer"
+          }
+        },
+        {
+          "seq": 31,
+          "type": "request/header",
+          "step": 4,
+          "attempt": 1,
+          "reason": "dispatch",
+          "config": {
+            "provider": "deepseek",
+            "model": "deepseek-flash",
+            "reasoning": "high",
+            "max_tokens": 2048
+          },
+          "advertised_tools": [
+            "lambda_data_agent"
+          ]
+        },
+        {
+          "seq": 34,
+          "type": "tool/call",
+          "step": 4,
+          "name": "lambda_data_agent"
+        },
+        {
+          "seq": 35,
+          "type": "tool/result",
+          "step": 4,
+          "name": "lambda_data_agent",
+          "ok": false,
+          "error": "The run's model attempt limit was reached.",
+          "meta": {
+            "code": "RUN_BUDGET_EXHAUSTED",
+            "budget_dimension": "model_attempts",
+            "budget_limit": 6,
+            "budget_used": 6,
+            "dispatched": true,
+            "duration_ms": 20
+          }
+        },
+        {
+          "seq": 36,
+          "type": "step/end",
+          "data": {
+            "turn": 1,
+            "step": 4
+          }
+        },
+        {
+          "seq": 37,
+          "type": "ui/message",
+          "status": "error",
+          "final_ready": false,
+          "notice": "The run's model attempt limit was reached. Completed work and available partial results were saved."
+        },
+        {
+          "seq": 38,
+          "type": "turn/end",
+          "data": {
+            "turn": 1,
+            "reason": {
+              "kind": "blocked"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "invoice-r2-direct",
+      "diagnosis": "Completed the task and final JSON within the shared allowance.",
+      "notice": null,
+      "session_events": [
+        {
+          "seq": 5,
+          "type": "step/start",
+          "data": {
+            "turn": 1,
+            "step": 1,
+            "phase": "answer"
+          }
+        },
+        {
+          "seq": 6,
+          "type": "request/header",
+          "step": 1,
+          "attempt": 1,
+          "reason": "dispatch",
+          "config": {
+            "provider": "deepseek",
+            "model": "deepseek-flash",
+            "reasoning": "high",
+            "max_tokens": 2048
+          },
+          "advertised_tools": [
+            "python",
+            "read_file",
+            "write_file",
+            "list_files"
+          ]
+        },
+        {
+          "seq": 9,
+          "type": "tool/call",
+          "step": 1,
+          "name": "python"
+        },
+        {
+          "seq": 10,
+          "type": "tool/result",
+          "step": 1,
+          "name": "python",
+          "ok": true,
+          "error": null,
+          "meta": {
+            "duration_ms": 6
+          }
+        },
+        {
+          "seq": 11,
+          "type": "step/end",
+          "data": {
+            "turn": 1,
+            "step": 1
+          }
+        },
+        {
+          "seq": 12,
+          "type": "step/start",
+          "data": {
+            "turn": 1,
+            "step": 2,
+            "phase": "answer"
+          }
+        },
+        {
+          "seq": 13,
+          "type": "request/header",
+          "step": 2,
+          "attempt": 1,
+          "reason": "dispatch",
+          "config": {
+            "provider": "deepseek",
+            "model": "deepseek-flash",
+            "reasoning": "high",
+            "max_tokens": 2048
+          },
+          "advertised_tools": [
+            "python",
+            "read_file",
+            "write_file",
+            "list_files"
+          ]
+        },
+        {
+          "seq": 16,
+          "type": "step/end",
+          "data": {
+            "turn": 1,
+            "step": 2
+          }
+        },
+        {
+          "seq": 17,
+          "type": "step/start",
+          "data": {
+            "turn": 1,
+            "step": 3,
+            "phase": "final"
+          }
+        },
+        {
+          "seq": 21,
+          "type": "request/header",
+          "step": 3,
+          "attempt": 1,
+          "reason": "dispatch",
+          "config": {
+            "provider": "deepseek",
+            "model": "deepseek-flash",
+            "reasoning": "off",
+            "max_tokens": 2048
+          },
+          "advertised_tools": []
+        },
+        {
+          "seq": 24,
+          "type": "step/end",
+          "data": {
+            "turn": 1,
+            "step": 3
+          }
+        },
+        {
+          "seq": 31,
+          "type": "ui/message",
+          "status": "complete",
+          "final_ready": true,
+          "notice": null
+        },
+        {
+          "seq": 32,
+          "type": "turn/end",
+          "data": {
+            "turn": 1,
+            "reason": {
+              "kind": "completed"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "ledger-r2-direct",
+      "diagnosis": "Completed the task and final JSON within the shared allowance.",
+      "notice": null,
+      "session_events": [
+        {
+          "seq": 5,
+          "type": "step/start",
+          "data": {
+            "turn": 1,
+            "step": 1,
+            "phase": "answer"
+          }
+        },
+        {
+          "seq": 6,
+          "type": "request/header",
+          "step": 1,
+          "attempt": 1,
+          "reason": "dispatch",
+          "config": {
+            "provider": "deepseek",
+            "model": "deepseek-flash",
+            "reasoning": "high",
+            "max_tokens": 2048
+          },
+          "advertised_tools": [
+            "python",
+            "read_file",
+            "write_file",
+            "list_files"
+          ]
+        },
+        {
+          "seq": 9,
+          "type": "tool/call",
+          "step": 1,
+          "name": "python"
+        },
+        {
+          "seq": 10,
+          "type": "tool/result",
+          "step": 1,
+          "name": "python",
+          "ok": true,
+          "error": null,
+          "meta": {
+            "duration_ms": 3
+          }
+        },
+        {
+          "seq": 11,
+          "type": "step/end",
+          "data": {
+            "turn": 1,
+            "step": 1
+          }
+        },
+        {
+          "seq": 12,
+          "type": "step/start",
+          "data": {
+            "turn": 1,
+            "step": 2,
+            "phase": "answer"
+          }
+        },
+        {
+          "seq": 13,
+          "type": "request/header",
+          "step": 2,
+          "attempt": 1,
+          "reason": "dispatch",
+          "config": {
+            "provider": "deepseek",
+            "model": "deepseek-flash",
+            "reasoning": "high",
+            "max_tokens": 2048
+          },
+          "advertised_tools": [
+            "python",
+            "read_file",
+            "write_file",
+            "list_files"
+          ]
+        },
+        {
+          "seq": 16,
+          "type": "tool/call",
+          "step": 2,
+          "name": "python"
+        },
+        {
+          "seq": 17,
+          "type": "tool/result",
+          "step": 2,
+          "name": "python",
+          "ok": true,
+          "error": null,
+          "meta": {
+            "duration_ms": 6
+          }
+        },
+        {
+          "seq": 18,
+          "type": "step/end",
+          "data": {
+            "turn": 1,
+            "step": 2
+          }
+        },
+        {
+          "seq": 19,
+          "type": "step/start",
+          "data": {
+            "turn": 1,
+            "step": 3,
+            "phase": "answer"
+          }
+        },
+        {
+          "seq": 20,
+          "type": "request/header",
+          "step": 3,
+          "attempt": 1,
+          "reason": "dispatch",
+          "config": {
+            "provider": "deepseek",
+            "model": "deepseek-flash",
+            "reasoning": "high",
+            "max_tokens": 2048
+          },
+          "advertised_tools": [
+            "python",
+            "read_file",
+            "write_file",
+            "list_files"
+          ]
+        },
+        {
+          "seq": 23,
+          "type": "tool/call",
+          "step": 3,
+          "name": "python"
+        },
+        {
+          "seq": 24,
+          "type": "tool/result",
+          "step": 3,
+          "name": "python",
+          "ok": true,
+          "error": null,
+          "meta": {
+            "duration_ms": 6
+          }
+        },
+        {
+          "seq": 25,
+          "type": "step/end",
+          "data": {
+            "turn": 1,
+            "step": 3
+          }
+        },
+        {
+          "seq": 26,
+          "type": "step/start",
+          "data": {
+            "turn": 1,
+            "step": 4,
+            "phase": "answer"
+          }
+        },
+        {
+          "seq": 27,
+          "type": "request/header",
+          "step": 4,
+          "attempt": 1,
+          "reason": "dispatch",
+          "config": {
+            "provider": "deepseek",
+            "model": "deepseek-flash",
+            "reasoning": "high",
+            "max_tokens": 2048
+          },
+          "advertised_tools": [
+            "python",
+            "read_file",
+            "write_file",
+            "list_files"
+          ]
+        },
+        {
+          "seq": 30,
+          "type": "step/end",
+          "data": {
+            "turn": 1,
+            "step": 4
+          }
+        },
+        {
+          "seq": 31,
+          "type": "step/start",
+          "data": {
+            "turn": 1,
+            "step": 5,
+            "phase": "final"
+          }
+        },
+        {
+          "seq": 35,
+          "type": "request/header",
+          "step": 5,
+          "attempt": 1,
+          "reason": "dispatch",
+          "config": {
+            "provider": "deepseek",
+            "model": "deepseek-flash",
+            "reasoning": "off",
+            "max_tokens": 2048
+          },
+          "advertised_tools": []
+        },
+        {
+          "seq": 38,
+          "type": "step/end",
+          "data": {
+            "turn": 1,
+            "step": 5
+          }
+        },
+        {
+          "seq": 49,
+          "type": "ui/message",
+          "status": "complete",
+          "final_ready": true,
+          "notice": null
+        },
+        {
+          "seq": 50,
+          "type": "turn/end",
+          "data": {
+            "turn": 1,
+            "reason": {
+              "kind": "completed"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "ledger-r2-delegated",
+      "diagnosis": "The final writer used the sixth model attempt and returned the exact requested JSON.",
+      "notice": null,
+      "session_events": [
+        {
+          "seq": 5,
+          "type": "step/start",
+          "data": {
+            "turn": 1,
+            "step": 1,
+            "phase": "answer"
+          }
+        },
+        {
+          "seq": 6,
+          "type": "request/header",
+          "step": 1,
+          "attempt": 1,
+          "reason": "dispatch",
+          "config": {
+            "provider": "deepseek",
+            "model": "deepseek-flash",
+            "reasoning": "high",
+            "max_tokens": 2048
+          },
+          "advertised_tools": [
+            "lambda_data_agent"
+          ]
+        },
+        {
+          "seq": 9,
+          "type": "tool/call",
+          "step": 1,
+          "name": "python"
+        },
+        {
+          "seq": 10,
+          "type": "tool/result",
+          "step": 1,
+          "name": "python",
+          "ok": false,
+          "error": "Unknown tool 'python'. No tool was executed. Search with search_tools. Available examples: lambda_data_agent.",
+          "meta": {
+            "duration_ms": 2
+          }
+        },
+        {
+          "seq": 11,
+          "type": "step/end",
+          "data": {
+            "turn": 1,
+            "step": 1
+          }
+        },
+        {
+          "seq": 12,
+          "type": "step/start",
+          "data": {
+            "turn": 1,
+            "step": 2,
+            "phase": "answer"
+          }
+        },
+        {
+          "seq": 13,
+          "type": "request/header",
+          "step": 2,
+          "attempt": 1,
+          "reason": "dispatch",
+          "config": {
+            "provider": "deepseek",
+            "model": "deepseek-flash",
+            "reasoning": "high",
+            "max_tokens": 2048
+          },
+          "advertised_tools": [
+            "lambda_data_agent"
+          ]
+        },
+        {
+          "seq": 16,
+          "type": "tool/call",
+          "step": 2,
+          "name": "lambda_data_agent"
+        },
+        {
+          "seq": 17,
+          "type": "llm/side-task",
+          "step": 2,
+          "task": "lambda",
+          "status": "started",
+          "usage": null
+        },
+        {
+          "seq": 18,
+          "type": "llm/side-task",
+          "step": 2,
+          "task": "lambda",
+          "status": "completed",
+          "usage": {
+            "prompt_tokens": 5195,
+            "completion_tokens": 411,
+            "total_tokens": 5606,
+            "reasoning_tokens": 61
+          }
+        },
+        {
+          "seq": 19,
+          "type": "llm/side-task",
+          "step": 2,
+          "task": "lambda",
+          "status": "started",
+          "usage": null
+        },
+        {
+          "seq": 20,
+          "type": "llm/side-task",
+          "step": 2,
+          "task": "lambda",
+          "status": "completed",
+          "usage": {
+            "prompt_tokens": 5897,
+            "completion_tokens": 283,
+            "total_tokens": 6180,
+            "reasoning_tokens": 23
+          }
+        },
+        {
+          "seq": 21,
+          "type": "tool/result",
+          "step": 2,
+          "name": "lambda_data_agent",
+          "ok": true,
+          "error": null,
+          "meta": {
+            "duration_ms": 13309
+          }
+        },
+        {
+          "seq": 22,
+          "type": "step/end",
+          "data": {
+            "turn": 1,
+            "step": 2
+          }
+        },
+        {
+          "seq": 23,
+          "type": "step/start",
+          "data": {
+            "turn": 1,
+            "step": 3,
+            "phase": "answer"
+          }
+        },
+        {
+          "seq": 24,
+          "type": "request/header",
+          "step": 3,
+          "attempt": 1,
+          "reason": "dispatch",
+          "config": {
+            "provider": "deepseek",
+            "model": "deepseek-flash",
+            "reasoning": "high",
+            "max_tokens": 2048
+          },
+          "advertised_tools": [
+            "lambda_data_agent"
+          ]
+        },
+        {
+          "seq": 27,
+          "type": "step/end",
+          "data": {
+            "turn": 1,
+            "step": 3
+          }
+        },
+        {
+          "seq": 28,
+          "type": "step/start",
+          "data": {
+            "turn": 1,
+            "step": 4,
+            "phase": "final"
+          }
+        },
+        {
+          "seq": 32,
+          "type": "request/header",
+          "step": 4,
+          "attempt": 1,
+          "reason": "dispatch",
+          "config": {
+            "provider": "deepseek",
+            "model": "deepseek-flash",
+            "reasoning": "off",
+            "max_tokens": 2048
+          },
+          "advertised_tools": []
+        },
+        {
+          "seq": 35,
+          "type": "step/end",
+          "data": {
+            "turn": 1,
+            "step": 4
+          }
+        },
+        {
+          "seq": 44,
+          "type": "ui/message",
+          "status": "complete",
+          "final_ready": true,
+          "notice": null
+        },
+        {
+          "seq": 45,
+          "type": "turn/end",
+          "data": {
+            "turn": 1,
+            "reason": {
+              "kind": "completed"
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

@@ -1,38 +1,45 @@
-import { useCallback, useEffect, useState } from "react";
-import { deleteFile, listFiles } from "../services/files";
-import type { WorkspaceFile } from "../types/protocol";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { deleteFile, listFiles } from "../services/files.ts";
+import type { WorkspaceFile } from "../types/protocol.ts";
 
 export function useWorkspaceFiles(conversationId: string | null) {
-    const [files, setFiles] = useState<WorkspaceFile[]>([]);
+    const [listing, setListing] = useState<{ conversationId: string | null; files: WorkspaceFile[] }>({ conversationId: null, files: [] });
     const [loading, setLoading] = useState(false);
+    const currentId = useRef(conversationId);
+    currentId.current = conversationId;
+    const request = useRef<AbortController | null>(null);
 
     const refresh = useCallback(async () => {
+        if (currentId.current !== conversationId) return;
+        request.current?.abort();
         if (!conversationId) {
-            setFiles([]);
+            request.current = null;
+            setListing({ conversationId: null, files: [] }); setLoading(false);
             return;
         }
+        const controller = new AbortController();
+        request.current = controller;
         setLoading(true);
         try {
-            setFiles(await listFiles(conversationId));
+            const files = await listFiles(conversationId, controller.signal);
+            if (!controller.signal.aborted && currentId.current === conversationId) setListing({ conversationId, files });
         } catch {
-            /* listing can 404 if the conversation was just created */
+            // A new conversation may not yet have a workspace. Preserve its own prior listing on transient errors.
         } finally {
-            setLoading(false);
+            if (request.current === controller) { request.current = null; setLoading(false); }
         }
     }, [conversationId]);
 
     useEffect(() => {
         void refresh();
+        return () => request.current?.abort();
     }, [refresh]);
 
-    const remove = useCallback(
-        async (path: string) => {
-            if (!conversationId) return;
-            await deleteFile(conversationId, path);
-            await refresh();
-        },
-        [conversationId, refresh]
-    );
+    const remove = useCallback(async (path: string) => {
+        if (!conversationId) return;
+        await deleteFile(conversationId, path);
+        await refresh();
+    }, [conversationId, refresh]);
 
-    return { files, loading, refresh, remove };
+    return { files: listing.conversationId === conversationId ? listing.files : [], loading, refresh, remove };
 }

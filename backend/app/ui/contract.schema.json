@@ -1,0 +1,235 @@
+{
+  "$defs": {
+    "JsonValue": {},
+    "UIAction": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "maxLength": 96,
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]*$",
+          "title": "Id",
+          "type": "string"
+        },
+        "label": {
+          "maxLength": 120,
+          "minLength": 1,
+          "title": "Label",
+          "type": "string"
+        },
+        "description": {
+          "anyOf": [
+            {
+              "maxLength": 500,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Description"
+        },
+        "input_schema": {
+          "additionalProperties": {
+            "$ref": "#/$defs/JsonValue"
+          },
+          "title": "Input Schema",
+          "type": "object"
+        },
+        "handler_version": {
+          "default": 1,
+          "minimum": 1,
+          "title": "Handler Version",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "id",
+        "label"
+      ],
+      "title": "UIAction",
+      "type": "object"
+    },
+    "UIApp": {
+      "additionalProperties": false,
+      "properties": {
+        "html": {
+          "maxLength": 524288,
+          "minLength": 1,
+          "title": "Html",
+          "type": "string"
+        }
+      },
+      "required": [
+        "html"
+      ],
+      "title": "UIApp",
+      "type": "object"
+    },
+    "UINode": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "maxLength": 96,
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]*$",
+          "title": "Id",
+          "type": "string"
+        },
+        "type": {
+          "enum": [
+            "markdown",
+            "equation",
+            "comparison",
+            "table",
+            "plot",
+            "mermaid",
+            "tabs",
+            "disclosure",
+            "slider",
+            "number",
+            "select",
+            "toggle",
+            "button",
+            "stack",
+            "grid"
+          ],
+          "title": "Type",
+          "type": "string"
+        },
+        "props": {
+          "additionalProperties": {
+            "$ref": "#/$defs/JsonValue"
+          },
+          "title": "Props",
+          "type": "object"
+        },
+        "children": {
+          "items": {
+            "$ref": "#/$defs/UINode"
+          },
+          "maxItems": 128,
+          "title": "Children",
+          "type": "array"
+        }
+      },
+      "required": [
+        "id",
+        "type"
+      ],
+      "title": "UINode",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "version": {
+      "const": 1,
+      "default": 1,
+      "title": "Version",
+      "type": "integer"
+    },
+    "id": {
+      "maxLength": 96,
+      "minLength": 1,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]*$",
+      "title": "Id",
+      "type": "string"
+    },
+    "revision": {
+      "default": 1,
+      "minimum": 1,
+      "title": "Revision",
+      "type": "integer"
+    },
+    "kind": {
+      "default": "native",
+      "enum": [
+        "native",
+        "mini_app"
+      ],
+      "title": "Kind",
+      "type": "string"
+    },
+    "title": {
+      "maxLength": 200,
+      "minLength": 1,
+      "title": "Title",
+      "type": "string"
+    },
+    "fallback": {
+      "maxLength": 20000,
+      "minLength": 1,
+      "title": "Fallback",
+      "type": "string"
+    },
+    "status": {
+      "default": "committed",
+      "enum": [
+        "preview",
+        "committed",
+        "error"
+      ],
+      "title": "Status",
+      "type": "string"
+    },
+    "nodes": {
+      "items": {
+        "$ref": "#/$defs/UINode"
+      },
+      "maxItems": 128,
+      "title": "Nodes",
+      "type": "array"
+    },
+    "app": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/UIApp"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "state": {
+      "additionalProperties": {
+        "$ref": "#/$defs/JsonValue"
+      },
+      "title": "State",
+      "type": "object"
+    },
+    "computed_state": {
+      "anyOf": [
+        {
+          "additionalProperties": {
+            "$ref": "#/$defs/JsonValue"
+          },
+          "type": "object"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Computed State"
+    },
+    "actions": {
+      "items": {
+        "$ref": "#/$defs/UIAction"
+      },
+      "maxItems": 20,
+      "title": "Actions",
+      "type": "array"
+    }
+  },
+  "required": [
+    "id",
+    "title",
+    "fallback"
+  ],
+  "title": "UISurface",
+  "type": "object",
+  "$id": "https://matopt.local/schemas/ui/v1/surface.json"
+}

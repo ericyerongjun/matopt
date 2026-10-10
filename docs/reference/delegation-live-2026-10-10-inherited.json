@@ -1,0 +1,2890 @@
+{
+  "schema_version": 1,
+  "mode": "live",
+  "synthetic_provider_usage": false,
+  "started_at": 1791604948.0204082,
+  "state_dir": "<isolated-state-directory>",
+  "conditions": {
+    "model": "deepseek-flash",
+    "worker_reasoning": "high",
+    "native_final_reasoning": "none",
+    "verify": false,
+    "title_sidecar": false,
+    "cold_kernel_each_run": true,
+    "path_order": "counterbalanced by fixture/repetition",
+    "repeats": 2,
+    "fixtures": [
+      "invoice",
+      "ledger"
+    ],
+    "model_attempts_per_run": 6,
+    "tool_starts_per_run": 8,
+    "timeout_seconds_per_run": 120.0,
+    "output_tokens_per_request": 2048,
+    "request_bytes_limit": 60000
+  },
+  "envelope": {
+    "runs": 8,
+    "maximum_provider_requests": 48,
+    "maximum_completion_tokens": 98304,
+    "maximum_serialized_request_bytes": 2880000,
+    "summed_run_deadlines_seconds": 960.0,
+    "dollar_upper_bound": null,
+    "note": "Request bytes are not token counts. No dollar cap is inferred without billing rates and a tokenizer."
+  },
+  "source_sha256": {
+    "backend/app/__init__.py": "16d6fd7921933103f4e2bd2d10474f410232fc5743abea34d650df8ecc55b97c",
+    "backend/app/agent/__init__.py": "97b5d595dc21056b7c7967c1023502312cdec0ae871c4dbd341d99169c3013ec",
+    "backend/app/agent/activity.py": "6c6c2337c28de54a153b44fde43cc205a43a1e2cb0d333a5cb899eca87ebde3c",
+    "backend/app/agent/budget.py": "ea2f3a7770f3de38297d9c6969c1ff2fb57e8e68f903cd5c852b1f7feac35202",
+    "backend/app/agent/child_env.py": "18afc2fcd740d8a6af5e31fd2de8546384f13c20a58961182671aa55c1fa8e76",
+    "backend/app/agent/datasets.py": "74925723cf379716888323a5270c8e4445a01339fe56a51fdc98ea00b65d5a6b",
+    "backend/app/agent/document_ocr.py": "409a6b4f00f6bfc066b820bd5413220b06983118fc08e5711a448933e55473e9",
+    "backend/app/agent/events.py": "9a287f639252afa7b2b2883d37a6c78838bba08ca2128f19ddc00be5fe782b09",
+    "backend/app/agent/execution.py": "93da32bb83e3e407c8132cef9fd410394de8a9fa79b09bfd996686eec1436a15",
+    "backend/app/agent/harness.py": "a6948af8fc9c8843cfe37e9b8f68fc5957b57a8d228beb24fb29300c5d1959e4",
+    "backend/app/agent/kernel.py": "e0e4c59cfc832041f9d50696f68e0aba1c92a9eab003f6b27f164626e4d6d7a3",
+    "backend/app/agent/lambda_bridge.py": "22cb6b4ae4e475496693d4b9adc324f99055c7ba882619c1f7474bedef8ac988",
+    "backend/app/agent/loop_policy.py": "9e756cec5362100ca8afdec873d4b36e9874ffe0743ce0faca0aa240763edeba",
+    "backend/app/agent/mcp/__init__.py": "99fa3f604c7de64dd1d2f390ba4119132f6a759182f493cd1db6617b407d1e27",
+    "backend/app/agent/mcp/__main__.py": "fa949e57982361ce966a653c2fc1f69022ebbe857ec0d8c85d30d70eacb0c498",
+    "backend/app/agent/mcp/client.py": "5f61bf30a1169d99202f78bfdab9b766739a1e5fc636470b65453c9f2dd4b76b",
+    "backend/app/agent/mcp/config.py": "cf9279796de0dd596059d6c049db926527559b47d119610dd21b0efc1b05543d",
+    "backend/app/agent/mcp/results.py": "c26f4d548125e7ab4c7162f613a7169581c024dd923a7097ead0f6d9e045cde1",
+    "backend/app/agent/mcp/sandbox.py": "6d08f81c234af9e087f04be6432e833dd63a08ba86dbfb4314805be2e4c946d7",
+    "backend/app/agent/monitor.py": "99e65a34bb6576d5322fa253f1108f889b59353660994b56a1fe1aecb9b7ed31",
+    "backend/app/agent/notebook.py": "6bfecec890a37c52b18cf01d09243cf831b09db72dba1c6dfa2ac34a45d62a67",
+    "backend/app/agent/presentation.py": "8b4dac35ef7ab254048983f6cde55ab6a5474445b8b7ec990c5ada0372f46eec",
+    "backend/app/agent/prompts.py": "5a9a5d9c6365a3c1c61b2f41f559502d84d91f9664a7d48737e8f6d7a934990f",
+    "backend/app/agent/recovery_guard.py": "e318f4f5c3842e5b61c288eb31d00fa02b791d05b46b03ef9aa59e3765623aa7",
+    "backend/app/agent/results.py": "d6fa89d6c601bb8221074cdbdf6f83641b2b1abbae86a6bef24caacf906b0ab6",
+    "backend/app/agent/runs.py": "f132843245f69b36cdb1dfbe0eae38521d9785bff9e2e4910da52864ccb3ccad",
+    "backend/app/agent/scheduler.py": "62f13cc2f6370692e27c994a258f413282480cc921bf0d860dfeda2e093a3473",
+    "backend/app/agent/session/__init__.py": "c1c81d26fb2880946be833e17a04724a144afcb641bda8e74f8ed952d107242b",
+    "backend/app/agent/session/derive.py": "d9a73fbebdb85c9e00dad1629440e52afefd143725cab31809ce5bc3f79aeaa1",
+    "backend/app/agent/session/events.py": "c2bf76d8e117d1411e13884db8610c531f9fca98c9a8df2b8bb50253eecbf6b7",
+    "backend/app/agent/session/log.py": "777749e7425943f01892c89c962daba94e055607c1c6554d356fe0036057c7f3",
+    "backend/app/agent/session/repair.py": "d0ece1b7b2526eb7cf69030c7bfecfc43effc30ea41c33e24a85f283ea8ab65f",
+    "backend/app/agent/session/store.py": "c4098acc6c0ac2573a962bb15ab86954a731ea65423f30a4b6baa43dfc1f0763",
+    "backend/app/agent/session/stream.py": "1769408459381cfb75dd0e0147a899eed55c8782ba3988c531875b62014fbc38",
+    "backend/app/agent/session/telemetry.py": "42c2950512face71fd91524da892a7a3bbf4afdbc63094b671ced39db40c5403",
+    "backend/app/agent/session/validate.py": "907ebc2c95b706488ee87225cfef5ddf032f968f5e2027ce0872465cefb4016f",
+    "backend/app/agent/skills/__init__.py": "607ee459573f3a964702753b26720d8e00f01ee4e13133d80e8f7cf622a63da9",
+    "backend/app/agent/skills/loader.py": "47b07fce1ae5208298f51a530797d9eb50cd9d38c868ae398d3de68479784860",
+    "backend/app/agent/skills/materialize.py": "800afcfa287811ce90f83219142f1cd2ffc11a82b2d04d14a25c50fb02affc55",
+    "backend/app/agent/skills/router.py": "2e9377eae19135efbb6543f98bc6f92d25869527c4132f87f845927f8690e9ae",
+    "backend/app/agent/skills/slash.py": "e7d6d7461856f4798a3fca47a92d5c9966ea01d0b63bbd369c4092544cd04085",
+    "backend/app/agent/tools/__init__.py": "2b37397bff3e4642933214cded092c86d39274369baec2e4f8937dcd13a0ef42",
+    "backend/app/agent/tools/base.py": "dda76d537af739b7835c74c7725bd49dfcc6018b295d3e14060fb3be57936bfa",
+    "backend/app/agent/tools/discovery_tool.py": "52c8819dc23ecdae880b1dc507d811fbcd99863ec01d265af08119e56a8f1075",
+    "backend/app/agent/tools/document_tool.py": "ee8a7cb0e83a4d6714ea3297d88f52c8611a523fc12922c200f2bdfa40296098",
+    "backend/app/agent/tools/file_tools.py": "b483dd914bb1972df5cb5538c41e72082e418dba86e5a0c74005cb4b2fbe99b1",
+    "backend/app/agent/tools/lambda_tool.py": "bb35afd18bbce343fa3eb407235d0c89e204c253f5d5665592a7a586c7cfcd0b",
+    "backend/app/agent/tools/math_tools.py": "11750c08dd0815e4233af6a637983eb1ac94b7cb77e2d43c251d1893f0b75f0b",
+    "backend/app/agent/tools/plan_tool.py": "a77fa82d1afed9c711142112a830561b05e37d9bc2545917fe23ec36fefbed16",
+    "backend/app/agent/tools/progress_tool.py": "d13b5c5f31739c330b74af20d23de2642a113a9d00d0347664af87e9955f5499",
+    "backend/app/agent/tools/python_tool.py": "00fc9301127ad94d4ccd813294627556511f564203e2129b5a47db23f1f87962",
+    "backend/app/agent/tools/read_state.py": "b62e732680204a1bcb27171083b920506f983832bf50403acff5dafdd0cd5730",
+    "backend/app/agent/tools/result_tool.py": "1180fbfa90dc2263fbca1c8497b40a7d4040c372f12c506b6ffb527fb34b4685",
+    "backend/app/agent/tools/router.py": "220b4a517478c4fce6febd4c1e99b4906e3268aad03d02b13d500b9637474180",
+    "backend/app/agent/tools/shell_tool.py": "7e4eea8dcfe55e08dbe90c58e86791a434d7a21ae28a596b1a88c8fba1f111c2",
+    "backend/app/agent/tools/skill_tools.py": "1ab28b482ffe68e3231c3e47f0ec28caf46770594cbb96b35f4aba7d8d7d1aa5",
+    "backend/app/agent/tools/ui_tools.py": "354d8998886a457e8c92b62ca1c735de653e25cf2901a9fd4d0664a88486da23",
+    "backend/app/agent/tools/web_search.py": "2bfab0db98e261860c73a9a85a341c5aa652ea2ec54673e1ca75e3d3286bda38",
+    "backend/app/agent/workspace.py": "618b976f6a8f3dc65c615bbdf5d371ff0084995b6ca14d2cfb8d2b96d15b5cc0",
+    "backend/app/api/__init__.py": "880491e1023c0a1e2ec4deb090b1be6983a3ebcb718b31c82d9c0e98c3596b4f",
+    "backend/app/api/chat.py": "7e9bbee6a9ba5ab4f250f1bea6b3074727a9327dc0a4c0c76ce2145dd2326e3c",
+    "backend/app/api/conversations.py": "04713b373ecdadadca2475609db79108edd6742a1fec4650ad6848f10ed2b7ed",
+    "backend/app/api/files.py": "941fb6527b6518d18f0a02e36881e16f987997a0e0f9624260364cce169a19cb",
+    "backend/app/api/followups.py": "8ad7039b789f2365605fe8c70753716b5a5dec19710fc2a8bfaeaeb7eacde619",
+    "backend/app/api/providers.py": "2220dc7c2a8fe25188a6a474fb5d2e3d24a510eb444636b40a7f08b5e4453098",
+    "backend/app/api/skills.py": "11a14420728de41dad18aa4459a8e05b5f30c51c26e8ea0662dbd6a1a4256992",
+    "backend/app/api/suggestions.py": "8d4b39725875d8cb5cf3a8f4fe1cbdac1faca2cacede04130c50f8b4d2b50c0d",
+    "backend/app/api/tools.py": "14bce88ef18bb21922559aa4e0158a7de5dea3e41fb206b057e72fbbcdac0e94",
+    "backend/app/api/ui.py": "b07cc2e9abee870758f4694335034bc60d9a71d26e8d6eb7c584374f54c22f0c",
+    "backend/app/config.py": "ca883020dfd81b5ba880b52c4ba2428bf7da1b8bcfc0e91edca3d89a5b10d367",
+    "backend/app/data/__init__.py": "ae020f436dd56ba85cf12363f1c53986d30a9809fc075fec423dc57de483a051",
+    "backend/app/data/lambda_host.py": "1d3e392c5a3af58531796354dabbb109175efdea75d867a7bd39bc55dd012c61",
+    "backend/app/llm/__init__.py": "b7db0f0a3bf7088e38ec103292a879c9bd0389c03332792ab54a45ae42e09ede",
+    "backend/app/llm/base.py": "d2f721079979eb9d3619cf98b6f5276ac1d10a928db427a732789460c9e51c0f",
+    "backend/app/llm/catalog.py": "f5a743c278c8cad555d5d7b138f5cb9874a5fc9260df591281fb3ba7602ca874",
+    "backend/app/llm/openai_compat.py": "8c2427f25ae11e642900f3d6434b32ade8a24688e71347bd5bfe8b714542cc99",
+    "backend/app/llm/registry.py": "037520f4c7806039123f579671ebcf0f112b34cffc19a20a5c8228bb86c6277a",
+    "backend/app/main.py": "9a414689e32add27310df00012fccd952eabf570f9cdcb99acf9b866afe66754",
+    "backend/app/runtime.py": "69d7db54ffa8f045e91e9e6ed36b644ad94f104fb685cd8e7630475e0c864dee",
+    "backend/app/storage/__init__.py": "b151453478a8623bf3fa004c0b799b866bcb8f3e9b715280dc8d942ddf36faf0",
+    "backend/app/storage/db.py": "a792108bcbb8c6e1ed0de7526426e2d15fd2af89b1c7cc1a942aef2cbeb9611a",
+    "backend/app/ui/__init__.py": "667d2b88b1450ebc6ea212750d1756d1040958a3c8ba58bf05f686c5e93c99fd",
+    "backend/app/ui/compiler.py": "4fa241e85f94f5822622d312187873b5b5b140deac611cdd96bd96e1d18c74a6",
+    "backend/app/ui/contracts.py": "414ce8eb7678431272df4835b2d70cf05f95c81d8eb2707e87da6ce02bcf7c54",
+    "backend/app/ui/generate.py": "4bd54d32e0e7dfcb5cc43b820353a891ab6f771725c81c5c98d256e2190c5bc9",
+    "backend/app/ui/service.py": "33c0c7d346f0e94202651cb52104464a5564158d53764bf5eb620dbccba7de9e",
+    "backend/app/ui/store.py": "5348dd2f33300bea76becab02c93968bc1e046d38e474c486404372811ef8399",
+    "backend/lambda_app/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "backend/lambda_app/api/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "backend/lambda_app/api/deps.py": "5acf08534c82dfabcd92e177ac477f2c16feb339e400224ad792265aeec15c4d",
+    "backend/lambda_app/api/v1/__init__.py": "79fbb96f496e4d51d20a5449f319b99f69d0268417e00e859028b1c42e752ba9",
+    "backend/lambda_app/api/v1/chat.py": "3d9d770752f6ed599f85d8aa362e59e09b65d1b44f50e64842192a743dbb9790",
+    "backend/lambda_app/api/v1/code_execution.py": "3ed9ece099cf562f7fce47aa8717bcac51d4df3c3f52cbc97827ba1cce96b97b",
+    "backend/lambda_app/api/v1/conversations.py": "4e561a69720b8181984c788e7e11e32bc201fec5918792f006e1b04ea68f7c51",
+    "backend/lambda_app/api/v1/export.py": "2c678863d304bd0df01a5e0fa7b20390fb82bf5ba81bb1ba38ffb6b3dfd66808",
+    "backend/lambda_app/api/v1/files.py": "d1f0770f9f1a35dc69c8cdf3b40e9820a1110e364e6de78ca3903f42fcdd3efe",
+    "backend/lambda_app/core/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "backend/lambda_app/core/config.py": "c98110bc96cc8fa65d342d1856815484494647d33697db2517636a24974b8ea4",
+    "backend/lambda_app/core/database.py": "f4274d198470ad3d5c70a03c25c4bcf4e91ae7d559c2f89a7f146c2dd92c0997",
+    "backend/lambda_app/core/hashid.py": "2ca2bbd1a58ad79a5928db4df30d683b4e2e913856df16dd37f02fcc26c28311",
+    "backend/lambda_app/core/security.py": "d428fcc4761b37451faa74fd2e9c6103e5b8fe38efb63736f03a23f063fa671b",
+    "backend/lambda_app/models/__init__.py": "774438597c7e415510ca4b50c08cbce3ecd4dba603805c0db57c8f203ea2f843",
+    "backend/lambda_app/models/models.py": "d4acba9628a0086fe47856491f986f14d69b1896fdff5ac3d7690a0bcf61a0c4",
+    "backend/lambda_app/models/schemas.py": "c7d0d9ca7f0bdcada24c2f507e8c17081caa485c6ab2675958b7d79db9f842dd",
+    "backend/lambda_app/services/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "backend/lambda_app/services/agent_service.py": "17bc17eb0f9c990f55701c6f8cdbfb548cd4be7a98e5522c1dea560c8b3feedb",
+    "backend/lambda_app/services/code_execution_service.py": "f37719c77743b364a1779aa80c8893491922cfc581ad9bb107cc09a00a7f4ec5",
+    "backend/lambda_app/services/latex_service.py": "106a2c2ef085a2a1e5d6d40a5621e23b3e19b3dc28a6e7f6c20d633773e4ef3b",
+    "backend/lambda_app/services/llm_service.py": "47338d9a63f6480b818d626070152e405d9ffb22aa00776912c8209adf16a61b",
+    "backend/lambda_app/services/local_code_execution.py": "a78441337724cb7dd330459fd0f350e9d8ba58e72456a286f0ab1db7bc78897b",
+    "backend/lambda_app/services/notebook_kernel.py": "cf25473ecada6dbd796a4c9c42706e3dd4774c714b4a1c99255d59d3c624099d",
+    "backend/lambda_app/services/notebook_service.py": "b384aa108004d742a2c607eb85baa451f99147aa2a782238121b999ff2bce7c7",
+    "backend/lambda_app/services/opensandbox_service.py": "2691ca8b8128b6f7c53bbd69d6dbd8ff8da8100b23d21e0bf70996e0884e9f7a",
+    "backend/lambda_app/services/oss_service.py": "ce121ab746e4288f5b582de2c91d01700632734b3bc0e355f18dea00f555fb7b",
+    "backend/lambda_app/services/pdf_service.py": "d025b4da94ea1550696aeb2c6dae1c635c3973f0837ca750fbca47b4b7f14133",
+    "backend/lambda_app/services/report_service.py": "0fb2b3ae73ee98f451c0a9d4334a7c606496aabd2fe530f860d32df39a969e95",
+    "backend/lambda_app/services/sandbox_file_manager.py": "c14460e1c8e46504662d967ef84cfa6c23a6a085f8b7c3f1bbd6e81c631a8443",
+    "backend/lambda_app/utils/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "backend/lambda_app/utils/text.py": "3caaa28ffaa7154a2fb8eab1bc5f14ea63774bda6c148557d5d505dc53511c72",
+    "docs/reference/delegation-result.schema.json": "e84c8c4b1277ce59114de2c70e8c1e6bae15dde95f206d9e56a8415a13397897",
+    "scripts/benchmark_delegation.py": "c5d88d0d576fb907ca30990f18570edb155c3c50544a014b4e58bb60c2dd8741"
+  },
+  "source_sha256_after": {
+    "backend/app/__init__.py": "16d6fd7921933103f4e2bd2d10474f410232fc5743abea34d650df8ecc55b97c",
+    "backend/app/agent/__init__.py": "97b5d595dc21056b7c7967c1023502312cdec0ae871c4dbd341d99169c3013ec",
+    "backend/app/agent/activity.py": "6c6c2337c28de54a153b44fde43cc205a43a1e2cb0d333a5cb899eca87ebde3c",
+    "backend/app/agent/budget.py": "ea2f3a7770f3de38297d9c6969c1ff2fb57e8e68f903cd5c852b1f7feac35202",
+    "backend/app/agent/child_env.py": "18afc2fcd740d8a6af5e31fd2de8546384f13c20a58961182671aa55c1fa8e76",
+    "backend/app/agent/datasets.py": "74925723cf379716888323a5270c8e4445a01339fe56a51fdc98ea00b65d5a6b",
+    "backend/app/agent/document_ocr.py": "409a6b4f00f6bfc066b820bd5413220b06983118fc08e5711a448933e55473e9",
+    "backend/app/agent/events.py": "9a287f639252afa7b2b2883d37a6c78838bba08ca2128f19ddc00be5fe782b09",
+    "backend/app/agent/execution.py": "93da32bb83e3e407c8132cef9fd410394de8a9fa79b09bfd996686eec1436a15",
+    "backend/app/agent/harness.py": "a6948af8fc9c8843cfe37e9b8f68fc5957b57a8d228beb24fb29300c5d1959e4",
+    "backend/app/agent/kernel.py": "e0e4c59cfc832041f9d50696f68e0aba1c92a9eab003f6b27f164626e4d6d7a3",
+    "backend/app/agent/lambda_bridge.py": "22cb6b4ae4e475496693d4b9adc324f99055c7ba882619c1f7474bedef8ac988",
+    "backend/app/agent/loop_policy.py": "9e756cec5362100ca8afdec873d4b36e9874ffe0743ce0faca0aa240763edeba",
+    "backend/app/agent/mcp/__init__.py": "99fa3f604c7de64dd1d2f390ba4119132f6a759182f493cd1db6617b407d1e27",
+    "backend/app/agent/mcp/__main__.py": "fa949e57982361ce966a653c2fc1f69022ebbe857ec0d8c85d30d70eacb0c498",
+    "backend/app/agent/mcp/client.py": "5f61bf30a1169d99202f78bfdab9b766739a1e5fc636470b65453c9f2dd4b76b",
+    "backend/app/agent/mcp/config.py": "cf9279796de0dd596059d6c049db926527559b47d119610dd21b0efc1b05543d",
+    "backend/app/agent/mcp/results.py": "c26f4d548125e7ab4c7162f613a7169581c024dd923a7097ead0f6d9e045cde1",
+    "backend/app/agent/mcp/sandbox.py": "6d08f81c234af9e087f04be6432e833dd63a08ba86dbfb4314805be2e4c946d7",
+    "backend/app/agent/monitor.py": "99e65a34bb6576d5322fa253f1108f889b59353660994b56a1fe1aecb9b7ed31",
+    "backend/app/agent/notebook.py": "6bfecec890a37c52b18cf01d09243cf831b09db72dba1c6dfa2ac34a45d62a67",
+    "backend/app/agent/presentation.py": "8b4dac35ef7ab254048983f6cde55ab6a5474445b8b7ec990c5ada0372f46eec",
+    "backend/app/agent/prompts.py": "5a9a5d9c6365a3c1c61b2f41f559502d84d91f9664a7d48737e8f6d7a934990f",
+    "backend/app/agent/recovery_guard.py": "e318f4f5c3842e5b61c288eb31d00fa02b791d05b46b03ef9aa59e3765623aa7",
+    "backend/app/agent/results.py": "d6fa89d6c601bb8221074cdbdf6f83641b2b1abbae86a6bef24caacf906b0ab6",
+    "backend/app/agent/runs.py": "f132843245f69b36cdb1dfbe0eae38521d9785bff9e2e4910da52864ccb3ccad",
+    "backend/app/agent/scheduler.py": "62f13cc2f6370692e27c994a258f413282480cc921bf0d860dfeda2e093a3473",
+    "backend/app/agent/session/__init__.py": "c1c81d26fb2880946be833e17a04724a144afcb641bda8e74f8ed952d107242b",
+    "backend/app/agent/session/derive.py": "d9a73fbebdb85c9e00dad1629440e52afefd143725cab31809ce5bc3f79aeaa1",
+    "backend/app/agent/session/events.py": "c2bf76d8e117d1411e13884db8610c531f9fca98c9a8df2b8bb50253eecbf6b7",
+    "backend/app/agent/session/log.py": "777749e7425943f01892c89c962daba94e055607c1c6554d356fe0036057c7f3",
+    "backend/app/agent/session/repair.py": "d0ece1b7b2526eb7cf69030c7bfecfc43effc30ea41c33e24a85f283ea8ab65f",
+    "backend/app/agent/session/store.py": "c4098acc6c0ac2573a962bb15ab86954a731ea65423f30a4b6baa43dfc1f0763",
+    "backend/app/agent/session/stream.py": "1769408459381cfb75dd0e0147a899eed55c8782ba3988c531875b62014fbc38",
+    "backend/app/agent/session/telemetry.py": "42c2950512face71fd91524da892a7a3bbf4afdbc63094b671ced39db40c5403",
+    "backend/app/agent/session/validate.py": "907ebc2c95b706488ee87225cfef5ddf032f968f5e2027ce0872465cefb4016f",
+    "backend/app/agent/skills/__init__.py": "607ee459573f3a964702753b26720d8e00f01ee4e13133d80e8f7cf622a63da9",
+    "backend/app/agent/skills/loader.py": "47b07fce1ae5208298f51a530797d9eb50cd9d38c868ae398d3de68479784860",
+    "backend/app/agent/skills/materialize.py": "800afcfa287811ce90f83219142f1cd2ffc11a82b2d04d14a25c50fb02affc55",
+    "backend/app/agent/skills/router.py": "2e9377eae19135efbb6543f98bc6f92d25869527c4132f87f845927f8690e9ae",
+    "backend/app/agent/skills/slash.py": "e7d6d7461856f4798a3fca47a92d5c9966ea01d0b63bbd369c4092544cd04085",
+    "backend/app/agent/tools/__init__.py": "2b37397bff3e4642933214cded092c86d39274369baec2e4f8937dcd13a0ef42",
+    "backend/app/agent/tools/base.py": "dda76d537af739b7835c74c7725bd49dfcc6018b295d3e14060fb3be57936bfa",
+    "backend/app/agent/tools/discovery_tool.py": "52c8819dc23ecdae880b1dc507d811fbcd99863ec01d265af08119e56a8f1075",
+    "backend/app/agent/tools/document_tool.py": "ee8a7cb0e83a4d6714ea3297d88f52c8611a523fc12922c200f2bdfa40296098",
+    "backend/app/agent/tools/file_tools.py": "b483dd914bb1972df5cb5538c41e72082e418dba86e5a0c74005cb4b2fbe99b1",
+    "backend/app/agent/tools/lambda_tool.py": "bb35afd18bbce343fa3eb407235d0c89e204c253f5d5665592a7a586c7cfcd0b",
+    "backend/app/agent/tools/math_tools.py": "11750c08dd0815e4233af6a637983eb1ac94b7cb77e2d43c251d1893f0b75f0b",
+    "backend/app/agent/tools/plan_tool.py": "a77fa82d1afed9c711142112a830561b05e37d9bc2545917fe23ec36fefbed16",
+    "backend/app/agent/tools/progress_tool.py": "d13b5c5f31739c330b74af20d23de2642a113a9d00d0347664af87e9955f5499",
+    "backend/app/agent/tools/python_tool.py": "00fc9301127ad94d4ccd813294627556511f564203e2129b5a47db23f1f87962",
+    "backend/app/agent/tools/read_state.py": "b62e732680204a1bcb27171083b920506f983832bf50403acff5dafdd0cd5730",
+    "backend/app/agent/tools/result_tool.py": "1180fbfa90dc2263fbca1c8497b40a7d4040c372f12c506b6ffb527fb34b4685",
+    "backend/app/agent/tools/router.py": "220b4a517478c4fce6febd4c1e99b4906e3268aad03d02b13d500b9637474180",
+    "backend/app/agent/tools/shell_tool.py": "7e4eea8dcfe55e08dbe90c58e86791a434d7a21ae28a596b1a88c8fba1f111c2",
+    "backend/app/agent/tools/skill_tools.py": "1ab28b482ffe68e3231c3e47f0ec28caf46770594cbb96b35f4aba7d8d7d1aa5",
+    "backend/app/agent/tools/ui_tools.py": "354d8998886a457e8c92b62ca1c735de653e25cf2901a9fd4d0664a88486da23",
+    "backend/app/agent/tools/web_search.py": "2bfab0db98e261860c73a9a85a341c5aa652ea2ec54673e1ca75e3d3286bda38",
+    "backend/app/agent/workspace.py": "618b976f6a8f3dc65c615bbdf5d371ff0084995b6ca14d2cfb8d2b96d15b5cc0",
+    "backend/app/api/__init__.py": "880491e1023c0a1e2ec4deb090b1be6983a3ebcb718b31c82d9c0e98c3596b4f",
+    "backend/app/api/chat.py": "7e9bbee6a9ba5ab4f250f1bea6b3074727a9327dc0a4c0c76ce2145dd2326e3c",
+    "backend/app/api/conversations.py": "04713b373ecdadadca2475609db79108edd6742a1fec4650ad6848f10ed2b7ed",
+    "backend/app/api/files.py": "941fb6527b6518d18f0a02e36881e16f987997a0e0f9624260364cce169a19cb",
+    "backend/app/api/followups.py": "8ad7039b789f2365605fe8c70753716b5a5dec19710fc2a8bfaeaeb7eacde619",
+    "backend/app/api/providers.py": "2220dc7c2a8fe25188a6a474fb5d2e3d24a510eb444636b40a7f08b5e4453098",
+    "backend/app/api/skills.py": "11a14420728de41dad18aa4459a8e05b5f30c51c26e8ea0662dbd6a1a4256992",
+    "backend/app/api/suggestions.py": "8d4b39725875d8cb5cf3a8f4fe1cbdac1faca2cacede04130c50f8b4d2b50c0d",
+    "backend/app/api/tools.py": "14bce88ef18bb21922559aa4e0158a7de5dea3e41fb206b057e72fbbcdac0e94",
+    "backend/app/api/ui.py": "b07cc2e9abee870758f4694335034bc60d9a71d26e8d6eb7c584374f54c22f0c",
+    "backend/app/config.py": "ca883020dfd81b5ba880b52c4ba2428bf7da1b8bcfc0e91edca3d89a5b10d367",
+    "backend/app/data/__init__.py": "ae020f436dd56ba85cf12363f1c53986d30a9809fc075fec423dc57de483a051",
+    "backend/app/data/lambda_host.py": "1d3e392c5a3af58531796354dabbb109175efdea75d867a7bd39bc55dd012c61",
+    "backend/app/llm/__init__.py": "b7db0f0a3bf7088e38ec103292a879c9bd0389c03332792ab54a45ae42e09ede",
+    "backend/app/llm/base.py": "d2f721079979eb9d3619cf98b6f5276ac1d10a928db427a732789460c9e51c0f",
+    "backend/app/llm/catalog.py": "f5a743c278c8cad555d5d7b138f5cb9874a5fc9260df591281fb3ba7602ca874",
+    "backend/app/llm/openai_compat.py": "8c2427f25ae11e642900f3d6434b32ade8a24688e71347bd5bfe8b714542cc99",
+    "backend/app/llm/registry.py": "037520f4c7806039123f579671ebcf0f112b34cffc19a20a5c8228bb86c6277a",
+    "backend/app/main.py": "9a414689e32add27310df00012fccd952eabf570f9cdcb99acf9b866afe66754",
+    "backend/app/runtime.py": "69d7db54ffa8f045e91e9e6ed36b644ad94f104fb685cd8e7630475e0c864dee",
+    "backend/app/storage/__init__.py": "b151453478a8623bf3fa004c0b799b866bcb8f3e9b715280dc8d942ddf36faf0",
+    "backend/app/storage/db.py": "a792108bcbb8c6e1ed0de7526426e2d15fd2af89b1c7cc1a942aef2cbeb9611a",
+    "backend/app/ui/__init__.py": "667d2b88b1450ebc6ea212750d1756d1040958a3c8ba58bf05f686c5e93c99fd",
+    "backend/app/ui/compiler.py": "4fa241e85f94f5822622d312187873b5b5b140deac611cdd96bd96e1d18c74a6",
+    "backend/app/ui/contracts.py": "414ce8eb7678431272df4835b2d70cf05f95c81d8eb2707e87da6ce02bcf7c54",
+    "backend/app/ui/generate.py": "4bd54d32e0e7dfcb5cc43b820353a891ab6f771725c81c5c98d256e2190c5bc9",
+    "backend/app/ui/service.py": "33c0c7d346f0e94202651cb52104464a5564158d53764bf5eb620dbccba7de9e",
+    "backend/app/ui/store.py": "5348dd2f33300bea76becab02c93968bc1e046d38e474c486404372811ef8399",
+    "backend/lambda_app/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "backend/lambda_app/api/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "backend/lambda_app/api/deps.py": "5acf08534c82dfabcd92e177ac477f2c16feb339e400224ad792265aeec15c4d",
+    "backend/lambda_app/api/v1/__init__.py": "79fbb96f496e4d51d20a5449f319b99f69d0268417e00e859028b1c42e752ba9",
+    "backend/lambda_app/api/v1/chat.py": "3d9d770752f6ed599f85d8aa362e59e09b65d1b44f50e64842192a743dbb9790",
+    "backend/lambda_app/api/v1/code_execution.py": "3ed9ece099cf562f7fce47aa8717bcac51d4df3c3f52cbc97827ba1cce96b97b",
+    "backend/lambda_app/api/v1/conversations.py": "4e561a69720b8181984c788e7e11e32bc201fec5918792f006e1b04ea68f7c51",
+    "backend/lambda_app/api/v1/export.py": "2c678863d304bd0df01a5e0fa7b20390fb82bf5ba81bb1ba38ffb6b3dfd66808",
+    "backend/lambda_app/api/v1/files.py": "d1f0770f9f1a35dc69c8cdf3b40e9820a1110e364e6de78ca3903f42fcdd3efe",
+    "backend/lambda_app/core/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "backend/lambda_app/core/config.py": "c98110bc96cc8fa65d342d1856815484494647d33697db2517636a24974b8ea4",
+    "backend/lambda_app/core/database.py": "f4274d198470ad3d5c70a03c25c4bcf4e91ae7d559c2f89a7f146c2dd92c0997",
+    "backend/lambda_app/core/hashid.py": "2ca2bbd1a58ad79a5928db4df30d683b4e2e913856df16dd37f02fcc26c28311",
+    "backend/lambda_app/core/security.py": "d428fcc4761b37451faa74fd2e9c6103e5b8fe38efb63736f03a23f063fa671b",
+    "backend/lambda_app/models/__init__.py": "774438597c7e415510ca4b50c08cbce3ecd4dba603805c0db57c8f203ea2f843",
+    "backend/lambda_app/models/models.py": "d4acba9628a0086fe47856491f986f14d69b1896fdff5ac3d7690a0bcf61a0c4",
+    "backend/lambda_app/models/schemas.py": "c7d0d9ca7f0bdcada24c2f507e8c17081caa485c6ab2675958b7d79db9f842dd",
+    "backend/lambda_app/services/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "backend/lambda_app/services/agent_service.py": "17bc17eb0f9c990f55701c6f8cdbfb548cd4be7a98e5522c1dea560c8b3feedb",
+    "backend/lambda_app/services/code_execution_service.py": "f37719c77743b364a1779aa80c8893491922cfc581ad9bb107cc09a00a7f4ec5",
+    "backend/lambda_app/services/latex_service.py": "106a2c2ef085a2a1e5d6d40a5621e23b3e19b3dc28a6e7f6c20d633773e4ef3b",
+    "backend/lambda_app/services/llm_service.py": "47338d9a63f6480b818d626070152e405d9ffb22aa00776912c8209adf16a61b",
+    "backend/lambda_app/services/local_code_execution.py": "a78441337724cb7dd330459fd0f350e9d8ba58e72456a286f0ab1db7bc78897b",
+    "backend/lambda_app/services/notebook_kernel.py": "cf25473ecada6dbd796a4c9c42706e3dd4774c714b4a1c99255d59d3c624099d",
+    "backend/lambda_app/services/notebook_service.py": "b384aa108004d742a2c607eb85baa451f99147aa2a782238121b999ff2bce7c7",
+    "backend/lambda_app/services/opensandbox_service.py": "2691ca8b8128b6f7c53bbd69d6dbd8ff8da8100b23d21e0bf70996e0884e9f7a",
+    "backend/lambda_app/services/oss_service.py": "ce121ab746e4288f5b582de2c91d01700632734b3bc0e355f18dea00f555fb7b",
+    "backend/lambda_app/services/pdf_service.py": "d025b4da94ea1550696aeb2c6dae1c635c3973f0837ca750fbca47b4b7f14133",
+    "backend/lambda_app/services/report_service.py": "0fb2b3ae73ee98f451c0a9d4334a7c606496aabd2fe530f860d32df39a969e95",
+    "backend/lambda_app/services/sandbox_file_manager.py": "c14460e1c8e46504662d967ef84cfa6c23a6a085f8b7c3f1bbd6e81c631a8443",
+    "backend/lambda_app/utils/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "backend/lambda_app/utils/text.py": "3caaa28ffaa7154a2fb8eab1bc5f14ea63774bda6c148557d5d505dc53511c72",
+    "docs/reference/delegation-result.schema.json": "e84c8c4b1277ce59114de2c70e8c1e6bae15dde95f206d9e56a8415a13397897",
+    "scripts/benchmark_delegation.py": "c5d88d0d576fb907ca30990f18570edb155c3c50544a014b4e58bb60c2dd8741"
+  },
+  "source_unchanged": true,
+  "raw_journals": {
+    "receipts": "docs/reference/delegation-live-2026-10-10-inherited.receipts.jsonl",
+    "trials": "docs/reference/delegation-live-2026-10-10-inherited.runs.jsonl"
+  },
+  "runs": [
+    {
+      "id": "invoice-r1-direct",
+      "fixture": "invoice",
+      "path": "direct",
+      "repetition": 1,
+      "pair_order": 0,
+      "conversation_id": "trial:invoice-r1-direct",
+      "input_sha256": "bbf33a8208f3becc74a8136f46d398208c0f8445602cf2b1d6ae5d6dc79ae553",
+      "prompt_sha256": "2a4d438e0139d29a7e7ed417cc4c5fdc875017afaca93ecea327a70496f2eb08",
+      "status": "complete",
+      "final_ready": true,
+      "final_text": "{\"row_count\": 4, \"unit_count\": 9, \"total_cents\": 1703}",
+      "elapsed_ms": 13906.718,
+      "event_counts": {
+        "conversation": 1,
+        "message_start": 1,
+        "activity": 10,
+        "progress": 6,
+        "work": 7,
+        "usage": 4,
+        "keepalive": 1,
+        "final_start": 1,
+        "text_delta": 23,
+        "artifact": 1,
+        "message_end": 1,
+        "done": 1
+      },
+      "oracle": {
+        "expected": {
+          "row_count": 4,
+          "unit_count": 9,
+          "total_cents": 1703
+        },
+        "observed_file": {
+          "row_count": 4,
+          "unit_count": 9,
+          "total_cents": 1703
+        },
+        "observed_answer": {
+          "row_count": 4,
+          "unit_count": 9,
+          "total_cents": 1703
+        },
+        "file_exists_at_required_path": true,
+        "file_content_matches": true,
+        "answer_content_matches": true,
+        "answer_exact_json_format": true,
+        "input_unchanged": true,
+        "environment_pass": true,
+        "all_summary_locations": [
+          "summary.json"
+        ],
+        "workspace_files": [
+          ".ipython/profile_default/history.sqlite",
+          ".ipython/profile_default/startup/README",
+          ".matopt/cards.json",
+          ".matplotlib/fontlist-v3.11.0.json",
+          "analysis.ipynb",
+          "summary.json",
+          "uploads/invoice.json"
+        ]
+      },
+      "budget": {
+        "model_attempts": 4,
+        "model_attempt_limit": 6,
+        "tool_starts": 2,
+        "tool_start_limit": 8,
+        "remaining_model_attempts": 2,
+        "remaining_work_model_attempts": 2,
+        "remaining_tool_starts": 6,
+        "final_slot_reserved": false,
+        "started_at": 172987.154349541,
+        "deadline": 173107.154349541,
+        "remaining_seconds": 106.10079945801408,
+        "deadline_reached": false,
+        "usage": {
+          "exact": {
+            "prompt_tokens": 10693,
+            "completion_tokens": 323,
+            "total_tokens": 11016,
+            "cache_read_tokens": 6656,
+            "cached_tokens": 6656,
+            "uncached_input_tokens": 4037
+          },
+          "reported_subtotal": {
+            "prompt_tokens": 10693,
+            "completion_tokens": 323,
+            "total_tokens": 11016,
+            "cache_read_tokens": 6656,
+            "cached_tokens": 6656,
+            "uncached_input_tokens": 4037
+          },
+          "complete": true,
+          "admitted_attempts": 4,
+          "reported_attempts": 4,
+          "unsettled_attempts": 0,
+          "unknown_settled_attempts": 0
+        },
+        "model_receipts": {
+          "native:1:1:1": {
+            "source": "native:answer",
+            "provider": "deepseek",
+            "model": "deepseek-flash",
+            "final": false,
+            "outcome": "completed",
+            "usage_status": "reported",
+            "usage": {
+              "prompt_tokens": 3108,
+              "completion_tokens": 82,
+              "total_tokens": 3190,
+              "cache_read_tokens": 0,
+              "cached_tokens": 0,
+              "uncached_input_tokens": 3108,
+              "reasoning_tokens": 8
+            }
+          },
+          "native:1:2:1": {
+            "source": "native:answer",
+            "provider": "deepseek",
+            "model": "deepseek-flash",
+            "final": false,
+            "outcome": "completed",
+            "usage_status": "reported",
+            "usage": {
+              "prompt_tokens": 3288,
+              "completion_tokens": 194,
+              "total_tokens": 3482,
+              "cache_read_tokens": 3072,
+              "cached_tokens": 3072,
+              "uncached_input_tokens": 216,
+              "reasoning_tokens": 54
+            }
+          },
+          "native:1:3:1": {
+            "source": "native:answer",
+            "provider": "deepseek",
+            "model": "deepseek-flash",
+            "final": false,
+            "outcome": "completed",
+            "usage_status": "reported",
+            "usage": {
+              "prompt_tokens": 3658,
+              "completion_tokens": 24,
+              "total_tokens": 3682,
+              "cache_read_tokens": 3456,
+              "cached_tokens": 3456,
+              "uncached_input_tokens": 202,
+              "reasoning_tokens": 0
+            }
+          },
+          "native:1:4:1": {
+            "source": "native:final",
+            "provider": "deepseek",
+            "model": "deepseek-flash",
+            "final": true,
+            "outcome": "completed",
+            "usage_status": "reported",
+            "usage": {
+              "prompt_tokens": 639,
+              "completion_tokens": 23,
+              "total_tokens": 662,
+              "cache_read_tokens": 128,
+              "cached_tokens": 128,
+              "uncached_input_tokens": 511
+            }
+          }
+        }
+      },
+      "provider_calls": [
+        {
+          "index": 0,
+          "source": "native",
+          "model": "deepseek-flash",
+          "reasoning": "high",
+          "stage": "worker",
+          "max_output_tokens": 2048,
+          "request_bytes": 13555,
+          "request_sha256": "03b2b2b6eed91ca74437f6bd5a13fb39f0e16eb144215db67976bfb7a3f80d03",
+          "dispatched": true,
+          "outcome": "completed",
+          "usage": {
+            "prompt_tokens": 3108,
+            "completion_tokens": 82,
+            "total_tokens": 3190,
+            "reasoning_tokens": 8
+          },
+          "finish_reason": "tool_calls",
+          "elapsed_ms": 1161.368
+        },
+        {
+          "index": 1,
+          "source": "native",
+          "model": "deepseek-flash",
+          "reasoning": "high",
+          "stage": "worker",
+          "max_output_tokens": 2048,
+          "request_bytes": 14257,
+          "request_sha256": "7c410f85019a0a608ccb6d3b4fc660e372ca72943f43e6360bec3714791ebec1",
+          "dispatched": true,
+          "outcome": "completed",
+          "usage": {
+            "prompt_tokens": 3288,
+            "completion_tokens": 194,
+            "total_tokens": 3482,
+            "reasoning_tokens": 54
+          },
+          "finish_reason": "tool_calls",
+          "elapsed_ms": 1036.764
+        },
+        {
+          "index": 2,
+          "source": "native",
+          "model": "deepseek-flash",
+          "reasoning": "high",
+          "stage": "worker",
+          "max_output_tokens": 2048,
+          "request_bytes": 15543,
+          "request_sha256": "bbe2c62d5d046f775999ae6b9157ebfd80a712b013a2f255b83f98a5164a582f",
+          "dispatched": true,
+          "outcome": "completed",
+          "usage": {
+            "prompt_tokens": 3658,
+            "completion_tokens": 24,
+            "total_tokens": 3682,
+            "reasoning_tokens": 0
+          },
+          "finish_reason": "stop",
+          "elapsed_ms": 435.201
+        },
+        {
+          "index": 3,
+          "source": "native",
+          "model": "deepseek-flash",
+          "reasoning": "none",
+          "stage": "final",
+          "max_output_tokens": 2048,
+          "request_bytes": 3480,
+          "request_sha256": "885a32bc502972c30c3c92f380b2ea82005a1adea78a86d5712d22087da0cf26",
+          "dispatched": true,
+          "outcome": "completed",
+          "usage": {
+            "prompt_tokens": 639,
+            "completion_tokens": 23,
+            "total_tokens": 662
+          },
+          "finish_reason": "stop",
+          "elapsed_ms": 659.804
+        }
+      ],
+      "child_tools": [],
+      "accounting": {
+        "actual_requests": 4,
+        "reported_attempts": 4,
+        "unknown_attempts": 0,
+        "exact_usage": {
+          "prompt_tokens": 10693,
+          "completion_tokens": 323,
+          "total_tokens": 11016
+        },
+        "reported_subtotal": {
+          "prompt_tokens": 10693,
+          "completion_tokens": 323,
+          "total_tokens": 11016
+        },
+        "parent_ledger_matches_wire": true,
+        "cost": {
+          "amount": null,
+          "currency": null,
+          "basis": "unknown usage or rates"
+        }
+      },
+      "native_attempt_retries": 0,
+      "tool_failures": 0
+    },
+    {
+      "id": "invoice-r1-delegated",
+      "fixture": "invoice",
+      "path": "delegated",
+      "repetition": 1,
+      "pair_order": 1,
+      "conversation_id": "trial:invoice-r1-delegated",
+      "input_sha256": "bbf33a8208f3becc74a8136f46d398208c0f8445602cf2b1d6ae5d6dc79ae553",
+      "prompt_sha256": "2a4d438e0139d29a7e7ed417cc4c5fdc875017afaca93ecea327a70496f2eb08",
+      "status": "error",
+      "final_ready": false,
+      "final_text": "",
+      "elapsed_ms": 18424.15,
+      "event_counts": {
+        "conversation": 1,
+        "message_start": 1,
+        "activity": 13,
+        "progress": 6,
+        "work": 12,
+        "usage": 4,
+        "keepalive": 1,
+        "final_start": 1,
+        "message_end": 1,
+        "error": 1
+      },
+      "oracle": {
+        "expected": {
+          "row_count": 4,
+          "unit_count": 9,
+          "total_cents": 1703
+        },
+        "observed_file": {
+          "row_count": 4,
+          "unit_count": 9,
+          "total_cents": 1703
+        },
+        "observed_answer": null,
+        "file_exists_at_required_path": true,
+        "file_content_matches": true,
+        "answer_content_matches": false,
+        "answer_exact_json_format": false,
+        "input_unchanged": true,
+        "environment_pass": true,
+        "all_summary_locations": [
+          "summary.json"
+        ],
+        "workspace_files": [
+          ".ipython/profile_default/history.sqlite",
+          ".ipython/profile_default/startup/README",
+          ".matopt/cards.json",
+          ".matplotlib/fontlist-v3.11.0.json",
+          ".skills/latex_skill.md",
+          ".skills/ppt_skill.md",
+          ".skills/res/logo.png",
+          "analysis.ipynb",
+          "invoice.json",
+          "summary.json",
+          "uploads/invoice.json"
+        ]
+      },
+      "budget": {
+        "model_attempts": 6,
+        "model_attempt_limit": 6,
+        "tool_starts": 2,
+        "tool_start_limit": 8,
+        "remaining_model_attempts": 0,
+        "remaining_work_model_attempts": 0,
+        "remaining_tool_starts": 6,
+        "final_slot_reserved": false,
+        "started_at": 173001.182203416,
+        "deadline": 173121.182203416,
+        "remaining_seconds": 101.58616408301168,
+        "deadline_reached": false,
+        "usage": {
+          "exact": {
+            "prompt_tokens": 22535,
+            "completion_tokens": 1255,
+            "total_tokens": 23790,
+            "reasoning_tokens": 277
+          },
+          "reported_subtotal": {
+            "prompt_tokens": 22535,
+            "completion_tokens": 1255,
+            "total_tokens": 23790,
+            "reasoning_tokens": 277
+          },
+          "complete": true,
+          "admitted_attempts": 6,
+          "reported_attempts": 6,
+          "unsettled_attempts": 0,
+          "unknown_settled_attempts": 0
+        },
+        "model_receipts": {
+          "native:1:1:1": {
+            "source": "native:answer",
+            "provider": "deepseek",
+            "model": "deepseek-flash",
+            "final": false,
+            "outcome": "completed",
+            "usage_status": "reported",
+            "usage": {
+              "prompt_tokens": 2632,
+              "completion_tokens": 110,
+              "total_tokens": 2742,
+              "cache_read_tokens": 384,
+              "cached_tokens": 384,
+              "uncached_input_tokens": 2248,
+              "reasoning_tokens": 12
+            }
+          },
+          "native:1:2:1": {
+            "source": "native:answer",
+            "provider": "deepseek",
+            "model": "deepseek-flash",
+            "final": false,
+            "outcome": "completed",
+            "usage_status": "reported",
+            "usage": {
+              "prompt_tokens": 2779,
+              "completion_tokens": 156,
+              "total_tokens": 2935,
+              "cache_read_tokens": 2560,
+              "cached_tokens": 2560,
+              "uncached_input_tokens": 219,
+              "reasoning_tokens": 84
+            }
+          },
+          "native:1:3:1": {
+            "source": "native:answer",
+            "provider": "deepseek",
+            "model": "deepseek-flash",
+            "final": false,
+            "outcome": "completed",
+            "usage_status": "reported",
+            "usage": {
+              "prompt_tokens": 3008,
+              "completion_tokens": 58,
+              "total_tokens": 3066,
+              "cache_read_tokens": 2816,
+              "cached_tokens": 2816,
+              "uncached_input_tokens": 192,
+              "reasoning_tokens": 15
+            }
+          },
+          "native:1:4:1": {
+            "source": "native:answer",
+            "provider": "deepseek",
+            "model": "deepseek-flash",
+            "final": false,
+            "outcome": "completed",
+            "usage_status": "reported",
+            "usage": {
+              "prompt_tokens": 3105,
+              "completion_tokens": 266,
+              "total_tokens": 3371,
+              "cache_read_tokens": 2944,
+              "cached_tokens": 2944,
+              "uncached_input_tokens": 161,
+              "reasoning_tokens": 100
+            }
+          },
+          "child-model:invoice-r1-delegated:1": {
+            "source": "lambda",
+            "provider": "deepseek",
+            "model": "deepseek-flash",
+            "final": false,
+            "outcome": "completed",
+            "usage_status": "reported",
+            "usage": {
+              "prompt_tokens": 5175,
+              "completion_tokens": 365,
+              "total_tokens": 5540,
+              "reasoning_tokens": 48
+            }
+          },
+          "child-model:invoice-r1-delegated:2": {
+            "source": "lambda",
+            "provider": "deepseek",
+            "model": "deepseek-flash",
+            "final": false,
+            "outcome": "completed",
+            "usage_status": "reported",
+            "usage": {
+              "prompt_tokens": 5836,
+              "completion_tokens": 300,
+              "total_tokens": 6136,
+              "reasoning_tokens": 18
+            }
+          }
+        }
+      },
+      "provider_calls": [
+        {
+          "index": 0,
+          "source": "native",
+          "model": "deepseek-flash",
+          "reasoning": "high",
+          "stage": "worker",
+          "max_output_tokens": 2048,
+          "request_bytes": 11377,
+          "request_sha256": "7df72f647c7c4c576bb5925ca8c72df628957ea861127d7bb7fd9ce2d71f7af3",
+          "dispatched": true,
+          "outcome": "completed",
+          "usage": {
+            "prompt_tokens": 2632,
+            "completion_tokens": 110,
+            "total_tokens": 2742,
+            "reasoning_tokens": 12
+          },
+          "finish_reason": "tool_calls",
+          "elapsed_ms": 902.27
+        },
+        {
+          "index": 1,
+          "source": "native",
+          "model": "deepseek-flash",
+          "reasoning": "high",
+          "stage": "worker",
+          "max_output_tokens": 2048,
+          "request_bytes": 12072,
+          "request_sha256": "f5d09de25b3a60cbbe9f5ab9d7caf06f1be72903cbe3539eafc424c4ed58c4f8",
+          "dispatched": true,
+          "outcome": "completed",
+          "usage": {
+            "prompt_tokens": 2779,
+            "completion_tokens": 156,
+            "total_tokens": 2935,
+            "reasoning_tokens": 84
+          },
+          "finish_reason": "tool_calls",
+          "elapsed_ms": 1251.411
+        },
+        {
+          "index": 2,
+          "source": "native",
+          "model": "deepseek-flash",
+          "reasoning": "high",
+          "stage": "worker",
+          "max_output_tokens": 2048,
+          "request_bytes": 13321,
+          "request_sha256": "6dd6f0ec1e2dddad67143273e7e84e639e257ddccc7c9886e2c747ad5e08e4d2",
+          "dispatched": true,
+          "outcome": "completed",
+          "usage": {
+            "prompt_tokens": 3008,
+            "completion_tokens": 58,
+            "total_tokens": 3066,
+            "reasoning_tokens": 15
+          },
+          "finish_reason": "tool_calls",
+          "elapsed_ms": 913.713
+        },
+        {
+          "index": 3,
+          "source": "native",
+          "model": "deepseek-flash",
+          "reasoning": "high",
+          "stage": "worker",
+          "max_output_tokens": 2048,
+          "request_bytes": 13859,
+          "request_sha256": "a44bfe42d719bb34fcb6fd9607c8f943a799ad9fcef2f4090220759c49eb3d22",
+          "dispatched": true,
+          "outcome": "completed",
+          "usage": {
+            "prompt_tokens": 3105,
+            "completion_tokens": 266,
+            "total_tokens": 3371,
+            "reasoning_tokens": 100
+          },
+          "finish_reason": "tool_calls",
+          "elapsed_ms": 1265.174
+        },
+        {
+          "index": 4,
+          "source": "lambda",
+          "model": "deepseek-flash",
+          "reasoning": "high",
+          "stage": "worker",
+          "max_output_tokens": 2048,
+          "request_bytes": 20596,
+          "request_sha256": "01d6b368b1fb71723e84d9523d51808448dc9e9f796e87742115bbee629a3fda",
+          "dispatched": true,
+          "outcome": "completed",
+          "usage": {
+            "prompt_tokens": 5175,
+            "completion_tokens": 365,
+            "total_tokens": 5540,
+            "reasoning_tokens": 48
+          },
+          "finish_reason": "tool_calls",
+          "elapsed_ms": 1865.877
+        },
+        {
+          "index": 5,
+          "source": "lambda",
+          "model": "deepseek-flash",
+          "reasoning": "high",
+          "stage": "worker",
+          "max_output_tokens": 2048,
+          "request_bytes": 23034,
+          "request_sha256": "a9af77823adc3f8df1eea21d23e52ac03d53b27ba735b4b4c71f2c2b005e6a69",
+          "dispatched": true,
+          "outcome": "completed",
+          "usage": {
+            "prompt_tokens": 5836,
+            "completion_tokens": 300,
+            "total_tokens": 6136,
+            "reasoning_tokens": 18
+          },
+          "finish_reason": "stop",
+          "elapsed_ms": 1606.43
+        }
+      ],
+      "child_tools": [
+        {
+          "name": "execute_python",
+          "call_id": "child-tool:invoice-r1-delegated:1",
+          "outcome": "success",
+          "admitted": true,
+          "elapsed_ms": 10248.334
+        }
+      ],
+      "accounting": {
+        "actual_requests": 6,
+        "reported_attempts": 6,
+        "unknown_attempts": 0,
+        "exact_usage": {
+          "prompt_tokens": 22535,
+          "completion_tokens": 1255,
+          "total_tokens": 23790,
+          "reasoning_tokens": 277
+        },
+        "reported_subtotal": {
+          "prompt_tokens": 22535,
+          "completion_tokens": 1255,
+          "total_tokens": 23790,
+          "reasoning_tokens": 277
+        },
+        "parent_ledger_matches_wire": true,
+        "cost": {
+          "amount": null,
+          "currency": null,
+          "basis": "unknown usage or rates"
+        }
+      },
+      "native_attempt_retries": 0,
+      "tool_failures": 4
+    },
+    {
+      "id": "ledger-r1-delegated",
+      "fixture": "ledger",
+      "path": "delegated",
+      "repetition": 1,
+      "pair_order": 0,
+      "conversation_id": "trial:ledger-r1-delegated",
+      "input_sha256": "e3619c2ceb5c2b2fae77305942c00dc67bcd290d3e2b08d4e72f67e1cfb08944",
+      "prompt_sha256": "8acd73467b8edc17d3f26ec5dd54b456c90aeb116dcd836d6cf0d18532814b90",
+      "status": "error",
+      "final_ready": false,
+      "final_text": "",
+      "elapsed_ms": 19171.021,
+      "event_counts": {
+        "conversation": 1,
+        "message_start": 1,
+        "activity": 10,
+        "progress": 6,
+        "work": 8,
+        "usage": 3,
+        "keepalive": 1,
+        "final_start": 1,
+        "message_end": 1,
+        "error": 1
+      },
+      "oracle": {
+        "expected": {
+          "entry_count": 5,
+          "net_cents": 2100,
+          "by_account": {
+            "A": 1050,
+            "B": 150,
+            "C": 900
+          }
+        },
+        "observed_file": {
+          "entry_count": 5,
+          "net_cents": 2100,
+          "by_account": {
+            "A": 1050,
+            "B": 150,
+            "C": 900
+          }
+        },
+        "observed_answer": null,
+        "file_exists_at_required_path": true,
+        "file_content_matches": true,
+        "answer_content_matches": false,
+        "answer_exact_json_format": false,
+        "input_unchanged": true,
+        "environment_pass": true,
+        "all_summary_locations": [
+          "summary.json"
+        ],
+        "workspace_files": [
+          ".ipython/profile_default/history.sqlite",
+          ".ipython/profile_default/startup/README",
+          ".matopt/cards.json",
+          ".matplotlib/fontlist-v3.11.0.json",
+          ".skills/latex_skill.md",
+          ".skills/ppt_skill.md",
+          ".skills/res/logo.png",
+          "analysis.ipynb",
+          "ledger.json",
+          "summary.json",
+          "uploads/ledger.json"
+        ]
+      },
+      "budget": {
+        "model_attempts": 6,
+        "model_attempt_limit": 6,
+        "tool_starts": 5,
+        "tool_start_limit": 8,
+        "remaining_model_attempts": 0,
+        "remaining_work_model_attempts": 0,
+        "remaining_tool_starts": 3,
+        "final_slot_reserved": false,
+        "started_at": 173019.72824225,
+        "deadline": 173139.72824225,
+        "remaining_seconds": 100.83886533402256,
+        "deadline_reached": false,
+        "usage": {
+          "exact": {
+            "prompt_tokens": 25197,
+            "completion_tokens": 1448,
+            "total_tokens": 26645,
+            "reasoning_tokens": 516
+          },
+          "reported_subtotal": {
+            "prompt_tokens": 25197,
+            "completion_tokens": 1448,
+            "total_tokens": 26645,
+            "reasoning_tokens": 516
+          },
+          "complete": true,
+          "admitted_attempts": 6,
+          "reported_attempts": 6,
+          "unsettled_attempts": 0,
+          "unknown_settled_attempts": 0
+        },
+        "model_receipts": {
+          "native:1:1:1": {
+            "source": "native:answer",
+            "provider": "deepseek",
+            "model": "deepseek-flash",
+            "final": false,
+            "outcome": "completed",
+            "usage_status": "reported",
+            "usage": {
+              "prompt_tokens": 2618,
+              "completion_tokens": 85,
+              "total_tokens": 2703,
+              "cache_read_tokens": 0,
+              "cached_tokens": 0,
+              "uncached_input_tokens": 2618,
+              "reasoning_tokens": 22
+            }
+          },
+          "native:1:2:1": {
+            "source": "native:answer",
+            "provider": "deepseek",
+            "model": "deepseek-flash",
+            "final": false,
+            "outcome": "completed",
+            "usage_status": "reported",
+            "usage": {
+              "prompt_tokens": 2740,
+              "completion_tokens": 264,
+              "total_tokens": 3004,
+              "cache_read_tokens": 2560,
+              "cached_tokens": 2560,
+              "uncached_input_tokens": 180,
+              "reasoning_tokens": 106
+            }
+          },
+          "child-model:ledger-r1-delegated:1": {
+            "source": "lambda",
+            "provider": "deepseek",
+            "model": "deepseek-flash",
+            "final": false,
+            "outcome": "completed",
+            "usage_status": "reported",
+            "usage": {
+              "prompt_tokens": 5153,
+              "completion_tokens": 492,
+              "total_tokens": 5645,
+              "reasoning_tokens": 158
+            }
+          },
+          "child-model:ledger-r1-delegated:2": {
+            "source": "lambda",
+            "provider": "deepseek",
+            "model": "deepseek-flash",
+            "final": false,
+            "outcome": "completed",
+            "usage_status": "reported",
+            "usage": {
+              "prompt_tokens": 5816,
+              "completion_tokens": 96,
+              "total_tokens": 5912,
+              "reasoning_tokens": 0
+            }
+          },
+          "native:1:3:1": {
+            "source": "native:answer",
+            "provider": "deepseek",
+            "model": "deepseek-flash",
+            "final": false,
+            "outcome": "completed",
+            "usage_status": "reported",
+            "usage": {
+              "prompt_tokens": 3122,
+              "completion_tokens": 242,
+              "total_tokens": 3364,
+              "cache_read_tokens": 2944,
+              "cached_tokens": 2944,
+              "uncached_input_tokens": 178,
+              "reasoning_tokens": 177
+            }
+          },
+          "child-model:ledger-r1-delegated:3": {
+            "source": "lambda",
+            "provider": "deepseek",
+            "model": "deepseek-flash",
+            "final": false,
+            "outcome": "completed",
+            "usage_status": "reported",
+            "usage": {
+              "prompt_tokens": 5748,
+              "completion_tokens": 269,
+              "total_tokens": 6017,
+              "reasoning_tokens": 53
+            }
+          }
+        }
+      },
+      "provider_calls": [
+        {
+          "index": 0,
+          "source": "native",
+          "model": "deepseek-flash",
+          "reasoning": "high",
+          "stage": "worker",
+          "max_output_tokens": 2048,
+          "request_bytes": 11317,
+          "request_sha256": "4c53acc6d5cee51af75e32ca33bbf5d365b2ad177f9e8c36c90eeae93c7912cf",
+          "dispatched": true,
+          "outcome": "completed",
+          "usage": {
+            "prompt_tokens": 2618,
+            "completion_tokens": 85,
+            "total_tokens": 2703,
+            "reasoning_tokens": 22
+          },
+          "finish_reason": "tool_calls",
+          "elapsed_ms": 600.924
+        },
+        {
+          "index": 1,
+          "source": "native",
+          "model": "deepseek-flash",
+          "reasoning": "high",
+          "stage": "worker",
+          "max_output_tokens": 2048,
+          "request_bytes": 11944,
+          "request_sha256": "7758eb7166be1fcf063a667ef5e10ede27ec020b8a269b42f5f1db01a52a3f79",
+          "dispatched": true,
+          "outcome": "completed",
+          "usage": {
+            "prompt_tokens": 2740,
+            "completion_tokens": 264,
+            "total_tokens": 3004,
+            "reasoning_tokens": 106
+          },
+          "finish_reason": "tool_calls",
+          "elapsed_ms": 1840.675
+        },
+        {
+          "index": 2,
+          "source": "lambda",
+          "model": "deepseek-flash",
+          "reasoning": "high",
+          "stage": "worker",
+          "max_output_tokens": 2048,
+          "request_bytes": 20529,
+          "request_sha256": "9b82364ed84a67a73f9fabaf078668659988c43deb31634d4d059d5328d83688",
+          "dispatched": true,
+          "outcome": "completed",
+          "usage": {
+            "prompt_tokens": 5153,
+            "completion_tokens": 492,
+            "total_tokens": 5645,
+            "reasoning_tokens": 158
+          },
+          "finish_reason": "tool_calls",
+          "elapsed_ms": 2194.357
+        },
+        {
+          "index": 3,
+          "source": "lambda",
+          "model": "deepseek-flash",
+          "reasoning": "high",
+          "stage": "worker",
+          "max_output_tokens": 2048,
+          "request_bytes": 22647,
+          "request_sha256": "986a116cd37451b6649a02189d8bddbb8248d514c6fcf3be62cb9fb17a6ec55d",
+          "dispatched": true,
+          "outcome": "completed",
+          "usage": {
+            "prompt_tokens": 5816,
+            "completion_tokens": 96,
+            "total_tokens": 5912,
+            "reasoning_tokens": 0
+          },
+          "finish_reason": "stop",
+          "elapsed_ms": 851.36
+        },
+        {
+          "index": 4,
+          "source": "native",
+          "model": "deepseek-flash",
+          "reasoning": "high",
+          "stage": "worker",
+          "max_output_tokens": 2048,
+          "request_bytes": 13693,
+          "request_sha256": "0bc1d18c798572ad450541d27c827375f49ca3b4a969c1aadebaf085228eb641",
+          "dispatched": true,
+          "outcome": "completed",
+          "usage": {
+            "prompt_tokens": 3122,
+            "completion_tokens": 242,
+            "total_tokens": 3364,
+            "reasoning_tokens": 177
+          },
+          "finish_reason": "tool_calls",
+          "elapsed_ms": 1564.555
+        },
+        {
+          "index": 5,
+          "source": "lambda",
+          "model": "deepseek-flash",
+          "reasoning": "high",
+          "stage": "worker",
+          "max_output_tokens": 2048,
+          "request_bytes": 22306,
+          "request_sha256": "9a17dbe06eca93c617cf9fe04905ef3f9c39f6b95377c1fbd063b5a980ee1974",
+          "dispatched": true,
+          "outcome": "completed",
+          "usage": {
+            "prompt_tokens": 5748,
+            "completion_tokens": 269,
+            "total_tokens": 6017,
+            "reasoning_tokens": 53
+          },
+          "finish_reason": "tool_calls",
+          "elapsed_ms": 1566.344
+        }
+      ],
+      "child_tools": [
+        {
+          "name": "execute_python",
+          "call_id": "child-tool:ledger-r1-delegated:1",
+          "outcome": "success",
+          "admitted": true,
+          "elapsed_ms": 10378.394
+        },
+        {
+          "name": "read_file",
+          "call_id": "child-tool:ledger-r1-delegated:2",
+          "outcome": "success",
+          "admitted": true,
+          "elapsed_ms": 4.256
+        },
+        {
+          "name": "read_file",
+          "call_id": "child-tool:ledger-r1-delegated:3",
+          "outcome": "success",
+          "admitted": true,
+          "elapsed_ms": 2.558
+        }
+      ],
+      "accounting": {
+        "actual_requests": 6,
+        "reported_attempts": 6,
+        "unknown_attempts": 0,
+        "exact_usage": {
+          "prompt_tokens": 25197,
+          "completion_tokens": 1448,
+          "total_tokens": 26645,
+          "reasoning_tokens": 516
+        },
+        "reported_subtotal": {
+          "prompt_tokens": 25197,
+          "completion_tokens": 1448,
+          "total_tokens": 26645,
+          "reasoning_tokens": 516
+        },
+        "parent_ledger_matches_wire": true,
+        "cost": {
+          "amount": null,
+          "currency": null,
+          "basis": "unknown usage or rates"
+        }
+      },
+      "native_attempt_retries": 0,
+      "tool_failures": 2
+    },
+    {
+      "id": "ledger-r1-direct",
+      "fixture": "ledger",
+      "path": "direct",
+      "repetition": 1,
+      "pair_order": 1,
+      "conversation_id": "trial:ledger-r1-direct",
+      "input_sha256": "e3619c2ceb5c2b2fae77305942c00dc67bcd290d3e2b08d4e72f67e1cfb08944",
+      "prompt_sha256": "8acd73467b8edc17d3f26ec5dd54b456c90aeb116dcd836d6cf0d18532814b90",
+      "status": "complete",
+      "final_ready": true,
+      "final_text": "{\"entry_count\": 5, \"net_cents\": 2100, \"by_account\": {\"A\": 1050, \"B\": 150, \"C\": 900}}",
+      "elapsed_ms": 13261.282,
+      "event_counts": {
+        "conversation": 1,
+        "message_start": 1,
+        "activity": 10,
+        "progress": 6,
+        "work": 7,
+        "usage": 4,
+        "keepalive": 1,
+        "final_start": 1,
+        "text_delta": 39,
+        "artifact": 1,
+        "message_end": 1,
+        "done": 1
+      },
+      "oracle": {
+        "expected": {
+          "entry_count": 5,
+          "net_cents": 2100,
+          "by_account": {
+            "A": 1050,
+            "B": 150,
+            "C": 900
+          }
+        },
+        "observed_file": {
+          "entry_count": 5,
+          "net_cents": 2100,
+          "by_account": {
+            "A": 1050,
+            "B": 150,
+            "C": 900
+          }
+        },
+        "observed_answer": {
+          "entry_count": 5,
+          "net_cents": 2100,
+          "by_account": {
+            "A": 1050,
+            "B": 150,
+            "C": 900
+          }
+        },
+        "file_exists_at_required_path": true,
+        "file_content_matches": true,
+        "answer_content_matches": true,
+        "answer_exact_json_format": true,
+        "input_unchanged": true,
+        "environment_pass": true,
+        "all_summary_locations": [
+          "summary.json"
+        ],
+        "workspace_files": [
+          ".ipython/profile_default/history.sqlite",
+          ".ipython/profile_default/startup/README",
+          ".matopt/cards.json",
+          ".matplotlib/fontlist-v3.11.0.json",
+          "analysis.ipynb",
+          "summary.json",
+          "uploads/ledger.json"
+        ]
+      },
+      "budget": {
+        "model_attempts": 4,
+        "model_attempt_limit": 6,
+        "tool_starts": 2,
+        "tool_start_limit": 8,
+        "remaining_model_attempts": 2,
+        "remaining_work_model_attempts": 2,
+        "remaining_tool_starts": 6,
+        "final_slot_reserved": false,
+        "started_at": 173039.025669666,
+        "deadline": 173159.025669666,
+        "remaining_seconds": 106.74641491600778,
+        "deadline_reached": false,
+        "usage": {
+          "exact": {
+            "prompt_tokens": 10594,
+            "completion_tokens": 354,
+            "total_tokens": 10948,
+            "cache_read_tokens": 7040,
+            "cached_tokens": 7040,
+            "uncached_input_tokens": 3554
+          },
+          "reported_subtotal": {
+            "prompt_tokens": 10594,
+            "completion_tokens": 354,
+            "total_tokens": 10948,
+            "cache_read_tokens": 7040,
+            "cached_tokens": 7040,
+            "uncached_input_tokens": 3554
+          },
+          "complete": true,
+          "admitted_attempts": 4,
+          "reported_attempts": 4,
+          "unsettled_attempts": 0,
+          "unknown_settled_attempts": 0
+        },
+        "model_receipts": {
+          "native:1:1:1": {
+            "source": "native:answer",
+            "provider": "deepseek",
+            "model": "deepseek-flash",
+            "final": false,
+            "outcome": "completed",
+            "usage_status": "reported",
+            "usage": {
+              "prompt_tokens": 3094,
+              "completion_tokens": 75,
+              "total_tokens": 3169,
+              "cache_read_tokens": 384,
+              "cached_tokens": 384,
+              "uncached_input_tokens": 2710,
+              "reasoning_tokens": 0
+            }
+          },
+          "native:1:2:1": {
+            "source": "native:answer",
+            "provider": "deepseek",
+            "model": "deepseek-flash",
+            "final": false,
+            "outcome": "completed",
+            "usage_status": "reported",
+            "usage": {
+              "prompt_tokens": 3293,
+              "completion_tokens": 200,
+              "total_tokens": 3493,
+              "cache_read_tokens": 3072,
+              "cached_tokens": 3072,
+              "uncached_input_tokens": 221,
+              "reasoning_tokens": 7
+            }
+          },
+          "native:1:3:1": {
+            "source": "native:answer",
+            "provider": "deepseek",
+            "model": "deepseek-flash",
+            "final": false,
+            "outcome": "completed",
+            "usage_status": "reported",
+            "usage": {
+              "prompt_tokens": 3553,
+              "completion_tokens": 40,
+              "total_tokens": 3593,
+              "cache_read_tokens": 3328,
+              "cached_tokens": 3328,
+              "uncached_input_tokens": 225,
+              "reasoning_tokens": 0
+            }
+          },
+          "native:1:4:1": {
+            "source": "native:final",
+            "provider": "deepseek",
+            "model": "deepseek-flash",
+            "final": true,
+            "outcome": "completed",
+            "usage_status": "reported",
+            "usage": {
+              "prompt_tokens": 654,
+              "completion_tokens": 39,
+              "total_tokens": 693,
+              "cache_read_tokens": 256,
+              "cached_tokens": 256,
+              "uncached_input_tokens": 398
+            }
+          }
+        }
+      },
+      "provider_calls": [
+        {
+          "index": 0,
+          "source": "native",
+          "model": "deepseek-flash",
+          "reasoning": "high",
+          "stage": "worker",
+          "max_output_tokens": 2048,
+          "request_bytes": 13495,
+          "request_sha256": "92e22575033ce022eff221185f7fb9a79284509137f7e8a4643aee92bf8448d1",
+          "dispatched": true,
+          "outcome": "completed",
+          "usage": {
+            "prompt_tokens": 3094,
+            "completion_tokens": 75,
+            "total_tokens": 3169,
+            "reasoning_tokens": 0
+          },
+          "finish_reason": "tool_calls",
+          "elapsed_ms": 733.874
+        },
+        {
+          "index": 1,
+          "source": "native",
+          "model": "deepseek-flash",
+          "reasoning": "high",
+          "stage": "worker",
+          "max_output_tokens": 2048,
+          "request_bytes": 14273,
+          "request_sha256": "5feb488ba2013121953fa1d54177551531895554821702a5638e6f9f8b58c86f",
+          "dispatched": true,
+          "outcome": "completed",
+          "usage": {
+            "prompt_tokens": 3293,
+            "completion_tokens": 200,
+            "total_tokens": 3493,
+            "reasoning_tokens": 7
+          },
+          "finish_reason": "tool_calls",
+          "elapsed_ms": 834.506
+        },
+        {
+          "index": 2,
+          "source": "native",
+          "model": "deepseek-flash",
+          "reasoning": "high",
+          "stage": "worker",
+          "max_output_tokens": 2048,
+          "request_bytes": 15361,
+          "request_sha256": "9e59f247426ce7ffd66a83780591d14fa08e117f58ba0c65127403e2266c5785",
+          "dispatched": true,
+          "outcome": "completed",
+          "usage": {
+            "prompt_tokens": 3553,
+            "completion_tokens": 40,
+            "total_tokens": 3593,
+            "reasoning_tokens": 0
+          },
+          "finish_reason": "stop",
+          "elapsed_ms": 610.506
+        },
+        {
+          "index": 3,
+          "source": "native",
+          "model": "deepseek-flash",
+          "reasoning": "none",
+          "stage": "final",
+          "max_output_tokens": 2048,
+          "request_bytes": 3533,
+          "request_sha256": "9804925cdb45f35e8bcef818292b3ec7f622ec04aec3971d77781f08e04c9b59",
+          "dispatched": true,
+          "outcome": "completed",
+          "usage": {
+            "prompt_tokens": 654,
+            "completion_tokens": 39,
+            "total_tokens": 693
+          },
+          "finish_reason": "stop",
+          "elapsed_ms": 661.923
+        }
+      ],
+      "child_tools": [],
+      "accounting": {
+        "actual_requests": 4,
+        "reported_attempts": 4,
+        "unknown_attempts": 0,
+        "exact_usage": {
+          "prompt_tokens": 10594,
+          "completion_tokens": 354,
+          "total_tokens": 10948
+        },
+        "reported_subtotal": {
+          "prompt_tokens": 10594,
+          "completion_tokens": 354,
+          "total_tokens": 10948
+        },
+        "parent_ledger_matches_wire": true,
+        "cost": {
+          "amount": null,
+          "currency": null,
+          "basis": "unknown usage or rates"
+        }
+      },
+      "native_attempt_retries": 0,
+      "tool_failures": 0
+    },
+    {
+      "id": "invoice-r2-delegated",
+      "fixture": "invoice",
+      "path": "delegated",
+      "repetition": 2,
+      "pair_order": 0,
+      "conversation_id": "trial:invoice-r2-delegated",
+      "input_sha256": "bbf33a8208f3becc74a8136f46d398208c0f8445602cf2b1d6ae5d6dc79ae553",
+      "prompt_sha256": "2a4d438e0139d29a7e7ed417cc4c5fdc875017afaca93ecea327a70496f2eb08",
+      "status": "error",
+      "final_ready": false,
+      "final_text": "",
+      "elapsed_ms": 19310.382,
+      "event_counts": {
+        "conversation": 1,
+        "message_start": 1,
+        "activity": 12,
+        "progress": 7,
+        "work": 10,
+        "usage": 4,
+        "keepalive": 1,
+        "final_start": 1,
+        "message_end": 1,
+        "error": 1
+      },
+      "oracle": {
+        "expected": {
+          "row_count": 4,
+          "unit_count": 9,
+          "total_cents": 1703
+        },
+        "observed_file": {
+          "row_count": 4,
+          "unit_count": 9,
+          "total_cents": 1703
+        },
+        "observed_answer": null,
+        "file_exists_at_required_path": true,
+        "file_content_matches": true,
+        "answer_content_matches": false,
+        "answer_exact_json_format": false,
+        "input_unchanged": true,
+        "environment_pass": true,
+        "all_summary_locations": [
+          "summary.json"
+        ],
+        "workspace_files": [
+          ".ipython/profile_default/history.sqlite",
+          ".ipython/profile_default/startup/README",
+          ".matopt/cards.json",
+          ".matplotlib/fontlist-v3.11.0.json",
+          ".skills/latex_skill.md",
+          ".skills/ppt_skill.md",
+          ".skills/res/logo.png",
+          "analysis.ipynb",
+          "invoice.json",
+          "summary.json",
+          "uploads/invoice.json"
+        ]
+      },
+      "budget": {
+        "model_attempts": 6,
+        "model_attempt_limit": 6,
+        "tool_starts": 3,
+        "tool_start_limit": 8,
+        "remaining_model_attempts": 0,
+        "remaining_work_model_attempts": 0,
+        "remaining_tool_starts": 5,
+        "final_slot_reserved": false,
+        "started_at": 173052.407901666,
+        "deadline": 173172.407901666,
+        "remaining_seconds": 100.70167425001273,
+        "deadline_reached": false,
+        "usage": {
+          "exact": {
+            "prompt_tokens": 23073,
+            "completion_tokens": 1603,
+            "total_tokens": 24676,
+            "reasoning_tokens": 609
+          },
+          "reported_subtotal": {
+            "prompt_tokens": 23073,
+            "completion_tokens": 1603,
+            "total_tokens": 24676,
+            "reasoning_tokens": 609
+          },
+          "complete": true,
+          "admitted_attempts": 6,
+          "reported_attempts": 6,
+          "unsettled_attempts": 0,
+          "unknown_settled_attempts": 0
+        },
+        "model_receipts": {
+          "native:1:1:1": {
+            "source": "native:answer",
+            "provider": "deepseek",
+            "model": "deepseek-flash",
+            "final": false,
+            "outcome": "completed",
+            "usage_status": "reported",
+            "usage": {
+              "prompt_tokens": 2632,
+              "completion_tokens": 151,
+              "total_tokens": 2783,
+              "cache_read_tokens": 2432,
+              "cached_tokens": 2432,
+              "uncached_input_tokens": 200,
+              "reasoning_tokens": 19
+            }
+          },
+          "native:1:2:1": {
+            "source": "native:answer",
+            "provider": "deepseek",
+            "model": "deepseek-flash",
+            "final": false,
+            "outcome": "completed",
+            "usage_status": "reported",
+            "usage": {
+              "prompt_tokens": 2820,
+              "completion_tokens": 117,
+              "total_tokens": 2937,
+              "cache_read_tokens": 2560,
+              "cached_tokens": 2560,
+              "uncached_input_tokens": 260,
+              "reasoning_tokens": 76
+            }
+          },
+          "native:1:3:1": {
+            "source": "native:answer",
+            "provider": "deepseek",
+            "model": "deepseek-flash",
+            "final": false,
+            "outcome": "completed",
+            "usage_status": "reported",
+            "usage": {
+              "prompt_tokens": 2975,
+              "completion_tokens": 332,
+              "total_tokens": 3307,
+              "cache_read_tokens": 2816,
+              "cached_tokens": 2816,
+              "uncached_input_tokens": 159,
+              "reasoning_tokens": 193
+            }
+          },
+          "child-model:invoice-r2-delegated:1": {
+            "source": "lambda",
+            "provider": "deepseek",
+            "model": "deepseek-flash",
+            "final": false,
+            "outcome": "completed",
+            "usage_status": "reported",
+            "usage": {
+              "prompt_tokens": 5144,
+              "completion_tokens": 448,
+              "total_tokens": 5592,
+              "reasoning_tokens": 141
+            }
+          },
+          "child-model:invoice-r2-delegated:2": {
+            "source": "lambda",
+            "provider": "deepseek",
+            "model": "deepseek-flash",
+            "final": false,
+            "outcome": "completed",
+            "usage_status": "reported",
+            "usage": {
+              "prompt_tokens": 5887,
+              "completion_tokens": 286,
+              "total_tokens": 6173,
+              "reasoning_tokens": 0
+            }
+          },
+          "native:1:4:1": {
+            "source": "native:answer",
+            "provider": "deepseek",
+            "model": "deepseek-flash",
+            "final": false,
+            "outcome": "completed",
+            "usage_status": "reported",
+            "usage": {
+              "prompt_tokens": 3615,
+              "completion_tokens": 269,
+              "total_tokens": 3884,
+              "cache_read_tokens": 3200,
+              "cached_tokens": 3200,
+              "uncached_input_tokens": 415,
+              "reasoning_tokens": 180
+            }
+          }
+        }
+      },
+      "provider_calls": [
+        {
+          "index": 0,
+          "source": "native",
+          "model": "deepseek-flash",
+          "reasoning": "high",
+          "stage": "worker",
+          "max_output_tokens": 2048,
+          "request_bytes": 11377,
+          "request_sha256": "7df72f647c7c4c576bb5925ca8c72df628957ea861127d7bb7fd9ce2d71f7af3",
+          "dispatched": true,
+          "outcome": "completed",
+          "usage": {
+            "prompt_tokens": 2632,
+            "completion_tokens": 151,
+            "total_tokens": 2783,
+            "reasoning_tokens": 19
+          },
+          "finish_reason": "tool_calls",
+          "elapsed_ms": 909.427
+        },
+        {
+          "index": 1,
+          "source": "native",
+          "model": "deepseek-flash",
+          "reasoning": "high",
+          "stage": "worker",
+          "max_output_tokens": 2048,
+          "request_bytes": 12309,
+          "request_sha256": "b5f6772afee9366c9dfab9eda5de9fd68e01647273f1c1638a25d53dd895dfb1",
+          "dispatched": true,
+          "outcome": "completed",
+          "usage": {
+            "prompt_tokens": 2820,
+            "completion_tokens": 117,
+            "total_tokens": 2937,
+            "reasoning_tokens": 76
+          },
+          "finish_reason": "tool_calls",
+          "elapsed_ms": 1224.917
+        },
+        {
+          "index": 2,
+          "source": "native",
+          "model": "deepseek-flash",
+          "reasoning": "high",
+          "stage": "worker",
+          "max_output_tokens": 2048,
+          "request_bytes": 13126,
+          "request_sha256": "6d11ab3e2218d3fb68181415a457f6967b4dc8be2ab3a7f6cbb5dd71d86f66ea",
+          "dispatched": true,
+          "outcome": "completed",
+          "usage": {
+            "prompt_tokens": 2975,
+            "completion_tokens": 332,
+            "total_tokens": 3307,
+            "reasoning_tokens": 193
+          },
+          "finish_reason": "tool_calls",
+          "elapsed_ms": 1921.463
+        },
+        {
+          "index": 3,
+          "source": "lambda",
+          "model": "deepseek-flash",
+          "reasoning": "high",
+          "stage": "worker",
+          "max_output_tokens": 2048,
+          "request_bytes": 20473,
+          "request_sha256": "442e474032f090989b85e0dcb42c8a6a7163d5cfb8c10eb2c3d443ec3be66a1a",
+          "dispatched": true,
+          "outcome": "completed",
+          "usage": {
+            "prompt_tokens": 5144,
+            "completion_tokens": 448,
+            "total_tokens": 5592,
+            "reasoning_tokens": 141
+          },
+          "finish_reason": "tool_calls",
+          "elapsed_ms": 1776.226
+        },
+        {
+          "index": 4,
+          "source": "lambda",
+          "model": "deepseek-flash",
+          "reasoning": "high",
+          "stage": "worker",
+          "max_output_tokens": 2048,
+          "request_bytes": 22998,
+          "request_sha256": "2ac3af0142e1b636bb5b16e93794603d6588f0f92f954622e16569a6d97e486a",
+          "dispatched": true,
+          "outcome": "completed",
+          "usage": {
+            "prompt_tokens": 5887,
+            "completion_tokens": 286,
+            "total_tokens": 6173,
+            "reasoning_tokens": 0
+          },
+          "finish_reason": "stop",
+          "elapsed_ms": 1367.794
+        },
+        {
+          "index": 5,
+          "source": "native",
+          "model": "deepseek-flash",
+          "reasoning": "high",
+          "stage": "worker",
+          "max_output_tokens": 2048,
+          "request_bytes": 15613,
+          "request_sha256": "8bdb3f30d17025734f836484cc801e242c67b9f8aceb59ab8d6dcf51f5a646d5",
+          "dispatched": true,
+          "outcome": "completed",
+          "usage": {
+            "prompt_tokens": 3615,
+            "completion_tokens": 269,
+            "total_tokens": 3884,
+            "reasoning_tokens": 180
+          },
+          "finish_reason": "tool_calls",
+          "elapsed_ms": 1682.552
+        }
+      ],
+      "child_tools": [
+        {
+          "name": "execute_python",
+          "call_id": "child-tool:invoice-r2-delegated:1",
+          "outcome": "success",
+          "admitted": true,
+          "elapsed_ms": 10234.075
+        }
+      ],
+      "accounting": {
+        "actual_requests": 6,
+        "reported_attempts": 6,
+        "unknown_attempts": 0,
+        "exact_usage": {
+          "prompt_tokens": 23073,
+          "completion_tokens": 1603,
+          "total_tokens": 24676,
+          "reasoning_tokens": 609
+        },
+        "reported_subtotal": {
+          "prompt_tokens": 23073,
+          "completion_tokens": 1603,
+          "total_tokens": 24676,
+          "reasoning_tokens": 609
+        },
+        "parent_ledger_matches_wire": true,
+        "cost": {
+          "amount": null,
+          "currency": null,
+          "basis": "unknown usage or rates"
+        }
+      },
+      "native_attempt_retries": 0,
+      "tool_failures": 3
+    },
+    {
+      "id": "invoice-r2-direct",
+      "fixture": "invoice",
+      "path": "direct",
+      "repetition": 2,
+      "pair_order": 1,
+      "conversation_id": "trial:invoice-r2-direct",
+      "input_sha256": "bbf33a8208f3becc74a8136f46d398208c0f8445602cf2b1d6ae5d6dc79ae553",
+      "prompt_sha256": "2a4d438e0139d29a7e7ed417cc4c5fdc875017afaca93ecea327a70496f2eb08",
+      "status": "complete",
+      "final_ready": true,
+      "final_text": "{\"row_count\": 4, \"unit_count\": 9, \"total_cents\": 1703}",
+      "elapsed_ms": 12892.572,
+      "event_counts": {
+        "conversation": 1,
+        "message_start": 1,
+        "activity": 7,
+        "progress": 4,
+        "work": 5,
+        "usage": 3,
+        "keepalive": 1,
+        "final_start": 1,
+        "text_delta": 23,
+        "artifact": 1,
+        "message_end": 1,
+        "done": 1
+      },
+      "oracle": {
+        "expected": {
+          "row_count": 4,
+          "unit_count": 9,
+          "total_cents": 1703
+        },
+        "observed_file": {
+          "row_count": 4,
+          "unit_count": 9,
+          "total_cents": 1703
+        },
+        "observed_answer": {
+          "row_count": 4,
+          "unit_count": 9,
+          "total_cents": 1703
+        },
+        "file_exists_at_required_path": true,
+        "file_content_matches": true,
+        "answer_content_matches": true,
+        "answer_exact_json_format": true,
+        "input_unchanged": true,
+        "environment_pass": true,
+        "all_summary_locations": [
+          "summary.json"
+        ],
+        "workspace_files": [
+          ".ipython/profile_default/history.sqlite",
+          ".ipython/profile_default/startup/README",
+          ".matopt/cards.json",
+          ".matplotlib/fontlist-v3.11.0.json",
+          "analysis.ipynb",
+          "summary.json",
+          "uploads/invoice.json"
+        ]
+      },
+      "budget": {
+        "model_attempts": 3,
+        "model_attempt_limit": 6,
+        "tool_starts": 1,
+        "tool_start_limit": 8,
+        "remaining_model_attempts": 3,
+        "remaining_work_model_attempts": 3,
+        "remaining_tool_starts": 7,
+        "final_slot_reserved": false,
+        "started_at": 173071.84064875,
+        "deadline": 173191.84064875,
+        "remaining_seconds": 107.11736404200201,
+        "deadline_reached": false,
+        "usage": {
+          "exact": {
+            "prompt_tokens": 7136,
+            "completion_tokens": 281,
+            "total_tokens": 7417,
+            "cache_read_tokens": 6528,
+            "cached_tokens": 6528,
+            "uncached_input_tokens": 608
+          },
+          "reported_subtotal": {
+            "prompt_tokens": 7136,
+            "completion_tokens": 281,
+            "total_tokens": 7417,
+            "cache_read_tokens": 6528,
+            "cached_tokens": 6528,
+            "uncached_input_tokens": 608
+          },
+          "complete": true,
+          "admitted_attempts": 3,
+          "reported_attempts": 3,
+          "unsettled_attempts": 0,
+          "unknown_settled_attempts": 0
+        },
+        "model_receipts": {
+          "native:1:1:1": {
+            "source": "native:answer",
+            "provider": "deepseek",
+            "model": "deepseek-flash",
+            "final": false,
+            "outcome": "completed",
+            "usage_status": "reported",
+            "usage": {
+              "prompt_tokens": 3108,
+              "completion_tokens": 177,
+              "total_tokens": 3285,
+              "cache_read_tokens": 2944,
+              "cached_tokens": 2944,
+              "uncached_input_tokens": 164,
+              "reasoning_tokens": 0
+            }
+          },
+          "native:1:2:1": {
+            "source": "native:answer",
+            "provider": "deepseek",
+            "model": "deepseek-flash",
+            "final": false,
+            "outcome": "completed",
+            "usage_status": "reported",
+            "usage": {
+              "prompt_tokens": 3391,
+              "completion_tokens": 81,
+              "total_tokens": 3472,
+              "cache_read_tokens": 3200,
+              "cached_tokens": 3200,
+              "uncached_input_tokens": 191,
+              "reasoning_tokens": 57
+            }
+          },
+          "native:1:3:1": {
+            "source": "native:final",
+            "provider": "deepseek",
+            "model": "deepseek-flash",
+            "final": true,
+            "outcome": "completed",
+            "usage_status": "reported",
+            "usage": {
+              "prompt_tokens": 637,
+              "completion_tokens": 23,
+              "total_tokens": 660,
+              "cache_read_tokens": 384,
+              "cached_tokens": 384,
+              "uncached_input_tokens": 253
+            }
+          }
+        }
+      },
+      "provider_calls": [
+        {
+          "index": 0,
+          "source": "native",
+          "model": "deepseek-flash",
+          "reasoning": "high",
+          "stage": "worker",
+          "max_output_tokens": 2048,
+          "request_bytes": 13555,
+          "request_sha256": "03b2b2b6eed91ca74437f6bd5a13fb39f0e16eb144215db67976bfb7a3f80d03",
+          "dispatched": true,
+          "outcome": "completed",
+          "usage": {
+            "prompt_tokens": 3108,
+            "completion_tokens": 177,
+            "total_tokens": 3285,
+            "reasoning_tokens": 0
+          },
+          "finish_reason": "tool_calls",
+          "elapsed_ms": 866.088
+        },
+        {
+          "index": 1,
+          "source": "native",
+          "model": "deepseek-flash",
+          "reasoning": "high",
+          "stage": "worker",
+          "max_output_tokens": 2048,
+          "request_bytes": 14696,
+          "request_sha256": "1ca08250aa79d293d917b82f66e1633d185c81366d3d60c4bfa678fd994d9d22",
+          "dispatched": true,
+          "outcome": "completed",
+          "usage": {
+            "prompt_tokens": 3391,
+            "completion_tokens": 81,
+            "total_tokens": 3472,
+            "reasoning_tokens": 57
+          },
+          "finish_reason": "stop",
+          "elapsed_ms": 896.656
+        },
+        {
+          "index": 2,
+          "source": "native",
+          "model": "deepseek-flash",
+          "reasoning": "none",
+          "stage": "final",
+          "max_output_tokens": 2048,
+          "request_bytes": 3480,
+          "request_sha256": "7727415efe3dd9027bfd84012850cd161792d2e8e910bee983ff14a2b96a3253",
+          "dispatched": true,
+          "outcome": "completed",
+          "usage": {
+            "prompt_tokens": 637,
+            "completion_tokens": 23,
+            "total_tokens": 660
+          },
+          "finish_reason": "stop",
+          "elapsed_ms": 686.32
+        }
+      ],
+      "child_tools": [],
+      "accounting": {
+        "actual_requests": 3,
+        "reported_attempts": 3,
+        "unknown_attempts": 0,
+        "exact_usage": {
+          "prompt_tokens": 7136,
+          "completion_tokens": 281,
+          "total_tokens": 7417
+        },
+        "reported_subtotal": {
+          "prompt_tokens": 7136,
+          "completion_tokens": 281,
+          "total_tokens": 7417
+        },
+        "parent_ledger_matches_wire": true,
+        "cost": {
+          "amount": null,
+          "currency": null,
+          "basis": "unknown usage or rates"
+        }
+      },
+      "native_attempt_retries": 0,
+      "tool_failures": 0
+    },
+    {
+      "id": "ledger-r2-direct",
+      "fixture": "ledger",
+      "path": "direct",
+      "repetition": 2,
+      "pair_order": 0,
+      "conversation_id": "trial:ledger-r2-direct",
+      "input_sha256": "e3619c2ceb5c2b2fae77305942c00dc67bcd290d3e2b08d4e72f67e1cfb08944",
+      "prompt_sha256": "8acd73467b8edc17d3f26ec5dd54b456c90aeb116dcd836d6cf0d18532814b90",
+      "status": "complete",
+      "final_ready": true,
+      "final_text": "{\"entry_count\": 5, \"net_cents\": 2100, \"by_account\": {\"A\": 1050, \"B\": 150, \"C\": 900}}",
+      "elapsed_ms": 14411.01,
+      "event_counts": {
+        "conversation": 1,
+        "message_start": 1,
+        "activity": 13,
+        "progress": 8,
+        "work": 9,
+        "usage": 5,
+        "keepalive": 1,
+        "final_start": 1,
+        "text_delta": 39,
+        "artifact": 1,
+        "message_end": 1,
+        "done": 1
+      },
+      "oracle": {
+        "expected": {
+          "entry_count": 5,
+          "net_cents": 2100,
+          "by_account": {
+            "A": 1050,
+            "B": 150,
+            "C": 900
+          }
+        },
+        "observed_file": {
+          "entry_count": 5,
+          "net_cents": 2100,
+          "by_account": {
+            "A": 1050,
+            "B": 150,
+            "C": 900
+          }
+        },
+        "observed_answer": {
+          "entry_count": 5,
+          "net_cents": 2100,
+          "by_account": {
+            "A": 1050,
+            "B": 150,
+            "C": 900
+          }
+        },
+        "file_exists_at_required_path": true,
+        "file_content_matches": true,
+        "answer_content_matches": true,
+        "answer_exact_json_format": true,
+        "input_unchanged": true,
+        "environment_pass": true,
+        "all_summary_locations": [
+          "summary.json"
+        ],
+        "workspace_files": [
+          ".ipython/profile_default/history.sqlite",
+          ".ipython/profile_default/startup/README",
+          ".matopt/cards.json",
+          ".matplotlib/fontlist-v3.11.0.json",
+          "analysis.ipynb",
+          "summary.json",
+          "uploads/ledger.json"
+        ]
+      },
+      "budget": {
+        "model_attempts": 5,
+        "model_attempt_limit": 6,
+        "tool_starts": 3,
+        "tool_start_limit": 8,
+        "remaining_model_attempts": 1,
+        "remaining_work_model_attempts": 1,
+        "remaining_tool_starts": 5,
+        "final_slot_reserved": false,
+        "started_at": 173084.859904375,
+        "deadline": 173204.859904375,
+        "remaining_seconds": 105.6007811249874,
+        "deadline_reached": false,
+        "usage": {
+          "exact": {
+            "prompt_tokens": 14202,
+            "completion_tokens": 483,
+            "total_tokens": 14685,
+            "cache_read_tokens": 13184,
+            "cached_tokens": 13184,
+            "uncached_input_tokens": 1018
+          },
+          "reported_subtotal": {
+            "prompt_tokens": 14202,
+            "completion_tokens": 483,
+            "total_tokens": 14685,
+            "cache_read_tokens": 13184,
+            "cached_tokens": 13184,
+            "uncached_input_tokens": 1018
+          },
+          "complete": true,
+          "admitted_attempts": 5,
+          "reported_attempts": 5,
+          "unsettled_attempts": 0,
+          "unknown_settled_attempts": 0
+        },
+        "model_receipts": {
+          "native:1:1:1": {
+            "source": "native:answer",
+            "provider": "deepseek",
+            "model": "deepseek-flash",
+            "final": false,
+            "outcome": "completed",
+            "usage_status": "reported",
+            "usage": {
+              "prompt_tokens": 3094,
+              "completion_tokens": 87,
+              "total_tokens": 3181,
+              "cache_read_tokens": 2944,
+              "cached_tokens": 2944,
+              "uncached_input_tokens": 150,
+              "reasoning_tokens": 0
+            }
+          },
+          "native:1:2:1": {
+            "source": "native:answer",
+            "provider": "deepseek",
+            "model": "deepseek-flash",
+            "final": false,
+            "outcome": "completed",
+            "usage_status": "reported",
+            "usage": {
+              "prompt_tokens": 3259,
+              "completion_tokens": 190,
+              "total_tokens": 3449,
+              "cache_read_tokens": 3072,
+              "cached_tokens": 3072,
+              "uncached_input_tokens": 187,
+              "reasoning_tokens": 2
+            }
+          },
+          "native:1:3:1": {
+            "source": "native:answer",
+            "provider": "deepseek",
+            "model": "deepseek-flash",
+            "final": false,
+            "outcome": "completed",
+            "usage_status": "reported",
+            "usage": {
+              "prompt_tokens": 3507,
+              "completion_tokens": 127,
+              "total_tokens": 3634,
+              "cache_read_tokens": 3328,
+              "cached_tokens": 3328,
+              "uncached_input_tokens": 179,
+              "reasoning_tokens": 8
+            }
+          },
+          "native:1:4:1": {
+            "source": "native:answer",
+            "provider": "deepseek",
+            "model": "deepseek-flash",
+            "final": false,
+            "outcome": "completed",
+            "usage_status": "reported",
+            "usage": {
+              "prompt_tokens": 3686,
+              "completion_tokens": 40,
+              "total_tokens": 3726,
+              "cache_read_tokens": 3456,
+              "cached_tokens": 3456,
+              "uncached_input_tokens": 230,
+              "reasoning_tokens": 0
+            }
+          },
+          "native:1:5:1": {
+            "source": "native:final",
+            "provider": "deepseek",
+            "model": "deepseek-flash",
+            "final": true,
+            "outcome": "completed",
+            "usage_status": "reported",
+            "usage": {
+              "prompt_tokens": 656,
+              "completion_tokens": 39,
+              "total_tokens": 695,
+              "cache_read_tokens": 384,
+              "cached_tokens": 384,
+              "uncached_input_tokens": 272
+            }
+          }
+        }
+      },
+      "provider_calls": [
+        {
+          "index": 0,
+          "source": "native",
+          "model": "deepseek-flash",
+          "reasoning": "high",
+          "stage": "worker",
+          "max_output_tokens": 2048,
+          "request_bytes": 13495,
+          "request_sha256": "92e22575033ce022eff221185f7fb9a79284509137f7e8a4643aee92bf8448d1",
+          "dispatched": true,
+          "outcome": "completed",
+          "usage": {
+            "prompt_tokens": 3094,
+            "completion_tokens": 87,
+            "total_tokens": 3181,
+            "reasoning_tokens": 0
+          },
+          "finish_reason": "tool_calls",
+          "elapsed_ms": 861.876
+        },
+        {
+          "index": 1,
+          "source": "native",
+          "model": "deepseek-flash",
+          "reasoning": "high",
+          "stage": "worker",
+          "max_output_tokens": 2048,
+          "request_bytes": 14221,
+          "request_sha256": "5f33f8ebedf450cde7fbb1095ef0b2f463fb85ece41cfc3472bdc389a7773061",
+          "dispatched": true,
+          "outcome": "completed",
+          "usage": {
+            "prompt_tokens": 3259,
+            "completion_tokens": 190,
+            "total_tokens": 3449,
+            "reasoning_tokens": 2
+          },
+          "finish_reason": "tool_calls",
+          "elapsed_ms": 960.438
+        },
+        {
+          "index": 2,
+          "source": "native",
+          "model": "deepseek-flash",
+          "reasoning": "high",
+          "stage": "worker",
+          "max_output_tokens": 2048,
+          "request_bytes": 15249,
+          "request_sha256": "b3f5cd57ca7e9ed2fe75e9ee4f30247693dcc1ee6bf545d33097bd8aabec1d66",
+          "dispatched": true,
+          "outcome": "completed",
+          "usage": {
+            "prompt_tokens": 3507,
+            "completion_tokens": 127,
+            "total_tokens": 3634,
+            "reasoning_tokens": 8
+          },
+          "finish_reason": "tool_calls",
+          "elapsed_ms": 903.397
+        },
+        {
+          "index": 3,
+          "source": "native",
+          "model": "deepseek-flash",
+          "reasoning": "high",
+          "stage": "worker",
+          "max_output_tokens": 2048,
+          "request_bytes": 16010,
+          "request_sha256": "94a68a07d59169b66927b828460fd02b525fe23b847a72ec4c2434eec851a5aa",
+          "dispatched": true,
+          "outcome": "completed",
+          "usage": {
+            "prompt_tokens": 3686,
+            "completion_tokens": 40,
+            "total_tokens": 3726,
+            "reasoning_tokens": 0
+          },
+          "finish_reason": "stop",
+          "elapsed_ms": 726.764
+        },
+        {
+          "index": 4,
+          "source": "native",
+          "model": "deepseek-flash",
+          "reasoning": "none",
+          "stage": "final",
+          "max_output_tokens": 2048,
+          "request_bytes": 3534,
+          "request_sha256": "daf7562fc3366ee0cd0d33a84bf082ddbe000e6c90ea7f59e17335ef2969255d",
+          "dispatched": true,
+          "outcome": "completed",
+          "usage": {
+            "prompt_tokens": 656,
+            "completion_tokens": 39,
+            "total_tokens": 695
+          },
+          "finish_reason": "stop",
+          "elapsed_ms": 594.504
+        }
+      ],
+      "child_tools": [],
+      "accounting": {
+        "actual_requests": 5,
+        "reported_attempts": 5,
+        "unknown_attempts": 0,
+        "exact_usage": {
+          "prompt_tokens": 14202,
+          "completion_tokens": 483,
+          "total_tokens": 14685
+        },
+        "reported_subtotal": {
+          "prompt_tokens": 14202,
+          "completion_tokens": 483,
+          "total_tokens": 14685
+        },
+        "parent_ledger_matches_wire": true,
+        "cost": {
+          "amount": null,
+          "currency": null,
+          "basis": "unknown usage or rates"
+        }
+      },
+      "native_attempt_retries": 0,
+      "tool_failures": 0
+    },
+    {
+      "id": "ledger-r2-delegated",
+      "fixture": "ledger",
+      "path": "delegated",
+      "repetition": 2,
+      "pair_order": 1,
+      "conversation_id": "trial:ledger-r2-delegated",
+      "input_sha256": "e3619c2ceb5c2b2fae77305942c00dc67bcd290d3e2b08d4e72f67e1cfb08944",
+      "prompt_sha256": "8acd73467b8edc17d3f26ec5dd54b456c90aeb116dcd836d6cf0d18532814b90",
+      "status": "complete",
+      "final_ready": true,
+      "final_text": "{\"entry_count\": 5, \"net_cents\": 2100, \"by_account\": {\"A\": 1050, \"B\": 150, \"C\": 900}}",
+      "elapsed_ms": 19833.967,
+      "event_counts": {
+        "conversation": 1,
+        "message_start": 1,
+        "activity": 9,
+        "progress": 5,
+        "work": 7,
+        "usage": 4,
+        "keepalive": 1,
+        "final_start": 1,
+        "text_delta": 39,
+        "artifact": 2,
+        "message_end": 1,
+        "done": 1
+      },
+      "oracle": {
+        "expected": {
+          "entry_count": 5,
+          "net_cents": 2100,
+          "by_account": {
+            "A": 1050,
+            "B": 150,
+            "C": 900
+          }
+        },
+        "observed_file": {
+          "entry_count": 5,
+          "net_cents": 2100,
+          "by_account": {
+            "A": 1050,
+            "B": 150,
+            "C": 900
+          }
+        },
+        "observed_answer": {
+          "entry_count": 5,
+          "net_cents": 2100,
+          "by_account": {
+            "A": 1050,
+            "B": 150,
+            "C": 900
+          }
+        },
+        "file_exists_at_required_path": true,
+        "file_content_matches": true,
+        "answer_content_matches": true,
+        "answer_exact_json_format": true,
+        "input_unchanged": true,
+        "environment_pass": true,
+        "all_summary_locations": [
+          "summary.json"
+        ],
+        "workspace_files": [
+          ".ipython/profile_default/history.sqlite",
+          ".ipython/profile_default/startup/README",
+          ".matopt/cards.json",
+          ".matplotlib/fontlist-v3.11.0.json",
+          ".skills/latex_skill.md",
+          ".skills/ppt_skill.md",
+          ".skills/res/logo.png",
+          "analysis.ipynb",
+          "ledger.json",
+          "summary.json",
+          "uploads/ledger.json"
+        ]
+      },
+      "budget": {
+        "model_attempts": 6,
+        "model_attempt_limit": 6,
+        "tool_starts": 2,
+        "tool_start_limit": 8,
+        "remaining_model_attempts": 0,
+        "remaining_work_model_attempts": 0,
+        "remaining_tool_starts": 6,
+        "final_slot_reserved": false,
+        "started_at": 173099.393291666,
+        "deadline": 173219.393291666,
+        "remaining_seconds": 100.17888020799728,
+        "deadline_reached": false,
+        "usage": {
+          "exact": {
+            "prompt_tokens": 21017,
+            "completion_tokens": 1682,
+            "total_tokens": 22699
+          },
+          "reported_subtotal": {
+            "prompt_tokens": 21017,
+            "completion_tokens": 1682,
+            "total_tokens": 22699
+          },
+          "complete": true,
+          "admitted_attempts": 6,
+          "reported_attempts": 6,
+          "unsettled_attempts": 0,
+          "unknown_settled_attempts": 0
+        },
+        "model_receipts": {
+          "native:1:1:1": {
+            "source": "native:answer",
+            "provider": "deepseek",
+            "model": "deepseek-flash",
+            "final": false,
+            "outcome": "completed",
+            "usage_status": "reported",
+            "usage": {
+              "prompt_tokens": 2618,
+              "completion_tokens": 139,
+              "total_tokens": 2757,
+              "cache_read_tokens": 2432,
+              "cached_tokens": 2432,
+              "uncached_input_tokens": 186,
+              "reasoning_tokens": 51
+            }
+          },
+          "native:1:2:1": {
+            "source": "native:answer",
+            "provider": "deepseek",
+            "model": "deepseek-flash",
+            "final": false,
+            "outcome": "completed",
+            "usage_status": "reported",
+            "usage": {
+              "prompt_tokens": 2794,
+              "completion_tokens": 705,
+              "total_tokens": 3499,
+              "cache_read_tokens": 2560,
+              "cached_tokens": 2560,
+              "uncached_input_tokens": 234,
+              "reasoning_tokens": 509
+            }
+          },
+          "child-model:ledger-r2-delegated:1": {
+            "source": "lambda",
+            "provider": "deepseek",
+            "model": "deepseek-flash",
+            "final": false,
+            "outcome": "completed",
+            "usage_status": "reported",
+            "usage": {
+              "prompt_tokens": 5195,
+              "completion_tokens": 411,
+              "total_tokens": 5606,
+              "reasoning_tokens": 61
+            }
+          },
+          "child-model:ledger-r2-delegated:2": {
+            "source": "lambda",
+            "provider": "deepseek",
+            "model": "deepseek-flash",
+            "final": false,
+            "outcome": "completed",
+            "usage_status": "reported",
+            "usage": {
+              "prompt_tokens": 5897,
+              "completion_tokens": 283,
+              "total_tokens": 6180,
+              "reasoning_tokens": 23
+            }
+          },
+          "native:1:3:1": {
+            "source": "native:answer",
+            "provider": "deepseek",
+            "model": "deepseek-flash",
+            "final": false,
+            "outcome": "completed",
+            "usage_status": "reported",
+            "usage": {
+              "prompt_tokens": 3781,
+              "completion_tokens": 105,
+              "total_tokens": 3886,
+              "cache_read_tokens": 3456,
+              "cached_tokens": 3456,
+              "uncached_input_tokens": 325,
+              "reasoning_tokens": 65
+            }
+          },
+          "native:1:4:1": {
+            "source": "native:final",
+            "provider": "deepseek",
+            "model": "deepseek-flash",
+            "final": true,
+            "outcome": "completed",
+            "usage_status": "reported",
+            "usage": {
+              "prompt_tokens": 732,
+              "completion_tokens": 39,
+              "total_tokens": 771,
+              "cache_read_tokens": 384,
+              "cached_tokens": 384,
+              "uncached_input_tokens": 348
+            }
+          }
+        }
+      },
+      "provider_calls": [
+        {
+          "index": 0,
+          "source": "native",
+          "model": "deepseek-flash",
+          "reasoning": "high",
+          "stage": "worker",
+          "max_output_tokens": 2048,
+          "request_bytes": 11317,
+          "request_sha256": "4c53acc6d5cee51af75e32ca33bbf5d365b2ad177f9e8c36c90eeae93c7912cf",
+          "dispatched": true,
+          "outcome": "completed",
+          "usage": {
+            "prompt_tokens": 2618,
+            "completion_tokens": 139,
+            "total_tokens": 2757,
+            "reasoning_tokens": 51
+          },
+          "finish_reason": "tool_calls",
+          "elapsed_ms": 984.406
+        },
+        {
+          "index": 1,
+          "source": "native",
+          "model": "deepseek-flash",
+          "reasoning": "high",
+          "stage": "worker",
+          "max_output_tokens": 2048,
+          "request_bytes": 12174,
+          "request_sha256": "4cab0188662428470e41318fca523102cb983173403a7edaf0d29a5d24effb01",
+          "dispatched": true,
+          "outcome": "completed",
+          "usage": {
+            "prompt_tokens": 2794,
+            "completion_tokens": 705,
+            "total_tokens": 3499,
+            "reasoning_tokens": 509
+          },
+          "finish_reason": "tool_calls",
+          "elapsed_ms": 3565.92
+        },
+        {
+          "index": 2,
+          "source": "lambda",
+          "model": "deepseek-flash",
+          "reasoning": "high",
+          "stage": "worker",
+          "max_output_tokens": 2048,
+          "request_bytes": 20671,
+          "request_sha256": "2765ab6106afa72be159441227c305b5ece54e3cd6161ae0b7243b9b94ff0557",
+          "dispatched": true,
+          "outcome": "completed",
+          "usage": {
+            "prompt_tokens": 5195,
+            "completion_tokens": 411,
+            "total_tokens": 5606,
+            "reasoning_tokens": 61
+          },
+          "finish_reason": "tool_calls",
+          "elapsed_ms": 1641.901
+        },
+        {
+          "index": 3,
+          "source": "lambda",
+          "model": "deepseek-flash",
+          "reasoning": "high",
+          "stage": "worker",
+          "max_output_tokens": 2048,
+          "request_bytes": 23175,
+          "request_sha256": "b51d25b6742ac0d4f159747f16ad4d3a823aab54ddbab2618cca55721c3c4711",
+          "dispatched": true,
+          "outcome": "completed",
+          "usage": {
+            "prompt_tokens": 5897,
+            "completion_tokens": 283,
+            "total_tokens": 6180,
+            "reasoning_tokens": 23
+          },
+          "finish_reason": "stop",
+          "elapsed_ms": 1410.411
+        },
+        {
+          "index": 4,
+          "source": "native",
+          "model": "deepseek-flash",
+          "reasoning": "high",
+          "stage": "worker",
+          "max_output_tokens": 2048,
+          "request_bytes": 16247,
+          "request_sha256": "0bb5d4898685c357730e66a44ed6af3c2be5783efbe7c1f6e4cb3fd08436e0b2",
+          "dispatched": true,
+          "outcome": "completed",
+          "usage": {
+            "prompt_tokens": 3781,
+            "completion_tokens": 105,
+            "total_tokens": 3886,
+            "reasoning_tokens": 65
+          },
+          "finish_reason": "stop",
+          "elapsed_ms": 1130.017
+        },
+        {
+          "index": 5,
+          "source": "native",
+          "model": "deepseek-flash",
+          "reasoning": "none",
+          "stage": "final",
+          "max_output_tokens": 2048,
+          "request_bytes": 3772,
+          "request_sha256": "12b95776c957e99b26522bd782ae65bee968133a3ec8dcf417742e55bd977c20",
+          "dispatched": true,
+          "outcome": "completed",
+          "usage": {
+            "prompt_tokens": 732,
+            "completion_tokens": 39,
+            "total_tokens": 771
+          },
+          "finish_reason": "stop",
+          "elapsed_ms": 676.46
+        }
+      ],
+      "child_tools": [
+        {
+          "name": "execute_python",
+          "call_id": "child-tool:ledger-r2-delegated:1",
+          "outcome": "success",
+          "admitted": true,
+          "elapsed_ms": 10200.135
+        }
+      ],
+      "accounting": {
+        "actual_requests": 6,
+        "reported_attempts": 6,
+        "unknown_attempts": 0,
+        "exact_usage": {
+          "prompt_tokens": 21017,
+          "completion_tokens": 1682,
+          "total_tokens": 22699
+        },
+        "reported_subtotal": {
+          "prompt_tokens": 21017,
+          "completion_tokens": 1682,
+          "total_tokens": 22699
+        },
+        "parent_ledger_matches_wire": true,
+        "cost": {
+          "amount": null,
+          "currency": null,
+          "basis": "unknown usage or rates"
+        }
+      },
+      "native_attempt_retries": 0,
+      "tool_failures": 1
+    }
+  ],
+  "summary": {
+    "by_path": {
+      "direct": {
+        "runs": 4,
+        "environment_passes": 4,
+        "answer_matches": 4,
+        "complete_runs": 4,
+        "median_elapsed_ms": 13584.0,
+        "actual_requests": 16,
+        "native_requests": 16,
+        "child_requests": 0,
+        "child_tool_failures": 0,
+        "unknown_usage_attempts": 0
+      },
+      "delegated": {
+        "runs": 4,
+        "environment_passes": 4,
+        "answer_matches": 1,
+        "complete_runs": 1,
+        "median_elapsed_ms": 19240.701500000003,
+        "actual_requests": 24,
+        "native_requests": 15,
+        "child_requests": 9,
+        "child_tool_failures": 0,
+        "unknown_usage_attempts": 0
+      }
+    },
+    "pairs": [
+      {
+        "fixture": "invoice",
+        "repetition": 1,
+        "both_environment_pass": true,
+        "delegated_minus_direct_ms": 4517.432,
+        "delegated_minus_direct_total_tokens": 12774
+      },
+      {
+        "fixture": "invoice",
+        "repetition": 2,
+        "both_environment_pass": true,
+        "delegated_minus_direct_ms": 6417.81,
+        "delegated_minus_direct_total_tokens": 17259
+      },
+      {
+        "fixture": "ledger",
+        "repetition": 1,
+        "both_environment_pass": true,
+        "delegated_minus_direct_ms": 5909.739,
+        "delegated_minus_direct_total_tokens": 15697
+      },
+      {
+        "fixture": "ledger",
+        "repetition": 2,
+        "both_environment_pass": true,
+        "delegated_minus_direct_ms": 5422.957,
+        "delegated_minus_direct_total_tokens": 8014
+      }
+    ],
+    "accounting_all_match": true
+  }
+}

@@ -5,11 +5,18 @@
  * and renders an interactive chart using react-plotly.js.
  */
 
-import React, { useMemo, lazy, Suspense, memo } from "react";
+import React, { useEffect, useMemo, useRef, lazy, Suspense, memo } from "react";
+import { mergeChartDefaults, plotlyDefaults, useChartTheme } from "./chartTheme.ts";
+import { observePlotResize } from "./plotResize.ts";
 import "./PlotRenderer.css";
 
 // Lazy-load Plotly to avoid bloating the initial bundle (~3MB)
-const Plot = lazy(() => import("react-plotly.js"));
+let plotlyRuntime: typeof import("plotly.js/dist/plotly").default | null = null;
+const Plot = lazy(async () => {
+    const [component, runtime] = await Promise.all([import("react-plotly.js"), import("plotly.js/dist/plotly")]);
+    plotlyRuntime = runtime.default;
+    return { default: component.default };
+});
 
 interface Props {
     /** JSON string with Plotly { data, layout?, config? } */
@@ -18,39 +25,43 @@ interface Props {
     figure?: { data?: Plotly.Data[]; layout?: Partial<Plotly.Layout>; config?: Partial<Plotly.Config> };
 }
 
-const DEFAULT_LAYOUT: Partial<Plotly.Layout> = {
-    autosize: true,
-    margin: { l: 50, r: 30, t: 40, b: 50 },
-    font: { family: "inherit", size: 14, color: "#0d0d0d" },
-    paper_bgcolor: "transparent",
-    plot_bgcolor: "#f7f7f8",
-    xaxis: { gridcolor: "#e5e5e5", zeroline: false, color: "#6e6e80" },
-    yaxis: { gridcolor: "#e5e5e5", zeroline: false, color: "#6e6e80" },
-    legend: { orientation: "h", y: -0.15 },
-    colorway: ["#10a37f", "#0d0d0d", "#4d6bfe", "#f5a623", "#6e6e80"],
-};
-
 const DEFAULT_CONFIG: Partial<Plotly.Config> = {
     responsive: true,
     displayModeBar: true,
-    modeBarButtonsToRemove: ["lasso2d", "select2d"],
+    modeBarButtonsToRemove: ["lasso2d", "select2d", "sendChartToCloud"],
+    showSendToCloud: false,
     displaylogo: false,
 };
 
 function PlotRenderer({ json, figure }: Props) {
+    const theme = useChartTheme();
+    const containerRef = useRef<HTMLDivElement>(null);
+    const graphRef = useRef<HTMLElement | null>(null);
+    const resizeCleanupRef = useRef<(() => void) | undefined>(undefined);
     const parsed = useMemo(() => {
         try {
             const obj = figure ?? (json ? JSON.parse(json) : null);
             if (!obj) return null;
             return {
                 data: obj.data || [],
-                layout: { ...DEFAULT_LAYOUT, ...obj.layout },
+                layout: mergeChartDefaults(plotlyDefaults(theme), obj.layout),
                 config: { ...DEFAULT_CONFIG, ...obj.config },
             };
         } catch {
             return null;
         }
-    }, [json, figure]);
+    }, [json, figure, theme]);
+    const autoWidth = parsed?.layout.autosize !== false && !(typeof parsed?.layout.width === "number" && parsed.layout.width > 0);
+    const bindResize = (graph: HTMLElement) => {
+        resizeCleanupRef.current?.();
+        graphRef.current = graph;
+        resizeCleanupRef.current = autoWidth && containerRef.current && plotlyRuntime
+            ? observePlotResize(containerRef.current, graph, (element) => plotlyRuntime!.Plots.resize(element)) : undefined;
+    };
+    useEffect(() => {
+        if (graphRef.current) bindResize(graphRef.current);
+        return () => resizeCleanupRef.current?.();
+    }, [autoWidth]);
 
     if (!parsed || parsed.data.length === 0) {
         return (
@@ -61,10 +72,10 @@ function PlotRenderer({ json, figure }: Props) {
     }
 
     return (
-        <div className="plot-container">
+        <div className="plot-container" ref={containerRef}>
             <Suspense
                 fallback={
-                    <div style={{ padding: 24, textAlign: "center" }}>
+                    <div className="plot-loading">
                         Loading chart...
                     </div>
                 }
@@ -74,7 +85,12 @@ function PlotRenderer({ json, figure }: Props) {
                     layout={parsed.layout}
                     config={parsed.config}
                     useResizeHandler
-                    style={{ width: "100%", height: "380px" }}
+                    onInitialized={(_figure, graph) => bindResize(graph)}
+                    onPurge={() => { resizeCleanupRef.current?.(); graphRef.current = null; }}
+                    style={{
+                        width: typeof parsed.layout.width === "number" && parsed.layout.width > 0 ? parsed.layout.width : "100%",
+                        height: typeof parsed.layout.height === "number" && parsed.layout.height > 0 ? parsed.layout.height : 380,
+                    }}
                 />
             </Suspense>
         </div>

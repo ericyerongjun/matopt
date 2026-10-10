@@ -1,0 +1,32 @@
+{
+  "revision": "29628c9acdb81b703bbd4080c207a0e7ce5e276e",
+  "source": "https://github.com/zai-org/ZCode",
+  "files": {
+    "frontend/src/zcode/components/ui/button.tsx": "packages/ui/src/components/ui/button.tsx",
+    "frontend/src/zcode/components/ui/button-group.tsx": "packages/ui/src/components/ui/button-group.tsx",
+    "frontend/src/zcode/components/ui/tooltip.tsx": "packages/ui/src/components/ui/tooltip.tsx",
+    "frontend/src/zcode/components/ui/context-menu.tsx": "packages/ui/src/components/ui/context-menu.tsx",
+    "frontend/src/zcode/components/ui/dropdown-menu.tsx": "packages/ui/src/components/ui/dropdown-menu.tsx",
+    "frontend/src/zcode/components/ui/dialog.tsx": "packages/ui/src/components/ui/dialog.tsx",
+    "frontend/src/zcode/components/ui/tabs.tsx": "packages/ui/src/components/ui/tabs.tsx",
+    "frontend/src/zcode/components/ui/resizable.tsx": "packages/ui/src/components/ui/resizable.tsx",
+    "frontend/src/zcode/components/ui/input-group.tsx": "packages/ui/src/components/ui/input-group.tsx",
+    "frontend/src/zcode/components/ui/textarea.tsx": "packages/ui/src/components/ui/textarea.tsx",
+    "frontend/src/zcode/components/ui/input.tsx": "packages/ui/src/components/ui/input.tsx",
+    "frontend/src/zcode/components/ui/popover.tsx": "packages/ui/src/components/ui/popover.tsx",
+    "frontend/src/zcode/components/ui/select.tsx": "packages/ui/src/components/ui/select.tsx",
+    "frontend/src/zcode/components/ui/hover-card.tsx": "packages/ui/src/components/ui/hover-card.tsx",
+    "frontend/src/zcode/components/ui/progress.tsx": "packages/ui/src/components/ui/progress.tsx",
+    "frontend/src/zcode/components/ui/accordion.tsx": "packages/ui/src/components/ui/accordion.tsx",
+    "frontend/src/zcode/components/ui/collapsible.tsx": "packages/ui/src/components/ui/collapsible.tsx",
+    "frontend/src/zcode/components/ui/spinner.tsx": "packages/ui/src/components/ui/spinner.tsx",
+    "frontend/src/zcode/components/ui/command.tsx": "packages/ui/src/components/ui/command.tsx",
+    "frontend/src/zcode/components/ui/code-viewer.tsx": "packages/ui/src/components/ui/code-viewer.tsx",
+    "frontend/src/zcode/components/ui/toast.tsx": "packages/ui/src/components/ui/toast.tsx",
+    "frontend/src/zcode/components/ui/badge.tsx": "packages/ui/src/components/ui/badge.tsx",
+    "frontend/src/zcode/components/ui/separator.tsx": "packages/ui/src/components/ui/separator.tsx",
+    "frontend/src/zcode/components/ui/scroll-area.tsx": "packages/ui/src/components/ui/scroll-area.tsx",
+    "frontend/src/zcode/components/ui/alert.tsx": "packages/ui/src/components/ui/alert.tsx",
+    "frontend/src/zcode/styles.css": "packages/ui/src/styles.css"
+  }
+}

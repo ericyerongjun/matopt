@@ -8,12 +8,15 @@ from app.agent.events import ToolResult
 from app.agent.skills.loader import SkillRegistry
 from app.agent.skills.materialize import materialize_skill
 from app.agent.skills.router import SkillRouter
-from app.agent.tools.base import Tool, ToolContext
+from app.agent.tools.base import Tool, ToolContext, output_bound_bytes
 
 
 class SearchSkillsTool(Tool):
     name = "search_skills"
     read_only = True
+    concurrent_safe = True
+    side_effect_scope = "none"
+    risk_level = "low"
     ui_kind = "file"
     description = (
         "Search the skill catalog by query. Returns ranked skill names, scores, and descriptions. "
@@ -43,6 +46,17 @@ class SearchSkillsTool(Tool):
 
 class LoadSkillTool(Tool):
     name = "load_skill"
+    # Not read-only: activating a skill copies its files into `skills/<name>/`
+    # in the conversation workspace (see `materialize_skill`). Only workspace
+    # scope, and the content comes from a trusted local skill directory, so no
+    # approval gate and no risk escalation.
+    read_only = False
+    destructive = False
+    concurrent_safe = False
+    side_effect_scope = "workspace"
+    risk_level = "low"
+    needs_approval = False
+    max_output_bytes = output_bound_bytes(14_000)   # skill body capped at 14_000 chars
     ui_kind = "file"
     description = (
         "Activate a skill by name: inject its SKILL.md instructions and copy its files into "

@@ -3,7 +3,12 @@ import re
 import time
 import os
 import fnmatch
+import uuid
+from pathlib import Path
 from typing import Dict, Any, List
+from app.agent.budget import BudgetExhausted
+from app.agent.lambda_bridge import get_lambda_exec_context
+from app.agent.workspace import is_internal_output
 from lambda_app.services.code_execution_service import CodeExecutionService
 from lambda_app.services.sandbox_file_manager import get_sandbox_file_manager, SANDBOX_SKILLS_DIR, SANDBOX_WORK_DIR
 from lambda_app.core.config import settings
@@ -119,7 +124,8 @@ class AgentService:
             raise ValueError(f"Path outside workspace is not allowed: {path}")
         return resolved_path
     
-    async def execute_tool(self, tool_name: str, tool_input: Dict[str, Any], db=None, user_id: int = None) -> Dict[str, Any]:
+    async def execute_tool(self, tool_name: str, tool_input: Dict[str, Any], db=None, user_id: int = None,
+                           *, call_id: str | None = None) -> Dict[str, Any]:
         """Execute a tool by name."""
         if tool_name not in self.tools:
             return {
@@ -136,8 +142,23 @@ class AgentService:
             if user_id is not None:
                 enriched_input["user_id"] = user_id
             
-            result = await self.tools[tool_name](enriched_input)
+            bridge = get_lambda_exec_context()
+            if bridge is None:
+                return await self.tools[tool_name](enriched_input)
+            await bridge.checkpoint()
+            timeout = enriched_input.get("timeout") or settings.CODE_EXECUTION_TIMEOUT
+            if type(timeout) not in (int, float) or timeout <= 0:
+                raise ValueError("Tool timeout must be a positive number.")
+            timeout = min(float(timeout), float(settings.CODE_EXECUTION_TIMEOUT))
+            if bridge.run_budget is not None:
+                admission = bridge.run_budget.admit_tool(call_id or f"lambda_tool_{uuid.uuid4().hex}",
+                                                         source=f"lambda:{tool_name}")
+                if not admission.is_new:
+                    return {"success": False, "output": "", "error": "This delegated tool call already started."}
+            result = await bridge.wait(lambda: self.tools[tool_name](enriched_input), timeout=timeout)
             return result
+        except BudgetExhausted:
+            raise
         except Exception as e:
             return {
                 "success": False,
@@ -489,12 +510,28 @@ if '_image_paths' in globals() and _image_paths:
             before_files = await self._snapshot_workspace_files(session_id)
             workspace = self._local_workspace(session_id)
             command = command.replace(SANDBOX_WORK_DIR, str(workspace))
-            result = await self.local_code_service.execute(
-                command,
-                language="shell",
-                session_id=session_id,
-                cwd=workspace,
-            )
+            bridge = get_lambda_exec_context()
+            if bridge is not None and bridge.tool_context is not None:
+                # Reuse native cancellation/process-group cleanup without a
+                # second dispatch or tool-budget charge. Standalone LAMBDA
+                # continues to use its original executor.
+                from app.agent.tools.shell_tool import ShellTool
+
+                shell = ShellTool(default_timeout=settings.CODE_EXECUTION_TIMEOUT,
+                                  max_timeout=settings.CODE_EXECUTION_TIMEOUT,
+                                  max_output_chars=settings.MAX_OUTPUT_LENGTH)
+                native = await shell.run(bridge.tool_context, command, timeout=input_data.get("timeout"))
+                result = {"success": native.ok, "stdout": native.output, "stderr": "",
+                          "error": native.error, "exit_code": native.meta.get("exit_code"),
+                          "execution_time": (native.meta.get("duration_ms") or 0) / 1000,
+                          "generated_files": []}
+            else:
+                result = await self.local_code_service.execute(
+                    command,
+                    language="shell",
+                    session_id=session_id,
+                    cwd=workspace,
+                )
             await self._scan_and_upload_files(
                 session_id,
                 input_data.get("user_id"),
@@ -569,17 +606,38 @@ if '_image_paths' in globals() and _image_paths:
             "generated_files": result.get("generated_files", [])
         }
     
+    def is_visible_generated_file(self, path: str) -> bool:
+        """Use MatOpt's artifact visibility for bound runs; retain standalone behavior."""
+        bridge = get_lambda_exec_context()
+        if bridge is None:
+            return True
+        root = bridge.workspace_root.resolve()
+        raw = str(path).replace("\\", "/")
+        if raw.startswith(SANDBOX_WORK_DIR + "/"):
+            raw = raw[len(SANDBOX_WORK_DIR) + 1:]
+        candidate = Path(raw)
+        if not candidate.is_absolute():
+            candidate = root / candidate
+        try:
+            relative = candidate.relative_to(root).as_posix()
+            resolved = candidate.resolve().relative_to(root).as_posix()
+        except (ValueError, OSError):
+            return False
+        return not is_internal_output(relative) and not is_internal_output(resolved)
+
     async def _snapshot_workspace_files(self, session_id: str) -> Dict[str, Dict[str, Any]]:
         """Return a lightweight snapshot of files currently in the sandbox workspace.
 
         Use shell instead of the Python interpreter so file bookkeeping does not
         touch the user's long-lived Python kernel or its variables.
         """
-        if settings.CODE_EXECUTION_MODE == "local":
-            workspace = self._local_workspace(session_id)
+        bridge = get_lambda_exec_context()
+        if bridge is not None or settings.CODE_EXECUTION_MODE == "local":
+            workspace = bridge.workspace_root if bridge is not None else self._local_workspace(session_id)
             snapshot = {}
             for path in workspace.rglob("*"):
-                if not path.is_file() or ".skills" in path.parts:
+                if (not path.is_file() or ".skills" in path.parts
+                        or not self.is_visible_generated_file(str(path))):
                     continue
                 stat = path.stat()
                 snapshot[str(path)] = {"size": stat.st_size, "mtime_ns": stat.st_mtime_ns}
@@ -668,6 +726,12 @@ if '_image_paths' in globals() and _image_paths:
             for path, metadata in after_files.items():
                 if before_files.get(path) != metadata:
                     current_execution_files.add(path)
+
+            # Explicit stdout markers must follow the same policy as discovery;
+            # an absolute path must not expose kernel history or caches either.
+            current_execution_files = {
+                path for path in current_execution_files if self.is_visible_generated_file(path)
+            }
             
             if not current_execution_files:
                 print("No files generated in current execution")

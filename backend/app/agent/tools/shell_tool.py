@@ -5,13 +5,13 @@ from __future__ import annotations
 import asyncio
 import os
 import signal
-import sys
 import time
-from pathlib import Path
 from typing import Any
 
+from app.agent.child_env import build_child_env
 from app.agent.events import ToolResult
-from app.agent.tools.base import Tool, ToolContext, truncate_text
+from app.agent.tools.base import Tool, ToolContext, output_bound_bytes, truncate_text
+from app.agent.tools.read_state import invalidate_execution_changes
 
 BLOCKED_PATTERNS = (
     "rm -rf /", "rm -rf ~", "rm -rf *", "mkfs", ":(){", "shutdown", "reboot", "> /dev/sd",
@@ -21,6 +21,11 @@ BLOCKED_PATTERNS = (
 
 class ShellTool(Tool):
     name = "bash"
+    destructive = False
+    concurrent_safe = False
+    side_effect_scope = "system"
+    risk_level = "high"
+    needs_approval = True
     ui_kind = "terminal"
     description = (
         "Run a shell command in the conversation workspace (bash, macOS/Linux). Use it for file management, "
@@ -41,6 +46,8 @@ class ShellTool(Tool):
         self.default_timeout = default_timeout
         self.max_timeout = max_timeout
         self.max_output_chars = max_output_chars
+        self.timeout_ms = int(default_timeout) * 1000
+        self.max_output_bytes = output_bound_bytes(max_output_chars) + 1000
 
     async def run(self, ctx: ToolContext, command: str, timeout: int | None = None, **_: Any) -> ToolResult:
         cmd = (command or "").strip()
@@ -54,11 +61,7 @@ class ShellTool(Tool):
         before = ctx.workspace.snapshot()
         started = time.monotonic()
 
-        env = dict(os.environ)
-        env["PATH"] = str(Path(sys.executable).parent) + os.pathsep + env.get("PATH", "")
-        env["MPLBACKEND"] = "Agg"
-        env["PYTHONUNBUFFERED"] = "1"
-        env.pop("PYTHONHOME", None)
+        env = build_child_env(workspace_root=ctx.workspace.root)
 
         proc = await asyncio.create_subprocess_exec(
             "/bin/bash", "-lc", cmd,
@@ -103,12 +106,21 @@ class ShellTool(Tool):
                     pump_task.cancel()
             await proc.wait()
         finally:
+            # A dispatcher deadline or transport disconnect can cancel this
+            # coroutine between polling iterations. Always reap the process
+            # group before releasing the workspace execution lease.
+            if proc.returncode is None:
+                _kill(proc)
+                await proc.wait()
             if not pump_task.done():
                 pump_task.cancel()
+            await asyncio.gather(pump_task, return_exceptions=True)
+            changed = ctx.workspace.changed_since(before)
+            read_state_meta = invalidate_execution_changes(ctx.state, ctx.workspace, before, changed)
 
         output = "".join(chunks)
         artifacts = []
-        for rel in ctx.workspace.changed_since(before):
+        for rel in changed:
             try:
                 artifacts.append(ctx.workspace.artifact_for(rel))
             except Exception:  # noqa: BLE001
@@ -132,7 +144,7 @@ class ShellTool(Tool):
             output=text,
             artifacts=artifacts,
             error=error,
-            meta={"exit_code": code, "duration_ms": int((time.monotonic() - started) * 1000)},
+            meta={"exit_code": code, "duration_ms": int((time.monotonic() - started) * 1000), **read_state_meta},
         )
 
 

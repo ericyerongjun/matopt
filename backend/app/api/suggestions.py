@@ -36,13 +36,13 @@ async def suggestions(
     try:
         spec, m = providers.resolve(provider, model)
         p = providers.get(spec.id)
-        raw = await p.complete_text(
+        result = await p.complete(
             [{"role": "user", "content": PROMPT.format(count=count, language=language)}],
             ChatOptions(model=m.id, reasoning="off", max_tokens=400),
         )
-        items = _parse_list(raw)
+        items = _parse_list(result.text)
         if items:
-            return {"suggestions": items[:count]}
+            return {"suggestions": items[:count], "usage": result.usage}
     except ValueError:
         return {"suggestions": FALLBACK[:count]}
     except Exception as exc:  # noqa: BLE001

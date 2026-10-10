@@ -21,13 +21,14 @@ cd "$ROOT/backend"
 mkdir -p data
 
 cd "$ROOT/frontend"
-if command -v npm >/dev/null 2>&1; then npm install; else echo "npm not found — install Node 20+ to build the frontend" >&2; fi
+if command -v npm >/dev/null 2>&1; then npm ci; else echo "npm not found — install Node 22+ to build the frontend" >&2; fi
 
 cat <<MSG
 
 Done. Next steps:
-  1. Put at least one API key in backend/.env (DEEPSEEK_API_KEY / OPENAI_API_KEY / QWEN_API_KEY).
+  1. Set DEEPSEEK_API_KEY in backend/.env (the live API model is deepseek-flash).
   2. Backend:  cd backend && .venv/bin/python main.py        (http://localhost:8000)
   3. Frontend: cd frontend && npm run dev                    (http://localhost:5173)
+     The isolated interactive UI runtime also starts on port 5174.
   Optional OCR: scripts/setup_mineru.sh
 MSG

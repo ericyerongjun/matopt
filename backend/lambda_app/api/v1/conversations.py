@@ -7,6 +7,7 @@ from lambda_app.core.database import get_db
 from lambda_app.core.hashid import encode_id, decode_id
 from lambda_app.core.config import settings
 from lambda_app.models.models import Conversation, Message, UsageRecord, User
+from app.llm.catalog import canonical_model
 from lambda_app.models.schemas import (
     ConversationCreate, 
     ConversationResponse, 
@@ -60,10 +61,14 @@ def create_conversation(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_active_user)
 ):
+    try:
+        model = canonical_model(conv_data.model)
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
     conversation = Conversation(
         user_id=current_user.id,
         title=conv_data.title or "New Conversation",
-        model=conv_data.model or settings.DEFAULT_MODEL
+        model=model
     )
     db.add(conversation)
     db.commit()

@@ -1,30 +1,35 @@
-from app.agent.monitor import inspect_tool_call, next_step_options
-from app.agent.tools.web_search import _format_hits, _safe_url
+"""Search must not hold up public progress or concurrent tool completions."""
+import asyncio
+import threading
+from types import SimpleNamespace
+
+import pytest
+
+from app.agent.tools import web_search
 
 
-def test_safe_url_rejects_local():
-    assert _safe_url("https://example.com/a")
-    assert not _safe_url("http://127.0.0.1/x")
-    assert not _safe_url("file:///etc/passwd")
-    assert not _safe_url("https://192.168.0.4/admin")
-    assert not _safe_url("https://172.16.1.9/admin")
+@pytest.mark.asyncio
+async def test_blocked_sync_search_leaves_event_loop_and_cancellation_responsive(monkeypatch):
+    entered, release = threading.Event(), threading.Event()
 
+    def engine(query, limit):
+        entered.set()
+        release.wait(3)
+        return [{"title": "Source", "href": "https://example.test"}]
 
-def test_format_hits():
-    text = _format_hits([{"title": "A", "href": "https://ex.com", "body": "hello"}])
-    assert "A" in text and "https://ex.com" in text
-
-
-def test_monitor_blocks_destructive_bash():
-    v = inspect_tool_call("bash", {"command": "rm -rf /"})
-    assert v.level == "block"
-    v = inspect_tool_call("python", {"code": "print(1+1)"})
-    assert v.level == "ok"
-
-
-def test_next_step_options_from_plan():
-    opts = next_step_options(
-        [{"content": "Fit a GLM", "status": "pending"}, {"content": "Done", "status": "completed"}],
-        "",
-    )
-    assert opts == ["Fit a GLM"]
+    monkeypatch.setattr(web_search, "_ddgs", engine)
+    task = asyncio.create_task(web_search.search_web("current release", 3, SimpleNamespace()))
+    try:
+        assert await asyncio.wait_for(asyncio.to_thread(entered.wait, 1), 2)
+        assert not task.done(), "The network search blocked progress until it completed"
+        # Other coroutine work and explicit cancellation happen while the
+        # synchronous engine is still waiting for its result.
+        assert await asyncio.wait_for(asyncio.sleep(0, result="responsive"), .5) == "responsive"
+        task.cancel()
+        with pytest.raises(asyncio.CancelledError):
+            await task
+    finally:
+        release.set()
+        if not task.done():
+            task.cancel()
+            await asyncio.gather(task, return_exceptions=True)

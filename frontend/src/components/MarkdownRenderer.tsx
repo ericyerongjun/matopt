@@ -1,160 +1,78 @@
-// Integrate KaTex, Prism and Mermaid to render mathematical expressions
-/**
- * MarkdownRenderer — renders Markdown content with:
- *  - KaTeX for LaTeX math (via remark-math + rehype-katex)
- *  - Prism for syntax-highlighted code blocks
- *  - Mermaid for diagrams (```mermaid code blocks)
- *
- * A preprocessing step normalises all LaTeX delimiters (\[…\], \(…\))
- * to the $…$ / $$…$$ form that remark-math expects.
- */
+/** MatOpt web host adapter for the complete, pinned ZCode rendering stack. */
+import { lazy, memo, Suspense, useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
+import { MessageResponse } from "../zcode/components/ai-elements/message.js";
+import type { Theme } from "../zcode/useTheme.js";
+import { preprocessLaTeX } from "../utils/formulaHelpers.ts";
+import { normalizeAgentMarkdown } from "../utils/markdownNormalize.ts";
+import { prepareWorkspaceMarkdown } from "../zcode/adapters/workspaceMarkdown.ts";
+import { RichSourcePreview } from "./RichSourcePreview.tsx";
+import { closedRichFences, richFence, richFenceKey, standaloneRichSource } from "../utils/richSource.ts";
 
-import React, { isValidElement, useEffect, useRef, useMemo, memo, type ReactNode } from "react";
-import ReactMarkdown from "react-markdown";
-import remarkGfm from "remark-gfm";
-import remarkMath from "remark-math";
-import rehypeKatex from "rehype-katex";
-import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
-import mermaid from "mermaid";
-import PlotRenderer from "./PlotRenderer";
-import ChartRenderer from "./ChartRenderer";
-import { preprocessLaTeX } from "../utils/formulaHelpers";
-import { normalizeAgentMarkdown } from "../utils/markdownNormalize";
-import { rewriteWorkspaceLinks } from "../utils/workspaceLinks";
-import "./MarkdownRenderer.css";
+const PlotRenderer = lazy(() => import("./PlotRenderer.tsx"));
+const ChartRenderer = lazy(() => import("./ChartRenderer.tsx"));
 
-// Initialise Mermaid once
-mermaid.initialize({ startOnLoad: false, theme: "default" });
+function renderScientificFence(code: string, language: string): ReactNode | undefined {
+    const normalized = language.toLowerCase();
+    if (normalized !== "plotly" && normalized !== "chartjs" && normalized !== "chart") return undefined;
+    return (
+        <Suspense fallback={<div className="p-4 text-ui-sm text-foreground-subtle">Loading chart…</div>}>
+            {normalized === "plotly" ? <PlotRenderer json={code} /> : <ChartRenderer json={code} />}
+        </Suspense>
+    );
+}
 
-const KATEX_OPTIONS = {
-    output: "htmlAndMathml" as const,
-    throwOnError: false,
-    strict: false as const,
-    macros: {
-        "\\R": "\\mathbb{R}",
-        "\\N": "\\mathbb{N}",
-        "\\Z": "\\mathbb{Z}",
-        "\\Q": "\\mathbb{Q}",
-        "\\C": "\\mathbb{C}",
-        "\\E": "\\mathbb{E}",
-    },
-};
+function openWebUrl(url: string) {
+    const target = new URL(url, window.location.href);
+    if (target.protocol === "http:" || target.protocol === "https:") {
+        window.open(target.href, "_blank", "noopener,noreferrer");
+    }
+}
+
+function currentTheme(): Theme {
+    return typeof document !== "undefined" && document.documentElement.classList.contains("dark") ? "dark" : "light";
+}
 
 interface Props {
     content: string;
     conversationId?: string | null;
+    streaming?: boolean;
 }
 
-function MarkdownRenderer({ content, conversationId }: Props) {
-    const containerRef = useRef<HTMLDivElement>(null);
-
-    // Preprocess once per content change — normalise LaTeX delimiters,
-    // protect math from markdown interpretation, etc.
-    const processedContent = useMemo(
-        () =>
-            preprocessLaTeX(normalizeAgentMarkdown(rewriteWorkspaceLinks(content, conversationId))),
-        [content, conversationId]
-    );
-
-    // Re-render Mermaid diagrams whenever content changes
+function MarkdownRenderer({ content, conversationId, streaming = false }: Props) {
+    const [theme, setTheme] = useState<Theme>(currentTheme);
     useEffect(() => {
-        if (containerRef.current) {
-            const mermaidDivs =
-                containerRef.current.querySelectorAll<HTMLElement>(".mermaid");
-            if (mermaidDivs.length > 0) {
-                mermaid.run({ nodes: Array.from(mermaidDivs) });
-            }
-        }
-    }, [processedContent]);
+        const observer = new MutationObserver(() => setTheme(currentTheme()));
+        observer.observe(document.documentElement, { attributes: true, attributeFilter: ["class"] });
+        return () => observer.disconnect();
+    }, []);
+    const markdown = useMemo(() => preprocessLaTeX(normalizeAgentMarkdown(prepareWorkspaceMarkdown(
+        content,
+        conversationId,
+        typeof window === "undefined" ? undefined : window.location.origin,
+    ))), [content, conversationId]);
+    const publishing = streaming;
+    const closedFences = useMemo(() => closedRichFences(markdown), [markdown]);
+    const standaloneKind = useMemo(() => standaloneRichSource(content), [content]);
+    const renderFence = useCallback((code: string, language: string): ReactNode | undefined => {
+        const rich = richFence(language);
+        if (rich) return <RichSourcePreview source={code} kind={rich.kind} defaultView={rich.defaultView}
+            complete={!publishing && closedFences.has(richFenceKey(language, code))} embedded />;
+        return renderScientificFence(code, language);
+    }, [publishing, closedFences]);
 
     return (
-        <div ref={containerRef} className="markdown-body">
-            <ReactMarkdown
-                remarkPlugins={[remarkGfm, [remarkMath, { singleDollarTextMath: true }]]}
-                rehypePlugins={[[rehypeKatex, KATEX_OPTIONS]]}
-                components={{
-                    code({ className, children, ...rest }) {
-                        const match = /language-(\w+)/.exec(className || "");
-                        const lang = match ? match[1] : "";
-                        const codeString = String(children).replace(/\n$/, "");
-
-                        // Mermaid diagrams
-                        if (lang === "mermaid") {
-                            return <div className="mermaid">{codeString}</div>;
-                        }
-
-                        // Plotly interactive charts
-                        if (lang === "plotly") {
-                            return <PlotRenderer json={codeString} />;
-                        }
-
-                        // Chart.js charts
-                        if (lang === "chartjs" || lang === "chart") {
-                            return <ChartRenderer json={codeString} />;
-                        }
-
-                        // Syntax-highlighted code blocks
-                        if (lang) {
-                            return (
-                                <SyntaxHighlighter language={lang} PreTag="div">
-                                    {codeString}
-                                </SyntaxHighlighter>
-                            );
-                        }
-
-                        // Inline code
-                        return (
-                            <code className={className} {...rest}>
-                                {children}
-                            </code>
-                        );
-                    },
-                    img({ src, alt, ...rest }) {
-                        return (
-                            <img
-                                src={src}
-                                alt={alt || "Generated figure"}
-                                className="markdown-figure"
-                                loading="lazy"
-                                {...rest}
-                            />
-                        );
-                    },
-                    p({ children }) {
-                        if (isFigureGroup(children)) {
-                            return <div className="md-figures">{children}</div>;
-                        }
-                        return <p>{children}</p>;
-                    },
-                    table({ children }) {
-                        return (
-                            <div className="markdown-table-wrap">
-                                <table>{children}</table>
-                            </div>
-                        );
-                    },
-                }}
-            >
-                {processedContent}
-            </ReactMarkdown>
+        <div aria-busy={streaming} data-response-streaming={streaming ? "true" : "false"}>
+        {standaloneKind ? <RichSourcePreview source={content} kind={standaloneKind} defaultView="preview" complete={!publishing} /> :
+        <MessageResponse
+            sessionId={conversationId ?? undefined}
+            streaming={publishing}
+            theme={theme}
+            onOpenExternalUrl={openWebUrl}
+            renderCodeContent={renderFence}
+        >
+            {markdown}
+        </MessageResponse>}
         </div>
-    );
-}
-
-function isFigureGroup(children: ReactNode): boolean {
-    const nodes = React.Children.toArray(children).filter((child) => {
-        if (typeof child === "string") return child.trim().length > 0;
-        return true;
-    });
-    if (nodes.length === 0) return false;
-    return nodes.every(
-        (child) =>
-            isValidElement(child) &&
-            (child.type === "img" ||
-                (typeof child.props === "object" &&
-                    child.props !== null &&
-                    "className" in child.props &&
-                    String((child.props as { className?: string }).className || "").includes("markdown-figure")))
     );
 }
 

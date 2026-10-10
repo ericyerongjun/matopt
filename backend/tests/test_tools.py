@@ -12,6 +12,7 @@ from app.agent.tools.python_tool import PythonTool
 from app.agent.tools.shell_tool import ShellTool
 from app.agent.kernel import ExecResult, KernelSession
 from app.agent.workspace import Workspace, WorkspaceError, is_internal_output
+from app.runtime import build_tools
 
 
 @pytest.fixture
@@ -151,6 +152,46 @@ async def test_python_tool_hides_notebook_from_changed_files(ws, monkeypatch):
 
 
 @pytest.mark.asyncio
+async def test_python_writes_invalidate_prior_reads_even_on_cell_error(ws, monkeypatch):
+    kernels = KernelPool(lambda cid: ws)
+    ctx, _ = make_ctx(ws, kernels)
+    (ws.root / "notes.txt").write_text("before", encoding="utf-8")
+    observed = await ReadFileTool()(ctx, {"path": "notes.txt"})
+    assert observed.ok
+
+    async def fake_execute(self, code, timeout=120, on_stream=None, cancel=None):
+        (ws.root / "notes.txt").write_text("after", encoding="utf-8")
+        return ExecResult(status="error", error_name="ValueError", error_value="after writing")
+
+    monkeypatch.setattr(KernelSession, "execute", fake_execute)
+    result = await PythonTool()(ctx, {"code": "write_then_fail()"})
+    assert not result.ok and result.meta["read_state_invalidated"] == ["notes.txt"]
+    edit = await EditFileTool()(ctx, {"path": "notes.txt", "old_string": "after", "new_string": "new"})
+    assert not edit.ok and edit.meta["code"] == "FS_NOT_OBSERVED"
+    await kernels.shutdown_all()
+
+
+@pytest.mark.asyncio
+async def test_shell_write_invalidates_read_state(ws):
+    ctx, _ = make_ctx(ws)
+    (ws.root / "notes.txt").write_text("before", encoding="utf-8")
+    await ReadFileTool()(ctx, {"path": "notes.txt"})
+    result = await ShellTool()(ctx, {"command": "printf after > notes.txt"})
+    assert result.ok and result.meta["read_state_invalidated"] == ["notes.txt"]
+    edit = await EditFileTool()(ctx, {"path": "notes.txt", "old_string": "after", "new_string": "new"})
+    assert not edit.ok and edit.meta["code"] == "FS_NOT_OBSERVED"
+
+
+@pytest.mark.asyncio
+async def test_shell_deleted_file_invalidates_read_state(ws):
+    ctx, _ = make_ctx(ws)
+    (ws.root / "notes.txt").write_text("before", encoding="utf-8")
+    await ReadFileTool()(ctx, {"path": "notes.txt"})
+    result = await ShellTool()(ctx, {"command": "rm notes.txt"})
+    assert result.ok and result.meta["read_state_invalidated"] == ["notes.txt"]
+
+
+@pytest.mark.asyncio
 async def test_kernel_does_not_recapture_leftover_or_identical_figures(ws):
     kernels = KernelPool(lambda cid: ws)
     ctx, _ = make_ctx(ws, kernels)
@@ -181,3 +222,57 @@ async def test_kernel_does_not_recapture_leftover_or_identical_figures(ws):
         assert len(list((ws.root / "figures").glob("*.png"))) == 1
     finally:
         await kernels.shutdown_all()
+
+
+# ── plan §3.8a: the declared safety surface ──────────────────────────────
+
+
+def test_every_registered_tool_declares_its_safety_surface():
+    """The scheduler (phase 7b) and the read-only classifier read these."""
+    tools = {t.name: t for t in build_tools()}
+    assert set(tools) >= {
+        "python", "bash", "read_file", "write_file", "edit_file", "list_files",
+        "grep", "parse_document", "check_equivalence", "update_plan",
+        "search_skills", "load_skill",
+    }
+    for name, tool in tools.items():
+        assert tool.side_effect_scope in ("none", "workspace", "system"), name
+        assert tool.risk_level in ("low", "medium", "high"), name
+        for flag in ("read_only", "destructive", "concurrent_safe", "needs_approval",
+                     "provider_visible", "stop_turn_on_success"):
+            assert isinstance(getattr(tool, flag), bool), f"{name}.{flag}"
+        assert tool.timeout_ms is None or (isinstance(tool.timeout_ms, int) and tool.timeout_ms > 0), name
+        assert tool.max_output_bytes is None or (isinstance(tool.max_output_bytes, int) and tool.max_output_bytes > 0), name
+        if tool.read_only:
+            # A read-only tool is fully benign: nothing durable changes, so no
+            # approval and no reason to keep it out of a parallel batch.
+            assert tool.side_effect_scope == "none", name
+            assert not tool.destructive and not tool.needs_approval, name
+            assert tool.concurrent_safe, name
+
+
+def test_tool_safety_surface_matches_behaviour():
+    tools = {t.name: t for t in build_tools()}
+    # The kernel and the shell are not sandboxed to the workspace (cwd only),
+    # so both can reach the host: scope `system`, not `workspace`.
+    for name in ("python", "bash"):
+        assert tools[name].side_effect_scope == "system", name
+        assert tools[name].risk_level == "high", name
+        assert not tools[name].concurrent_safe, name
+        assert tools[name].needs_approval, name
+    # It writes parsed/<stem>.md and OCR images, so it must not claim read-only.
+    assert tools["parse_document"].read_only is False
+    assert tools["update_plan"].side_effect_scope == "none"       # agent state only
+    assert tools["load_skill"].side_effect_scope == "workspace"   # materialises skills/<name>/
+    assert tools["web_search"].requires_flags == ("web_search",)  # the Web Search gate
+
+
+def test_python_tool_normalizes_fenced_code(ws):
+    """The fenced form is what the model typed; the unfenced form is what runs."""
+    tool = PythonTool()
+    plain = {"code": "print(1)"}
+    assert tool.resolve_input(plain) is plain
+    assert tool.resolve_input({"code": "\n```python\n  x = 1\n  print(x)\n```\n", "timeout": 30}) == {
+        "code": "  x = 1\n  print(x)",
+        "timeout": 30,
+    }

@@ -21,6 +21,11 @@ async def test_lambda_api_v1_health_and_config():
         assert r.status_code == 200
         assert r.json()["local_mode"] is True
 
+        r = await client.get("/api/v1/chat/models")
+        assert r.status_code == 200
+        assert r.json() == {"models": [{"id": "deepseek-flash", "name": "DeepSeek V4.1 Flash", "multimodal": True}],
+                            "default": "deepseek-flash"}
+
         r = await client.get("/health")
         assert r.status_code == 200
         assert r.json()["lambda"] is True

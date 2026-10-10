@@ -1,0 +1,86 @@
+# NOTICE
+
+MatOpt — third-party attribution notice.
+
+This file carries forward the attribution notices from the upstream projects
+MatOpt vendors from, as Apache License 2.0 §4(d) requires, and records what was
+and was not carried forward. It adds no licence terms of its own, modifies no
+upstream licence, and must not be read as an endorsement of MatOpt by any
+upstream project. Full licence texts are in
+[`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md); vendored files, pins and
+refresh commands are in [`vendor/UPSTREAM.md`](vendor/UPSTREAM.md).
+
+## ZCode — carried forward from `NOTICE.md`
+
+- Upstream: ZCode, <https://github.com/zai-org/ZCode>
+- Commit: `29628c9acdb81b703bbd4080c207a0e7ce5e276e` (v3.14.3)
+- Licence: Apache-2.0 (text in [Third-Party Notices](THIRD_PARTY_NOTICES.md))
+- Source of this notice: `NOTICE.md` at the repository root of that commit
+
+ZCode's `NOTICE.md` is a 70-line product disclosure document in Chinese, not a
+generated dependency dump (dependency notices live separately in ZCode's 1.9 MB
+`THIRD-PARTY-NOTICES.md`, which MatOpt does not carry forward). It has four
+sections:
+
+| § | Section | Carried forward |
+|---|---|---|
+| 一 | AI 输出、执行权限与自动化风险 — AI output, execution permissions and automation risk | no |
+| 二 | 上传接口、对外请求与业务用途 — upload interfaces, outbound requests and business purposes | no |
+| 三 | 本地数据、日志与凭据 — local data, logs and credentials | no |
+| 四 | 第三方许可与版权声明 — third-party licence and copyright statement | **yes** |
+
+Sections 一–三 describe the runtime behaviour, permission model and data
+handling of ZCode's own product (CLI permission modes, hooks, MCP, desktop
+scheduling, feedback uploads, credential storage). They are behaviour
+disclosures rather than attribution notices, and they do not pertain to any part
+of MatOpt, which ships none of that runtime: Apache-2.0 §4(d) licenses their
+omission from this file. They remain readable in full at the upstream path and
+commit named above, and MatOpt does not restate them as its own disclosures.
+
+Section 四 is the attribution notice that does pertain. It is reproduced
+verbatim below; its two Markdown links are shown in code spans because they
+point at files in ZCode's repository (`LICENSE`, `THIRD-PARTY-NOTICES.md`), not
+at MatOpt's tree.
+
+### Section 四, reproduced verbatim
+
+The heading below is demoted one level to fit this file's outline; its text and
+the paragraph are unchanged.
+
+#### 四、第三方许可与版权声明
+
+本仓库第一方代码依照根 `[LICENSE](LICENSE)` 采用 Apache-2.0；该许可不替其他权利人新增授权，也不覆盖第三方软件、复制代码、原生二进制、字体、图标、网页素材及其他资源的独立条款。具体依赖包详见 `[THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md)`。受第三方版权、许可及再分发条件等约束，不承诺提供官方产品的全部功能及活动政策，具体以实际发布的源码和构建产物为准。
+
+### English translation (informational; the Chinese text above is the notice)
+
+First-party code in the ZCode repository is licensed under Apache-2.0 under that
+repository's root LICENSE; that licence does not grant additional rights on
+behalf of other rights holders, and does not override the independent terms of
+third-party software, copied code, native binaries, fonts, icons, web assets and
+other resources. ZCode's own THIRD-PARTY-NOTICES.md (a different file from
+MatOpt's THIRD_PARTY_NOTICES.md) lists the dependency packages. Subject to
+third-party copyright, licence and redistribution conditions, not all features
+of the official product and its promotional policies are guaranteed to be
+provided; the source and build artifacts actually released are authoritative.
+
+This translation is provided for MatOpt's readers only. It is not part of the
+upstream notice and has no legal effect.
+
+## DeepSeek Harness (`dsh`)
+
+- Upstream: <https://github.com/ericyerongjun/deepseek-harness>
+- Commit: `639ed015397290b3745d163aafe02ffee4aa3f84`
+- Licence: MIT
+
+`dsh` ships no `NOTICE` file at the pin, so there is no upstream notice to carry
+forward here. MIT's requirement — that the copyright notice and permission
+notice accompany copies of the Software — is met by
+[`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md) §1, which reproduces the MIT
+text and the `Copyright (c) 2026 DeepSeek` line verbatim.
+
+## MatOpt
+
+MatOpt's own first-party code does not yet declare a licence (there is no root
+`LICENSE`). Adding one is out of scope for this file, which is limited to
+upstream attribution. Third-party components vendored before this notice existed
+(`skills/anthropic/`, `backend/lambda_app/`) keep their own notice files.

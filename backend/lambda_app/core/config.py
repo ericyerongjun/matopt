@@ -1,8 +1,9 @@
 import os
 from pathlib import Path
 from typing import List
-from pydantic import AliasChoices, Field, model_validator
+from pydantic import AliasChoices, Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+from app.llm.catalog import MODEL_ID, canonical_model
 
 
 # MATOPT HOST GLUE: isolate LAMBDA files from MatOpt conversation workspaces.
@@ -26,52 +27,38 @@ class Settings(BaseSettings):
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 10080  # 7 days
     
-    # LLM Configuration
-    OPENAI_API_KEY: str = ""
-    OPENAI_BASE_URL: str = "https://api.openai.com/v1"
+    # Share MatOpt's single DeepSeek V4.1 Flash route and credentials.
+    DEEPSEEK_API_KEY: str = ""
+    DEEPSEEK_BASE_URL: str = "https://api.deepseek.com"
     DEFAULT_MODEL: str = Field(
-        default="",
+        default=MODEL_ID,
         validation_alias=AliasChoices("DEFAULT_MODEL", "MODEL"),
     )
 
-    # Models exposed in the UI. The first model is used as the default when
-    # DEFAULT_MODEL is not set, and the IDs are sent unchanged to OPENAI_BASE_URL.
+    # Legacy model-list environment variables remain readable for migration,
+    # but they cannot expose or dispatch another provider/model.
     MODEL_LIST: List[str] = Field(
-        default=[
-            "mimo-v2.5-pro",
-            "deepseek-v4-pro",
-        ],
+        default=[MODEL_ID],
         validation_alias=AliasChoices("MODEL_LIST", "AVAILABLE_MODELS"),
     )
-    MULTIMODAL_MODELS: List[str] = [
-        "mimo-v2.5-pro",
-        "mimo-v2.5",
-    ]
+    MULTIMODAL_MODELS: List[str] = [MODEL_ID]
     MULTIMODAL_IMAGE_DETAIL: str = "high"
     MULTIMODAL_IMAGE_MAX_BYTES: int = 8 * 1024 * 1024
 
-    @model_validator(mode="after")
-    def set_default_model_from_list(self):
-        if not self.MODEL_LIST:
-            raise ValueError("MODEL_LIST must contain at least one model")
-        if not self.DEFAULT_MODEL:
-            self.DEFAULT_MODEL = self.MODEL_LIST[0]
+    @field_validator("DEFAULT_MODEL", mode="before")
+    @classmethod
+    def only_flash_model(cls, value):
+        return canonical_model(value)
 
-        return self
+    @field_validator("MODEL_LIST", "MULTIMODAL_MODELS", mode="before")
+    @classmethod
+    def only_flash_list(cls, value):
+        return [MODEL_ID]
 
-    @model_validator(mode="after")
-    def inherit_matopt_llm_credentials(self):
-        """MatOpt glue: reuse DeepSeek from the shared .env when OPENAI_API_KEY is empty."""
-        if (self.OPENAI_API_KEY or "").strip():
-            return self
-        key = (os.environ.get("DEEPSEEK_API_KEY") or "").strip()
-        if not key:
-            return self
-        self.OPENAI_API_KEY = key
-        default_openai = "https://api.openai.com/v1"
-        if not self.OPENAI_BASE_URL or self.OPENAI_BASE_URL == default_openai:
-            self.OPENAI_BASE_URL = (os.environ.get("DEEPSEEK_BASE_URL") or "").strip() or "https://api.deepseek.com"
-        return self
+    @field_validator("DEEPSEEK_BASE_URL", mode="before")
+    @classmethod
+    def default_deepseek_url(cls, value):
+        return (value or "").strip() or "https://api.deepseek.com"
 
     @property
     def LAMBDA_DATA_ROOT(self) -> Path:

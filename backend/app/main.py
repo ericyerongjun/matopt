@@ -71,6 +71,21 @@ def create_app() -> FastAPI:
     )
     app.include_router(api_router)
 
+    @app.middleware("http")
+    async def html_isolation_headers(request, call_next):
+        response = await call_next(request)
+        if response.headers.get("content-type", "").startswith("text/html") and not request.url.path.startswith("/api/"):
+            from urllib.parse import urlsplit
+            host = request.url.hostname or "localhost"
+            origin = settings.ui_sandbox_origin or f"{request.url.scheme}://{host}:3001"
+            target = urlsplit(origin)
+            request_port = request.url.port or (443 if request.url.scheme == "https" else 80)
+            target_port = target.port or (443 if target.scheme == "https" else 80)
+            if (target.scheme, target.hostname, target_port) == (request.url.scheme, request.url.hostname, request_port):
+                origin = "'none'"
+            response.headers["Content-Security-Policy"] = f"frame-src {origin} blob:; object-src 'none'; base-uri 'self'"
+        return response
+
     if settings.lambda_enabled:
         from app.data.lambda_host import attach_lambda
 

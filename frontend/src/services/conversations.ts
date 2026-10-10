@@ -1,4 +1,4 @@
-import apiClient from "./api";
+import apiClient from "./api.ts";
 import type { Conversation, ChatMessage } from "../types/protocol";
 
 export async function listConversations(limit = 200): Promise<Conversation[]> {
@@ -18,9 +18,9 @@ export async function createConversation(body: {
     return data;
 }
 
-export async function getConversation(id: string): Promise<Conversation & { messages: ChatMessage[]; running: boolean }> {
+export async function getConversation(id: string, options?: { signal?: AbortSignal; timeout?: number }): Promise<Conversation & { messages: ChatMessage[]; running: boolean }> {
     const { data } = await apiClient.get<Conversation & { messages: ChatMessage[]; running: boolean }>(
-        `/conversations/${id}`
+        `/conversations/${id}`, options
     );
     return data;
 }

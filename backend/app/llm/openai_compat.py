@@ -1,9 +1,6 @@
 """
-Streaming adapter for OpenAI-compatible chat-completions endpoints
-(OpenAI, DeepSeek, DashScope/Qwen).
-
-Provider differences are confined to :func:`build_params` (reasoning
-controls) and :attr:`LLMProvider.replay_reasoning`.
+OpenAI SDK adapter for the single DeepSeek V4.1 Flash route.
+The SDK is a wire client; it does not make OpenAI a selectable provider.
 """
 
 from __future__ import annotations
@@ -13,32 +10,50 @@ from typing import AsyncIterator, Optional
 
 from openai import AsyncOpenAI, NOT_GIVEN
 
-from app.llm.base import ChatOptions, LLMProvider, StreamDelta, ToolCallDelta
-from app.llm.catalog import ModelSpec, ProviderSpec, reasoning_params
+from app.llm.base import ChatOptions, CompletionResult, LLMProvider, StreamDelta, ToolCallDelta
+from app.llm.catalog import MODEL_ID, PROVIDER_ID, MAX_OUTPUT_TOKENS, ModelSpec, ProviderSpec, reasoning_params
 
 logger = logging.getLogger(__name__)
 
 
 class OpenAICompatProvider(LLMProvider):
     def __init__(self, spec: ProviderSpec, api_key: str, base_url: Optional[str], timeout: float = 600.0):
+        if spec.id != PROVIDER_ID or tuple(m.id for m in spec.models) != (MODEL_ID,):
+            raise ValueError("Only DeepSeek V4.1 Flash (deepseek-flash) can be dispatched.")
         self.spec = spec
         self.id = spec.id
         self.replay_reasoning = spec.replay_reasoning
-        self.client = AsyncOpenAI(api_key=api_key, base_url=base_url or None, timeout=timeout, max_retries=2)
+        # The harness owns retries so failed attempts are durable and billable
+        # usage is never silently hidden inside the SDK.
+        self.client = AsyncOpenAI(api_key=api_key, base_url=base_url or spec.default_base_url, timeout=timeout, max_retries=0)
 
     def model_spec(self, model_id: str) -> Optional[ModelSpec]:
         return self.spec.model(model_id)
 
-    async def stream(self, messages: list[dict], tools: list[dict] | None, options: ChatOptions) -> AsyncIterator[StreamDelta]:
-        spec = self.model_spec(options.model)
-        kwargs, extra_body = reasoning_params(self.spec, spec, options.reasoning)
-        if options.temperature is not None and self.spec.allow_temperature:
-            kwargs["temperature"] = options.temperature
-        if options.max_tokens:
+    def _request_params(self, options: ChatOptions) -> tuple[dict, dict]:
+        # Check at the final dispatch boundary as well as in the registry, so
+        # auxiliary calls and direct adapter users cannot send another model.
+        if options.model != MODEL_ID:
+            raise ValueError("Only deepseek-flash can be dispatched; resolve old saved selections through the registry first.")
+        kwargs, extra = reasoning_params(self.spec, self.model_spec(options.model), options.reasoning)
+        if options.max_tokens is not None:
+            if type(options.max_tokens) is not int or not 1 <= options.max_tokens <= MAX_OUTPUT_TOKENS:
+                raise ValueError(f"max_tokens must be between 1 and {MAX_OUTPUT_TOKENS}.")
             kwargs["max_tokens"] = options.max_tokens
-        if options.parallel_tool_calls is not None and tools and self.spec.supports_parallel_tool_calls:
-            kwargs["parallel_tool_calls"] = options.parallel_tool_calls
-        extra_body.update(options.extra or {})
+        if options.temperature is not None and kwargs["reasoning_effort"] == "none":
+            kwargs["temperature"] = options.temperature
+        supplied = options.extra or {}
+        if not isinstance(supplied, dict):
+            raise ValueError("extra must be an object.")
+        if "model" in supplied or "messages" in supplied or "tools" in supplied or "stream" in supplied:
+            raise ValueError("extra cannot override model, messages, tools or stream.")
+        if any(key in supplied for key in ("reasoning_effort", "thinking", "max_tokens")):
+            raise ValueError("Set reasoning and max_tokens through ChatOptions, not extra.")
+        extra.update(supplied)
+        return kwargs, extra
+
+    async def stream(self, messages: list[dict], tools: list[dict] | None, options: ChatOptions) -> AsyncIterator[StreamDelta]:
+        kwargs, extra_body = self._request_params(options)
 
         request = dict(
             model=options.model,
@@ -50,13 +65,9 @@ class OpenAICompatProvider(LLMProvider):
         if extra_body:
             request["extra_body"] = extra_body
 
-        try:
-            stream = await self.client.chat.completions.create(stream_options={"include_usage": True}, **request)
-        except Exception as exc:  # noqa: BLE001 — some gateways reject stream_options
-            if "stream_options" in str(exc):
-                stream = await self.client.chat.completions.create(**request)
-            else:
-                raise
+        # Official DeepSeek supports this parameter. Retry dispatches belong
+        # to the durable harness, never to a hidden compatibility fallback.
+        stream = await self.client.chat.completions.create(stream_options={"include_usage": True}, **request)
 
         async with stream:
             async for chunk in stream:
@@ -91,15 +102,19 @@ class OpenAICompatProvider(LLMProvider):
 
     async def complete_text(self, messages: list[dict], options: ChatOptions) -> str:
         """Non-streaming helper for side tasks (titles, suggestions)."""
-        spec = self.model_spec(options.model)
-        kwargs, extra_body = reasoning_params(self.spec, spec, options.reasoning or "off")
-        if options.max_tokens:
-            kwargs["max_tokens"] = options.max_tokens
+        return (await self.complete(messages, options)).text
+
+    async def complete(self, messages: list[dict], options: ChatOptions) -> CompletionResult:
+        kwargs, extra_body = self._request_params(options)
         request = dict(model=options.model, messages=messages, **kwargs)
         if extra_body:
             request["extra_body"] = extra_body
         resp = await self.client.chat.completions.create(**request)
-        return (resp.choices[0].message.content or "").strip()
+        return CompletionResult(
+            (resp.choices[0].message.content or "").strip(),
+            _usage_dict(resp.usage) if getattr(resp, "usage", None) is not None else None,
+            getattr(resp.choices[0], "finish_reason", None),
+        )
 
 
 def _usage_dict(usage) -> dict:
@@ -118,4 +133,19 @@ def _usage_dict(usage) -> dict:
         ct = getattr(pdetails, "cached_tokens", None)
         if ct is not None:
             d["cached_tokens"] = ct
+    # DeepSeek supplies its cache counters as extension fields rather than
+    # OpenAI's prompt_tokens_details. Prompt includes hits; miss is uncached.
+    extra = getattr(usage, "model_extra", None) or {}
+    for wire_key, key in (
+        ("prompt_cache_hit_tokens", "cache_read_tokens"),
+        ("prompt_cache_miss_tokens", "uncached_input_tokens"),
+        ("cache_write_tokens", "cache_write_tokens"),
+    ):
+        value = getattr(usage, wire_key, None)
+        if value is None:
+            value = extra.get(wire_key)
+        if value is not None:
+            d[key] = value
+    if "cache_read_tokens" in d:
+        d["cached_tokens"] = d["cache_read_tokens"]
     return d

@@ -2,17 +2,23 @@
     margin: 12px 0;
     border-radius: var(--radius-md);
     overflow: hidden;
-    border: 1px solid var(--border-light);
-    background: var(--color-paper);
-    box-shadow: var(--shadow-soft);
+    border: 1px solid var(--color-border);
+    background: var(--color-background);
     padding: 12px;
+}
+
+.chart-loading {
+    padding: 24px;
+    color: var(--color-foreground-subtle);
+    font-size: var(--text-ui-base);
+    text-align: center;
 }
 
 .chart-error {
     padding: 16px;
-    color: var(--error-text);
-    background: var(--error-bg);
+    color: var(--color-destructive);
+    background: var(--color-surface);
     border-radius: var(--radius-md);
-    font-size: 0.875rem;
+    font-size: var(--text-ui-base);
     text-align: center;
 }

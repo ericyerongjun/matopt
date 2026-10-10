@@ -70,6 +70,9 @@ def check_equivalence_sync(expr_a: str, expr_b: str) -> dict:
 class CheckEquivalenceTool(Tool):
     name = "check_equivalence"
     read_only = True
+    concurrent_safe = True
+    side_effect_scope = "none"
+    risk_level = "low"
     ui_kind = "math"
     description = (
         "Check whether two mathematical expressions/answers are equivalent (LaTeX or plain syntax), e.g. "
@@ -94,7 +97,16 @@ class CheckEquivalenceTool(Tool):
 
 class WolframAlphaTool(Tool):
     name = "wolfram_alpha"
+    # A remote read: no local effect, but the query leaves the machine — scope
+    # "none" because nothing durable changes here, and the outbound call is the
+    # same class of side effect as web_search (which is also scope "none").
     read_only = True
+    destructive = False
+    concurrent_safe = True
+    side_effect_scope = "none"
+    risk_level = "low"
+    needs_approval = False
+    timeout_ms = 30_000          # httpx.AsyncClient(timeout=30)
     ui_kind = "math"
     description = "Query Wolfram|Alpha (short answer) for a fact or computation to cross-check your own result."
     parameters = {

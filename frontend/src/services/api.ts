@@ -26,6 +26,8 @@ apiClient.interceptors.request.use(
 apiClient.interceptors.response.use(
     (response) => response,
     (error) => {
+        // Selection changes deliberately abort trajectory requests.
+        if (axios.isCancel(error)) return Promise.reject(error);
         const msg =
             error.response?.data?.detail ??
             error.message ??

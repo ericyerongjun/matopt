@@ -1,9 +1,11 @@
+# Single-container alternative: docker build -t matopt .
+# docker compose builds the separate backend and frontend Dockerfiles.
 # ── Stage 1: Build the frontend ──────────────────────────────────────────
 FROM node:22-alpine AS frontend-build
 
 WORKDIR /app/frontend
-COPY frontend/package.json frontend/package-lock.json* ./
-RUN npm install --frozen-lockfile 2>/dev/null || npm install
+COPY frontend/package.json frontend/package-lock.json ./
+RUN npm ci
 COPY frontend/ .
 RUN npm run build
 

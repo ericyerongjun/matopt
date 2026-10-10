@@ -60,3 +60,33 @@ export function parseSlashSkillTokens(
 export function commandToken(name: string): string {
     return `/${name.replace(/_/g, "-")}`;
 }
+
+export interface ActiveSlashToken {
+    start: number;
+    end: number;
+    query: string;
+}
+
+/** Locate only the command being edited, without interpreting prose as a command.
+ * URLs/paths, inline and fenced code, and math retain their ordinary slash syntax.
+ */
+export function activeSlashToken(text: string, caret: number): ActiveSlashToken | null {
+    const position = Math.max(0, Math.min(text.length, caret));
+    const before = text.slice(0, position);
+    const match = before.match(/(?:^|\s)(\/([a-z0-9_-]*))$/i);
+    if (!match) return null;
+    const start = position - match[1].length;
+    const prefix = text.slice(0, start);
+    const suffix = text.slice(position).match(/^[a-z0-9_-]*/i)?.[0] ?? "";
+    const end = position + suffix.length;
+    if (/[/.\\:]/.test(text[end] ?? "")) return null;
+    // A slash inside a code or math delimiter is content, even after whitespace.
+    const fenceCount = (prefix.match(/```/g) ?? []).length;
+    const withoutFences = prefix.replace(/```/g, "");
+    if (fenceCount % 2 || (withoutFences.match(/`/g) ?? []).length % 2) return null;
+    if ((prefix.match(/(?<!\\)\$/g) ?? []).length % 2) return null;
+    if (prefix.lastIndexOf("\\(") > prefix.lastIndexOf("\\)") || prefix.lastIndexOf("\\[") > prefix.lastIndexOf("\\]")) return null;
+    const preceding = prefix.trimEnd().split(/\s+/).at(-1) ?? "";
+    if (/^(?:[a-z]|[-+]?\d+(?:\.\d+)?|[=+*^÷×])$/i.test(preceding)) return null;
+    return { start, end, query: match[2] + suffix };
+}

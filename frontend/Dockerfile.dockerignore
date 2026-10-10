@@ -1,0 +1,30 @@
+# Build-context exclusions for `docker build -f frontend/Dockerfile .`
+#
+# Docker prefers a `<dockerfile>.dockerignore` next to the Dockerfile over the
+# context-root `.dockerignore`. That matters here: the root `.dockerignore`
+# excludes `frontend/` (it is written for the backend image build), and the
+# frontend build context IS the repository root — so without this file the
+# `COPY frontend/ ...` step would find nothing.
+#
+# Keep in sync with the root `.dockerignore` for the entries that overlap.
+
+.git
+.github
+.vscode
+
+# The frontend context needs `frontend/` only; native assets are self-contained.
+backend
+docs
+scripts
+vendor
+skills
+lambda_app
+**/.venv
+**/__pycache__
+**/.pytest_cache
+**/.mypy_cache
+**/*.pyc
+
+# Never ship installed deps or build output; the image builds them itself.
+**/node_modules
+**/dist

@@ -1,187 +1,196 @@
-"""
-MatOpt sandbox as a modern MCP server.
-
-The old RestrictedPython eval loop is gone; the conversation kernel + workspace
-are the sandbox. This module exposes that environment over MCP (Streamable HTTP
-on the FastAPI app, or stdio via ``python -m app.agent.mcp``) so other MCP
-clients can run the same tools the harness uses.
-"""
-
+"""MCP access to the same validated, durable workspace execution service."""
 from __future__ import annotations
 
-import asyncio
-import logging
-from contextvars import ContextVar
-from typing import Any, Optional
+import base64
+import re
+from collections import OrderedDict
+from typing import Any
+from urllib.parse import quote
 
-from app.agent.events import Event
+from fastmcp import Context, FastMCP
+from fastmcp.tools import ToolResult as McpResult
+from mcp.types import AudioContent, ImageContent, ResourceLink, TextContent
+
+from app.agent.events import Event, ToolResult
+from app.agent.execution import SessionExecutionReceipt, restore_execution_state
 from app.agent.tools.base import ToolContext
-from app.config import settings
-
-logger = logging.getLogger(__name__)
-
-_conversation_id: ContextVar[Optional[str]] = ContextVar("matopt_mcp_cid", default=None)
+from app.storage.db import new_id
 
 
-def _noop_emit(_event: Event) -> Any:
-    async def _inner() -> None:
-        return None
-
-    return _inner()
-
-
-async def _emit_drop(_event: Event) -> None:
-    return None
-
-
-def _tool_context(conversation_id: str) -> ToolContext:
+def _runtime():
     from app.runtime import get_runtime
-
-    rt = get_runtime()
-    return ToolContext(
-        conversation_id=conversation_id,
-        workspace=rt.workspace(conversation_id),
-        emit=_emit_drop,
-        cancel=asyncio.Event(),
-        kernels=rt.kernels,
-        settings=settings,
-        state={},
-    )
+    return get_runtime()
 
 
-async def _ensure_conversation(conversation_id: Optional[str] = None) -> str:
-    from app.runtime import get_runtime
-
-    rt = get_runtime()
-    cid = conversation_id or _conversation_id.get()
-    if cid:
-        if rt.db.get_conversation(cid) is None:
-            rt.db.create_conversation(title="MCP sandbox", conversation_id=cid)
-        _conversation_id.set(cid)
-        return cid
-    conv = rt.db.create_conversation(title="MCP sandbox")
-    _conversation_id.set(conv["id"])
-    return conv["id"]
+def _valid_identity(cid: str) -> bool:
+    return isinstance(cid, str) and re.fullmatch(r"[A-Za-z0-9_-]{1,128}", cid) is not None
 
 
-def _text_result(res: Any) -> str:
-    if res.ok:
-        return res.output or "(no output)"
-    err = res.error or "error"
-    return f"{res.output}\n[error] {err}".strip()
+def _protocol_result(result: ToolResult, ctx: ToolContext | None = None) -> McpResult:
+    text = result.output or ("(no output)" if result.ok else "")
+    if result.error:
+        text = f"{text}\n{result.error}".strip()
+    content: list = [TextContent(type="text", text=text)]
+    for artifact in result.artifacts:
+        if ctx is None or not artifact.path:
+            continue
+        mime = artifact.mime or "application/octet-stream"
+        path = ctx.workspace.resolve(artifact.path)
+        if path.is_file() and path.stat().st_size <= 8 * 1024 * 1024:
+            if mime in {"image/png", "image/jpeg", "image/gif", "image/webp"}:
+                content.append(ImageContent(type="image", mimeType=mime,
+                                            data=base64.b64encode(path.read_bytes()).decode("ascii")))
+                continue
+            if mime.startswith("audio/"):
+                content.append(AudioContent(type="audio", mimeType=mime,
+                                            data=base64.b64encode(path.read_bytes()).decode("ascii")))
+                continue
+        content.append(ResourceLink(type="resource_link", name=artifact.name, mimeType=mime,
+            uri=f"matopt://{ctx.conversation_id}/{quote(artifact.path, safe='/')}",
+            description="Workspace artifact; use the returned conversation_id and path with workspace tools."))
+    return McpResult(content=content, structured_content=result.to_dict(), is_error=not result.ok)
 
 
-def build_mcp():
-    """Build the FastMCP server wrapping native sandbox tools."""
-    from fastmcp import FastMCP
+class McpSandbox:
+    """Application-owned workspace observations, independent of HTTP sessions."""
+    def __init__(self, runtime: Any = None):
+        self._runtime = runtime
+        self._states: OrderedDict[str, dict] = OrderedDict()
 
-    from app.agent.tools.document_tool import ParseDocumentTool
-    from app.agent.tools.file_tools import EditFileTool, GrepTool, ListFilesTool, ReadFileTool, WriteFileTool
-    from app.agent.tools.math_tools import CheckEquivalenceTool
-    from app.agent.tools.python_tool import PythonTool
-    from app.agent.tools.shell_tool import ShellTool
+    @property
+    def runtime(self):
+        return self._runtime if self._runtime is not None else _runtime()
 
-    mcp = FastMCP(
-        "matopt-sandbox",
-        instructions=(
-            "MatOpt conversation sandbox: a persistent Jupyter kernel and a private workspace. "
-            "Call open_workspace first (optionally with a conversation id). Paths are workspace-relative. "
-            "Prefer python for computation; bash for pip and file conversion."
-        ),
-    )
-    python_tool = PythonTool(settings.tool_timeout, settings.tool_max_timeout, settings.tool_max_output_chars)
-    shell_tool = ShellTool(settings.tool_timeout, settings.tool_max_timeout, settings.tool_max_output_chars)
-    read_tool, write_tool, edit_tool = ReadFileTool(), WriteFileTool(), EditFileTool()
-    list_tool, grep_tool = ListFilesTool(), GrepTool()
-    parse_tool, eq_tool = ParseDocumentTool(), CheckEquivalenceTool()
+    def open_workspace(self, conversation_id: str = "") -> dict:
+        rt = self.runtime
+        if conversation_id:
+            if not _valid_identity(conversation_id):
+                raise ValueError("Invalid conversation_id")
+            if rt.db.get_conversation(conversation_id) is None:
+                rt.db.create_conversation(title="MCP sandbox", conversation_id=conversation_id)
+            cid = conversation_id
+        else:
+            cid = rt.db.create_conversation(title="MCP sandbox")["id"]
+        return {"conversation_id": cid, "files": rt.workspace(cid).list_files(),
+                "instructions": "Pass this conversation_id on every workspace tool call."}
 
-    @mcp.tool
-    async def open_workspace(conversation_id: str = "") -> str:
-        """Select or create the sandbox conversation. Call this before other tools."""
-        cid = await _ensure_conversation(conversation_id or None)
-        ctx = _tool_context(cid)
-        listing = ctx.workspace.describe_for_prompt()
-        return f"Workspace ready for conversation {cid}.\n{listing}"
+    async def execute(self, name: str, conversation_id: str, arguments: dict, mcp_context: Context | None = None) -> McpResult:
+        rt = self.runtime
+        if not _valid_identity(conversation_id) or rt.db.get_conversation(conversation_id) is None:
+            return _protocol_result(ToolResult(ok=False, error="Unknown conversation_id. Call open_workspace first.",
+                                               meta={"code": "MCP_WORKSPACE_UNKNOWN"}))
+        tool = rt.tools.get(name)
+        if tool is None:
+            return _protocol_result(ToolResult(ok=False, error=f"Tool {name!r} is unavailable."))
+        # The native lease also guards MCP requests. Independent HTTP requests
+        # never depend on a ContextVar to choose their workspace.
+        try:
+            cancel = rt.harness.claim_external_run(conversation_id)
+        except Exception as exc:
+            from app.ui.store import UIConflict
+            if not isinstance(exc, UIConflict):
+                raise
+            return _protocol_result(ToolResult(ok=False, error=str(exc), meta={"code": "WORKSPACE_BUSY"}))
+        try:
+            session = await rt.harness._open_session(conversation_id)
+            state = self._states.setdefault(conversation_id, {})
+            self._states.move_to_end(conversation_id)
+            while len(self._states) > 32:
+                self._states.popitem(last=False)
 
-    @mcp.tool
-    async def python(code: str, timeout: int = 120, reset: bool = False) -> str:
-        """Execute Python in the persistent Jupyter kernel bound to this workspace."""
-        cid = await _ensure_conversation()
-        ctx = _tool_context(cid)
-        res = await python_tool(ctx, {"code": code, "timeout": timeout, "reset": reset})
-        return _text_result(res)
+            async def emit(event: Event) -> None:
+                if mcp_context is None:
+                    return
+                if event.type == "tool_activity_progress":
+                    measured = event.data.get("progress", {})
+                    await mcp_context.report_progress(measured.get("completed", 0), measured.get("total"))
+                elif event.type == "tool_running":
+                    await mcp_context.info(f"Running {name}")
+                elif event.type == "tool_progress":
+                    # This is explicit MCP tool output. Ordinary chat SSE uses
+                    # the separate public projection, never this raw channel.
+                    await mcp_context.info(str(event.data.get("delta", "")))
 
-    @mcp.tool
-    async def bash(command: str, timeout: int = 120) -> str:
-        """Run a shell command in the workspace."""
-        cid = await _ensure_conversation()
-        ctx = _tool_context(cid)
-        res = await shell_tool(ctx, {"command": command, "timeout": timeout})
-        return _text_result(res)
+            ctx = ToolContext(conversation_id, rt.workspace(conversation_id), emit, cancel,
+                              call_id=new_id("mcp_"), state=state, kernels=rt.kernels,
+                              settings=rt.executions.settings)
+            restore_execution_state(ctx, session.events)
+            result = await rt.executions.dispatch(tool, ctx, arguments,
+                                                  receipt=SessionExecutionReceipt(session))
+            return _protocol_result(result, ctx)
+        finally:
+            rt.harness.release_external_run(conversation_id, cancel)
 
-    @mcp.tool
-    async def read_file(path: str, start_line: int = 1, max_lines: int = 400) -> str:
-        """Read a workspace text file."""
-        cid = await _ensure_conversation()
-        ctx = _tool_context(cid)
-        res = await read_tool(ctx, {"path": path, "start_line": start_line, "max_lines": max_lines})
-        return _text_result(res)
 
-    @mcp.tool
-    async def write_file(path: str, content: str) -> str:
-        """Write a workspace text file."""
-        cid = await _ensure_conversation()
-        ctx = _tool_context(cid)
-        res = await write_tool(ctx, {"path": path, "content": content})
-        return _text_result(res)
+def build_mcp(runtime: Any = None):
+    """Expose native tools, with explicit workspace identity on every call."""
+    sandbox = McpSandbox(runtime)
+    mcp = FastMCP("matopt-sandbox", instructions=(
+        "MatOpt persistent Python kernel and workspace. Call open_workspace once, then pass its "
+        "conversation_id to EVERY tool call; HTTP sessions never imply a selected workspace. "
+        "Read an existing file before editing or overwriting it. Paths are workspace-relative. "
+        "An interrupted mutation requires inspecting its outcome before retrying."))
+    ro = {"readOnlyHint": True, "destructiveHint": False, "idempotentHint": True, "openWorldHint": False}
+    rw = {"readOnlyHint": False, "destructiveHint": False, "idempotentHint": False, "openWorldHint": False}
+    system = {**rw, "openWorldHint": True}
 
-    @mcp.tool
-    async def edit_file(path: str, old_string: str, new_string: str, replace_all: bool = False) -> str:
-        """Replace text in a workspace file."""
-        cid = await _ensure_conversation()
-        ctx = _tool_context(cid)
-        res = await edit_tool(ctx, {"path": path, "old_string": old_string, "new_string": new_string, "replace_all": replace_all})
-        return _text_result(res)
+    @mcp.tool(annotations=rw)
+    async def open_workspace(conversation_id: str = "") -> dict:
+        """Create or select a workspace; retain its conversation_id for every subsequent call."""
+        return sandbox.open_workspace(conversation_id)
 
-    @mcp.tool
-    async def list_files(pattern: str = "**/*", path: str = "") -> str:
-        """List workspace files."""
-        cid = await _ensure_conversation()
-        ctx = _tool_context(cid)
-        args = {"pattern": pattern}
-        if path:
-            args["path"] = path
-        res = await list_tool(ctx, args)
-        return _text_result(res)
+    @mcp.tool(annotations=system)
+    async def python(conversation_id: str, code: str, ctx: Context, timeout: int = 120, reset: bool = False) -> McpResult:
+        """Execute Python in this workspace's persistent kernel. Active work returns WORKSPACE_BUSY."""
+        return await sandbox.execute("python", conversation_id, {"code": code, "timeout": timeout, "reset": reset}, ctx)
 
-    @mcp.tool
-    async def grep(pattern: str, path: str = "", glob: str = "", case_sensitive: bool = True) -> str:
-        """Search workspace files with a regular expression."""
-        cid = await _ensure_conversation()
-        ctx = _tool_context(cid)
-        args: dict[str, Any] = {"pattern": pattern, "case_sensitive": case_sensitive}
+    @mcp.tool(annotations=system)
+    async def bash(conversation_id: str, command: str, ctx: Context, timeout: int = 120) -> McpResult:
+        """Run a bounded shell command in the explicit workspace."""
+        return await sandbox.execute("bash", conversation_id, {"command": command, "timeout": timeout}, ctx)
+
+    @mcp.tool(annotations=ro)
+    async def read_file(conversation_id: str, path: str, ctx: Context, start_line: int = 1, max_lines: int = 400) -> McpResult:
+        """Read text and preserve its version receipt for edits, including across HTTP requests."""
+        return await sandbox.execute("read_file", conversation_id,
+                                     {"path": path, "start_line": start_line, "max_lines": max_lines}, ctx)
+
+    @mcp.tool(annotations=rw)
+    async def write_file(conversation_id: str, path: str, content: str, ctx: Context) -> McpResult:
+        """Create text, or overwrite an existing file only after reading its current version."""
+        return await sandbox.execute("write_file", conversation_id, {"path": path, "content": content}, ctx)
+
+    @mcp.tool(annotations=rw)
+    async def edit_file(conversation_id: str, path: str, old_string: str, new_string: str, ctx: Context, replace_all: bool = False) -> McpResult:
+        """Replace exact text after a fresh read. Refuse stale or missing file observations."""
+        return await sandbox.execute("edit_file", conversation_id,
+                                     {"path": path, "old_string": old_string, "new_string": new_string, "replace_all": replace_all}, ctx)
+
+    @mcp.tool(annotations=ro)
+    async def list_files(conversation_id: str, ctx: Context, pattern: str = "**/*", path: str = "") -> McpResult:
+        """List files in the explicit workspace."""
+        return await sandbox.execute("list_files", conversation_id, {"pattern": pattern, "path": path}, ctx)
+
+    @mcp.tool(annotations=ro)
+    async def grep(conversation_id: str, pattern: str, ctx: Context, path: str = "", glob: str = "", case_sensitive: bool = True) -> McpResult:
+        """Search text files in the explicit workspace."""
+        args = {"pattern": pattern, "case_sensitive": case_sensitive}
         if path:
             args["path"] = path
         if glob:
             args["glob"] = glob
-        res = await grep_tool(ctx, args)
-        return _text_result(res)
+        return await sandbox.execute("grep", conversation_id, args, ctx)
 
-    @mcp.tool
-    async def parse_document(path: str) -> str:
-        """OCR / convert a PDF or image in the workspace to Markdown."""
-        cid = await _ensure_conversation()
-        ctx = _tool_context(cid)
-        res = await parse_tool(ctx, {"path": path})
-        return _text_result(res)
+    @mcp.tool(annotations=rw)
+    async def parse_document(conversation_id: str, path: str, ctx: Context) -> McpResult:
+        """OCR or convert a PDF/image, returning structured results and generated artifacts."""
+        return await sandbox.execute("parse_document", conversation_id, {"path": path}, ctx)
 
-    @mcp.tool
-    async def check_equivalence(expression_a: str, expression_b: str) -> str:
-        """Decide whether two mathematical expressions are equivalent."""
-        cid = await _ensure_conversation()
-        ctx = _tool_context(cid)
-        res = await eq_tool(ctx, {"expression_a": expression_a, "expression_b": expression_b})
-        return _text_result(res)
+    @mcp.tool(annotations=ro)
+    async def check_equivalence(conversation_id: str, expression_a: str, expression_b: str, ctx: Context) -> McpResult:
+        """Check whether two mathematical expressions are equivalent."""
+        return await sandbox.execute("check_equivalence", conversation_id,
+                                     {"expression_a": expression_a, "expression_b": expression_b}, ctx)
 
     return mcp
 
@@ -197,10 +206,9 @@ def get_mcp():
 
 
 def build_mcp_asgi():
-    """Starlette app for mounting at /mcp (Streamable HTTP, stateless)."""
+    """Starlette app mounted at /mcp; workspace identity is request-explicit."""
     mcp = get_mcp()
-    kwargs = {"path": "/"}
     try:
-        return mcp.http_app(stateless_http=True, **kwargs)
+        return mcp.http_app(stateless_http=True, path="/")
     except TypeError:
-        return mcp.http_app(**kwargs)
+        return mcp.http_app(path="/")

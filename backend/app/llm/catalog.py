@@ -1,14 +1,13 @@
-"""
-Catalog of supported providers/models and the mapping from the UI's
-reasoning-effort slider to provider-specific request parameters.
+"""The single dispatch route: DeepSeek V4.1 Flash, API ``deepseek-flash``.
 
-Slider levels (UI)          off | low | medium | high | max
-  openai   (gpt-5.6-*)      reasoning_effort = none|low|medium|high|xhigh
-  deepseek (deepseek-v4-*)  thinking.type = disabled | enabled + reasoning_effort=low|medium|high
-  qwen     (qwen3.x)        enable_thinking=false | true (+ thinking_budget for low/medium)
+Verified against DeepSeek's Models & Pricing, Lists Models and Thinking Mode
+on 2026-09-30. Historical route IDs are migration inputs only; they are never
+exposed in the live catalog or sent to a provider.
 
-The exact parameter names/values are kept in one place (``reasoning_params``)
-so they can be adjusted when providers change their APIs.
+https://api-docs.deepseek.com/quick_start/pricing
+https://api-docs.deepseek.com/api/list-models/
+https://api-docs.deepseek.com/api/create-chat-completion/
+https://api-docs.deepseek.com/guides/thinking_mode/
 """
 
 from __future__ import annotations
@@ -16,15 +15,48 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Optional
 
-LEVELS: tuple[str, ...] = ("off", "low", "medium", "high", "max")
+PROVIDER_ID = "deepseek"
+MODEL_ID = "deepseek-flash"
+CONTEXT_WINDOW = 1_048_576
+MAX_OUTPUT_TOKENS = 393_216
+LEVELS = ("off", "low", "high", "max")
+LEVEL_LABELS = {"off": "Off", "low": "Low", "high": "High", "max": "Max"}
 
-LEVEL_LABELS = {
-    "off": "Off",
-    "low": "Low",
-    "medium": "Medium",
-    "high": "High",
-    "max": "Max",
-}
+# IDs previously stored by this application or its embedded LAMBDA UI.
+# This finite migration list does not admit custom/new arbitrary model names.
+LEGACY_PROVIDERS = frozenset({"openai", "qwen"})
+LEGACY_MODELS = frozenset({
+    "deepseek-v4-pro", "deepseek-v4-flash", "deepseek-v4-flash-vision-exp",
+    "deepseek-chat", "deepseek-reasoner", "deepseek/deepseek-v4-pro",
+    "gpt-5.6-terra", "gpt-5.6-luna", "qwen3.8-max", "qwen3.8-flash",
+    "qwen3.7-max", "qwen3.7-plus", "qwen3.5-plus", "mimo-v2.5-pro", "mimo-v2.5",
+    "claude-sonnet-4-6", "openai/gpt-5.3-codex", "minimax-m2.5",
+})
+
+
+def canonical_provider(provider_id: str | None) -> str:
+    if provider_id is not None and not isinstance(provider_id, str):
+        raise ValueError("Provider must be a string; only DeepSeek is available.")
+    pid = (provider_id or "").strip().lower()
+    if pid and pid != PROVIDER_ID and pid not in LEGACY_PROVIDERS:
+        raise ValueError("Only the DeepSeek provider is available.")
+    return PROVIDER_ID
+
+
+def canonical_model(model_id: str | None) -> str:
+    if model_id is not None and not isinstance(model_id, str):
+        raise ValueError("Model must be a string; only deepseek-flash is available.")
+    mid = (model_id or "").strip()
+    if mid and mid != MODEL_ID and mid not in LEGACY_MODELS:
+        raise ValueError("Only DeepSeek V4.1 Flash (deepseek-flash) is available.")
+    return MODEL_ID
+
+
+def canonical_reasoning(level: str | None) -> str:
+    # Official compatibility mappings; expose only the model's actual levels.
+    if level is not None and not isinstance(level, str):
+        raise ValueError("Reasoning level must be off, low, high or max.")
+    return {"none": "off", "minimal": "low", "medium": "high", "xhigh": "high", "ultra": "max"}.get(level, level) if level else "high"
 
 
 @dataclass(frozen=True)
@@ -48,154 +80,50 @@ class ProviderSpec:
     env_key: str
     default_base_url: Optional[str]
     models: tuple[ModelSpec, ...]
-    reasoning_style: str                     # openai | deepseek | qwen
-    replay_reasoning: bool = False           # send reasoning_content back on tool-call turns
+    reasoning_style: str
+    replay_reasoning: bool = False
     allow_temperature: bool = True
-    supports_parallel_tool_calls: bool = True
+    supports_parallel_tool_calls: bool = False
     alt_base_urls: dict = field(default_factory=dict)
     docs_url: str = ""
 
     def model(self, model_id: str) -> Optional[ModelSpec]:
-        for m in self.models:
-            if m.id == model_id:
-                return m
-        return None
+        return next((m for m in self.models if m.id == model_id), None)
 
     @property
     def default_model(self) -> ModelSpec:
         return self.models[0]
 
 
-PROVIDERS: dict[str, ProviderSpec] = {
-    "deepseek": ProviderSpec(
-        id="deepseek",
-        label="DeepSeek",
-        env_key="DEEPSEEK_API_KEY",
-        default_base_url="https://api.deepseek.com",
-        reasoning_style="deepseek",
-        replay_reasoning=True,
-        allow_temperature=False,
-        docs_url="https://api-docs.deepseek.com/",
-        models=(
-            ModelSpec(
-                id="deepseek-v4-pro", label="DeepSeek V4 Pro", family="DeepSeek V4",
-                context_window=1_000_000, max_output=384_000,
-                reasoning_levels=("off", "low", "medium", "high"), default_reasoning="high",
-                description="Flagship reasoning model, strongest on math and code.",
-                tags=("flagship",),
-            ),
-            ModelSpec(
-                id="deepseek-v4-flash", label="DeepSeek V4 Flash", family="DeepSeek V4",
-                context_window=1_000_000, max_output=384_000,
-                reasoning_levels=("off", "low", "medium", "high"), default_reasoning="medium",
-                description="Fast and inexpensive; good for iteration and data work.",
-                tags=("fast",),
-            ),
-        ),
-    ),
-    "openai": ProviderSpec(
-        id="openai",
-        label="OpenAI",
-        env_key="OPENAI_API_KEY",
-        default_base_url=None,
-        reasoning_style="openai",
-        allow_temperature=False,
-        docs_url="https://developers.openai.com/api/docs/models",
-        models=(
-            ModelSpec(
-                id="gpt-5.6-terra", label="GPT-5.6 Terra", family="GPT-5.6",
-                context_window=400_000, max_output=128_000,
-                reasoning_levels=("off", "low", "medium", "high", "max"), default_reasoning="medium",
-                description="Balanced GPT-5.6 tier: strong reasoning at moderate cost.",
-                tags=("balanced",),
-            ),
-            ModelSpec(
-                id="gpt-5.6-luna", label="GPT-5.6 Luna", family="GPT-5.6",
-                context_window=400_000, max_output=128_000,
-                reasoning_levels=("off", "low", "medium", "high", "max"), default_reasoning="medium",
-                description="Fastest, most affordable GPT-5.6 tier.",
-                tags=("fast",),
-            ),
-        ),
-    ),
-    "qwen": ProviderSpec(
-        id="qwen",
-        label="Qwen",
-        env_key="QWEN_API_KEY",
-        default_base_url="https://dashscope-intl.aliyuncs.com/compatible-mode/v1",
-        alt_base_urls={"china": "https://dashscope.aliyuncs.com/compatible-mode/v1"},
-        reasoning_style="qwen",
-        docs_url="https://www.alibabacloud.com/help/en/model-studio/deep-thinking",
-        models=(
-            ModelSpec(
-                id="qwen3.8-max", label="Qwen3.8 Max", family="Qwen3.8",
-                context_window=262_144, max_output=65_536,
-                reasoning_levels=("off", "low", "medium", "high", "max"), default_reasoning="high",
-                description="Latest flagship Qwen; hybrid thinking.",
-                tags=("flagship",),
-            ),
-            ModelSpec(
-                id="qwen3.8-flash", label="Qwen3.8 Flash", family="Qwen3.8",
-                context_window=262_144, max_output=65_536,
-                reasoning_levels=("off", "low", "medium", "high", "max"), default_reasoning="medium",
-                description="Fast Qwen3.8 tier.",
-                tags=("fast",),
-            ),
-            ModelSpec(
-                id="qwen3.7-max", label="Qwen3.7 Max", family="Qwen3.7",
-                context_window=262_144, max_output=65_536,
-                reasoning_levels=("off", "low", "medium", "high", "max"), default_reasoning="high",
-                description="Qwen3.7 flagship; hybrid thinking.",
-            ),
-            ModelSpec(
-                id="qwen3.7-plus", label="Qwen3.7 Plus", family="Qwen3.7",
-                context_window=262_144, max_output=65_536,
-                reasoning_levels=("off", "low", "medium", "high", "max"), default_reasoning="medium",
-                description="Qwen3.7 balanced tier.",
-            ),
-            ModelSpec(
-                id="qwen3.5-plus", label="Qwen3.5 Plus", family="Qwen3.5",
-                context_window=131_072, max_output=32_768,
-                reasoning_levels=("off", "low", "medium", "high", "max"), default_reasoning="medium",
-                description="Qwen3.5 balanced tier; hybrid thinking.",
-            ),
-        ),
+PROVIDERS = {
+    PROVIDER_ID: ProviderSpec(
+        id=PROVIDER_ID, label="DeepSeek", env_key="DEEPSEEK_API_KEY",
+        default_base_url="https://api.deepseek.com", reasoning_style="deepseek",
+        replay_reasoning=True, docs_url="https://api-docs.deepseek.com/quick_start/pricing",
+        models=(ModelSpec(
+            id=MODEL_ID, label="DeepSeek V4.1 Flash", family="DeepSeek V4.1",
+            context_window=CONTEXT_WINDOW, max_output=MAX_OUTPUT_TOKENS,
+            reasoning_levels=LEVELS, default_reasoning="high",
+            description="DeepSeek V4.1 Flash with thinking, tool calls and image input.", tags=("fast",),
+        ),),
     ),
 }
 
-# thinking_budget (tokens) used for Qwen when the slider is below "max"
-QWEN_BUDGETS = {"low": 2_048, "medium": 8_192, "high": 32_768}
-
 
 def reasoning_params(provider: ProviderSpec, model: Optional[ModelSpec], level: Optional[str]) -> tuple[dict, dict]:
-    """Return (kwargs, extra_body) for chat.completions.create."""
-    levels = model.reasoning_levels if model else LEVELS
-    lvl = level if level in levels else (model.default_reasoning if model else "medium")
-    kwargs: dict = {}
-    extra: dict = {}
-    style = provider.reasoning_style
-    if style == "openai":
-        mapping = {"off": "none", "low": "low", "medium": "medium", "high": "high", "max": "xhigh"}
-        kwargs["reasoning_effort"] = mapping[lvl]
-    elif style == "deepseek":
-        if lvl == "off":
-            extra["thinking"] = {"type": "disabled"}
-        else:
-            extra["thinking"] = {"type": "enabled"}
-            extra["reasoning_effort"] = {"low": "low", "medium": "medium", "high": "high", "max": "high"}[lvl]
-    elif style == "qwen":
-        if lvl == "off":
-            extra["enable_thinking"] = False
-        else:
-            extra["enable_thinking"] = True
-            if lvl in QWEN_BUDGETS:
-                extra["thinking_budget"] = QWEN_BUDGETS[lvl]
-    return kwargs, extra
+    """Return the official Chat Completions kwargs and SDK extra body."""
+    if provider.id != PROVIDER_ID or model is None or model.id != MODEL_ID:
+        raise ValueError("Only DeepSeek V4.1 Flash (deepseek-flash) can be dispatched.")
+    lvl = canonical_reasoning(level)
+    if lvl not in LEVELS:
+        raise ValueError(f"Unsupported reasoning level: {level!r}. Use off, low, high or max.")
+    return (
+        {"reasoning_effort": "none" if lvl == "off" else lvl},
+        {"thinking": {"type": "disabled" if lvl == "off" else "enabled"}},
+    )
 
 
 def find_model(model_id: str) -> Optional[tuple[ProviderSpec, ModelSpec]]:
-    for p in PROVIDERS.values():
-        m = p.model(model_id)
-        if m:
-            return p, m
-    return None
+    spec = PROVIDERS[PROVIDER_ID]
+    model = spec.model(model_id)
+    return (spec, model) if model is not None else None

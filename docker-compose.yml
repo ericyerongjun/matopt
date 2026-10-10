@@ -35,15 +35,30 @@ services:
   # ── Frontend (Nginx serving Vite build) ─────────────────────────────────
   frontend:
     build:
-      context: ./frontend
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: frontend/Dockerfile
+      args:
+        VITE_UI_SANDBOX_ORIGIN: ${UI_SANDBOX_ORIGIN:-}
     container_name: matopt-frontend
     restart: unless-stopped
     ports:
       - "3000:80"
+    environment:
+      UI_SANDBOX_ORIGIN: ${UI_SANDBOX_ORIGIN:-}
     depends_on:
       backend:
         condition: service_healthy
+      ui-sandbox:
+        condition: service_started
+
+  # Isolated static origin for generated HTML/JS, with no backend/workspace access.
+  ui-sandbox:
+    build:
+      context: .
+      dockerfile: frontend/sandbox/Dockerfile
+    restart: unless-stopped
+    ports:
+      - "3001:80"
 
 volumes:
   backend-data:

@@ -6,7 +6,8 @@ import re
 from typing import Any
 
 from app.agent.events import ToolResult
-from app.agent.tools.base import Tool, ToolContext, truncate_text
+from app.agent.tools.base import Tool, ToolContext, output_bound_bytes, truncate_text
+from app.agent.tools.read_state import invalidate_execution_changes
 from app.agent.workspace import is_internal_output
 
 _FENCE = re.compile(r"^\s*```[a-zA-Z0-9_+-]*\s*\n(.*?)\n?```\s*$", re.DOTALL)
@@ -38,6 +39,18 @@ def clean_code(code: str) -> str:
 
 class PythonTool(Tool):
     name = "python"
+    # Executes arbitrary code in a Jupyter kernel that is *not* sandboxed: the
+    # cell can import os/subprocess, read `~/.ssh`, install packages and reach
+    # the network — its true blast radius is the host, not the workspace. The
+    # conversation workspace is only its cwd, so the honest scope is `system`.
+    # Not destructive by class (a `print(1)` destroys nothing; ZCode marks Bash
+    # the same way) and not concurrent-safe: every call shares one kernel whose
+    # variables and imports persist between cells.
+    destructive = False
+    concurrent_safe = False
+    side_effect_scope = "system"
+    risk_level = "high"
+    needs_approval = True
     ui_kind = "code"
     description = (
         "Execute Python code in a persistent Jupyter kernel whose working directory is the conversation workspace. "
@@ -70,9 +83,26 @@ class PythonTool(Tool):
         self.default_timeout = default_timeout
         self.max_timeout = max_timeout
         self.max_output_chars = max_output_chars
+        self.timeout_ms = int(default_timeout) * 1000        # enforced per cell (`timeout`, capped below)
+        self.max_output_bytes = output_bound_bytes(max_output_chars)
+
+    def resolve_input(self, arguments: dict) -> dict:
+        """Strip a Markdown fence *before* anything else reads the code (§3.8c).
+
+        `clean_code` used to run inside `run`, so the monitor, the
+        `tool_call_ready` event and the persisted `tool_call` part all saw the
+        fenced text while the kernel executed the unfenced text. Normalizing
+        here means approval and execution are byte-identical.
+        """
+        code = arguments.get("code")
+        if isinstance(code, str):
+            cleaned = clean_code(code)
+            if cleaned != code:
+                return {**arguments, "code": cleaned}
+        return arguments
 
     async def run(self, ctx: ToolContext, code: str, timeout: int | None = None, reset: bool = False, **_: Any) -> ToolResult:
-        code = clean_code(code)
+        code = clean_code(code)   # idempotent: still true when `run` is called directly
         if not code or not code.strip():
             return ToolResult(ok=False, output="", error="No code provided.")
         if ctx.kernels is None:
@@ -87,12 +117,16 @@ class PythonTool(Tool):
         async def on_stream(name: str, text: str) -> None:
             await ctx.progress(text)
 
-        res = await session.execute(code, timeout=limit, on_stream=on_stream, cancel=ctx.cancel)
+        try:
+            res = await session.execute(code, timeout=limit, on_stream=on_stream, cancel=ctx.cancel)
+        finally:
+            changed = ctx.workspace.changed_since(before)
+            read_state_meta = invalidate_execution_changes(ctx.state, ctx.workspace, before, changed)
 
         # Files created/modified by the cell (figures already captured are deduplicated by path).
         artifacts = list(res.artifacts)
         seen = {a.path for a in artifacts if a.path}
-        for rel in ctx.workspace.changed_since(before):
+        for rel in changed:
             if rel in seen or is_internal_output(rel):
                 continue
             try:
@@ -142,5 +176,6 @@ class PythonTool(Tool):
                 "execution_count": res.execution_count,
                 "stdout": truncate_text(res.stdout, self.max_output_chars),
                 "stderr": truncate_text(res.stderr, 4000),
+                **read_state_meta,
             },
         )

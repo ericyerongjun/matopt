@@ -6,9 +6,11 @@ or ``backend/.env``; see ``.env.example`` for the full list.
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Optional
+from typing import Literal, Optional
 
+from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+from app.llm.catalog import LEVELS, MAX_OUTPUT_TOKENS, MODEL_ID, PROVIDER_ID, canonical_model, canonical_provider, canonical_reasoning
 
 BACKEND_DIR = Path(__file__).resolve().parent.parent
 REPO_ROOT = BACKEND_DIR.parent
@@ -45,39 +47,92 @@ class Settings(BaseSettings):
     cors_origins: list[str] = ["http://localhost:5173", "http://localhost:3000", "http://127.0.0.1:5173"]
     data_dir: Path = BACKEND_DIR / "data"
     max_upload_size_mb: int = 200
+    ui_native_enabled: bool = True
+    ui_mini_apps_enabled: bool = True
+    ui_sandbox_origin: Optional[str] = None  # defaults to this host on port 3001
+
+    @field_validator("ui_sandbox_origin")
+    @classmethod
+    def validate_sandbox_origin(cls, value):
+        if value is None:
+            return value
+        from urllib.parse import urlsplit
+        parsed = urlsplit(value)
+        if parsed.scheme not in {"http", "https"} or not parsed.hostname or parsed.username or parsed.password or parsed.path not in {"", "/"} or parsed.query or parsed.fragment:
+            raise ValueError("UI_SANDBOX_ORIGIN must be a single http(s) origin")
+        return value.rstrip("/")
 
     # ── Default model selection ─────────────────────────────────────────
-    default_provider: str = "deepseek"
-    default_model: str = "deepseek-v4-pro"
-    default_reasoning: str = "medium"
+    default_provider: str = PROVIDER_ID
+    default_model: str = MODEL_ID
+    default_reasoning: str = "high"
+
+    @field_validator("default_provider", mode="before")
+    @classmethod
+    def only_deepseek_provider(cls, value):
+        return canonical_provider(value)
+
+    @field_validator("default_model", mode="before")
+    @classmethod
+    def only_flash_model(cls, value):
+        return canonical_model(value)
+
+    @field_validator("default_reasoning", "verify_reasoning", mode="before")
+    @classmethod
+    def normalize_reasoning(cls, value):
+        if value is None:
+            return value
+        normalized = canonical_reasoning(value)
+        if normalized not in LEVELS:
+            raise ValueError("Reasoning level must be off, low, high or max.")
+        return normalized
 
     # ── Providers (OpenAI-compatible) ───────────────────────────────────
     deepseek_api_key: Optional[str] = None
     deepseek_base_url: Optional[str] = None
-    openai_api_key: Optional[str] = None
-    openai_base_url: Optional[str] = None
-    qwen_api_key: Optional[str] = None
-    qwen_base_url: Optional[str] = None
-    qwen_region: str = "intl"                      # intl | cn
     wolfram_app_id: Optional[str] = None
     llm_timeout: float = 600.0
-    max_output_tokens: int = 0                     # 0 = provider default
+    max_output_tokens: int = Field(default=0, ge=0, le=MAX_OUTPUT_TOKENS)  # 0 = provider default
 
     # ── Agent loop ──────────────────────────────────────────────────────
     agent_max_steps: int = 40
     agent_max_consecutive_failures: int = 4
+    loop_policy: Literal["operation", "legacy"] = "operation"
+    # One allowance across worker, checks, OCR and delegated LAMBDA work.
+    # Engineering defaults; per-operation limits can be stricter. The absolute
+    # deadline includes paused time, and missing token usage remains unknown.
+    run_max_model_attempts: int = Field(default=80, ge=1)
+    run_max_tool_starts: int = Field(default=160, ge=1)
+    run_timeout_seconds: float = Field(default=1800, gt=0, allow_inf_nan=False)
     recent_turns_full_replay: int = 3
     history_char_budget: int = 240_000
     keepalive_seconds: float = 10.0
+    session_log_enabled: bool = True             # disable to use the legacy message replay path
     verify_rounds: int = 2
     verify_max_steps: int = 10
     verify_reasoning: Optional[str] = None         # override slider level for the verifier
+    diagnostics_enabled: bool = False            # operator-only raw execution inspection
 
     # ── Tools ───────────────────────────────────────────────────────────
     tool_timeout: int = 120
     tool_max_timeout: int = 900
     tool_max_output_chars: int = 12_000
     kernel_idle_seconds: int = 1800
+    # Children spawned for agent actions (bash, the Jupyter kernel) get the
+    # explicit allowlist in app/agent/child_env.py instead of the backend's
+    # ambient environment, which is how the agent could otherwise read MatOpt's
+    # own API keys with one `python` cell. False restores the pre-Tier-1
+    # `dict(os.environ)` behaviour (docs/DSH-REFINEMENT-PLAN.md §3.9.3): the
+    # hatch exists so a deployment whose tooling needs an inherited variable
+    # (proxy, CA bundle, model-download token) can be unblocked without a code
+    # change — but it re-exposes DEEPSEEK_API_KEY & co. to anything the agent
+    # runs, so treat it as a temporary override rather than a setting.
+    child_env_allowlist: bool = True
+
+    # Operator supplied per-million-token prices, keyed by provider/model.
+    model_pricing: dict = Field(default_factory=dict)
+    max_turn_cost: Optional[float] = Field(default=None, gt=0, allow_inf_nan=False)
+    max_conversation_cost: Optional[float] = Field(default=None, gt=0, allow_inf_nan=False)
 
     # ── Skills (Agent Skills folders) ───────────────────────────────────
     skills_dirs: str = ""                  # extra comma-separated directories
@@ -103,7 +158,19 @@ class Settings(BaseSettings):
     align_monitor: bool = True
     align_monitor_llm: bool = False
 
-    # ── Document parsing (MinerU) ───────────────────────────────────────
+    # ── Document understanding (the configured DeepSeek vision model) ──
+    document_ocr_enabled: bool = True
+    document_auto_parse: bool = True
+    document_ocr_max_pages: int = Field(default=12, ge=1, le=100)
+    document_ocr_max_files: int = Field(default=6, ge=1, le=20)
+    document_ocr_max_file_mb: int = Field(default=25, ge=1, le=200)
+    document_ocr_max_dimension: int = Field(default=2048, ge=512, le=4096)
+    document_ocr_max_pixels: int = Field(default=32_000_000, ge=1_000_000, le=64_000_000)
+    document_ocr_page_timeout: float = Field(default=90.0, gt=0, le=600)
+    document_ocr_timeout: float = Field(default=300.0, gt=0, le=1800)
+    document_ocr_max_tokens: int = Field(default=6000, ge=256, le=16384)
+
+    # ── Optional local document parsing fallback (MinerU) ───────────────
     mineru_command: Optional[str] = None           # path to the mineru CLI; auto-detected if empty
     mineru_backend: str = "pipeline"               # pipeline | vlm-transformers | vlm-http-client ...
     mineru_device: str = "auto"                    # auto | cpu | mps | cuda

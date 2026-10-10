@@ -11,6 +11,7 @@
  */
 
 import React, { useMemo, lazy, Suspense, memo } from "react";
+import { chartJsDefaults, mergeChartDefaults, themedChartData, useChartTheme } from "./chartTheme.ts";
 import "./ChartRenderer.css";
 
 const Chart = lazy(async () => {
@@ -25,32 +26,21 @@ interface Props {
 }
 
 function ChartRenderer({ json }: Props) {
+    const theme = useChartTheme();
     const parsed = useMemo(() => {
         try {
             const obj = JSON.parse(json);
             if (!obj?.type || !obj?.data) return null;
             return {
                 type: obj.type,
-                data: obj.data,
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: {
-                        legend: {
-                            position: "bottom",
-                            labels: { boxWidth: 12, boxHeight: 12 },
-                        },
-                        title: obj.options?.plugins?.title,
-                    },
-                    scales: obj.options?.scales,
-                    ...obj.options,
-                },
+                data: themedChartData(obj.data, obj.type, theme),
+                options: mergeChartDefaults(chartJsDefaults(theme, obj.type, obj.options), obj.options),
                 height: typeof obj.height === "number" ? obj.height : 360,
             };
         } catch {
             return null;
         }
-    }, [json]);
+    }, [json, theme]);
 
     if (!parsed) {
         return (
@@ -64,7 +54,7 @@ function ChartRenderer({ json }: Props) {
         <div className="chart-container" style={{ height: parsed.height }}>
             <Suspense
                 fallback={
-                    <div style={{ padding: 24, textAlign: "center" }}>
+                    <div className="chart-loading">
                         Loading chart...
                     </div>
                 }
