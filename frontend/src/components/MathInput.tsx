@@ -32,7 +32,7 @@ interface Props {
   placeholder?: string;
   toolbar?: ReactNode;
   /** Fill an editable draft once per action ID, without submitting or clearing selections. */
-  draftPreset?: { id: number; text: string };
+  draftPreset?: { id: number; text: string; skills?: string[] };
   showDisclaimer?: boolean;
   commands?: CommandInfo[];
   /** @deprecated pass commands */
@@ -90,6 +90,7 @@ function MatOptPrompt({ onSubmit, onStop, stopControl = "inline", disabled = fal
   const menuRef = useRef<HTMLDivElement>(null);
   const live = useRef({ onSubmit, disabled, mounted: true });
   const appliedPreset = useRef<number | null>(null);
+  const starterSelectionIds = useRef<string[]>([]);
   live.current.onSubmit = onSubmit;
   live.current.disabled = disabled;
   const catalog = useMemo<CommandInfo[]>(() => commands?.length ? commands : skills.map((skill) => ({
@@ -121,12 +122,34 @@ function MatOptPrompt({ onSubmit, onStop, stopControl = "inline", disabled = fal
     setValue(draftPreset.text);
     setCaret(draftPreset.text.length);
     setDismissedToken(`${draftPreset.text}:${draftPreset.text.length}`);
+    const requested = draftPreset.skills ?? [];
+    if (requested.length) {
+      const previousStarterIds = starterSelectionIds.current;
+      const additions = new Map(requested.map((name) => {
+        const known = catalog.find((command) => command.kind === "skill" && command.name === name);
+        const command: PinnedCommand = {
+          kind: "skill",
+          name,
+          description: known?.description ?? "",
+          source: known?.source ?? "matopt",
+          available: known?.available,
+          selectionId: crypto.randomUUID(),
+        };
+        return [name, command] as const;
+      }));
+      starterSelectionIds.current = [...additions.values()].map((command) => command.selectionId);
+      setPinned((current) => {
+        const kept = current.filter((item) => !previousStarterIds.includes(item.selectionId));
+        const added = [...additions.values()].filter((command) => !kept.some((item) => item.kind === "skill" && item.name === command.name));
+        return [...kept, ...added];
+      });
+    }
     requestAnimationFrame(() => {
       if (!live.current.mounted) return;
       textareaRef.current?.focus();
       textareaRef.current?.setSelectionRange(draftPreset.text.length, draftPreset.text.length);
     });
-  }, [draftPreset, disabled, composing, setValue]);
+  }, [draftPreset, disabled, composing, setValue, catalog]);
   useEffect(() => setActiveIndex(0), [slashQuery, slashOpen]);
   useLayoutEffect(() => {
     if (!slashOpen) { setMenuPosition(null); return; }

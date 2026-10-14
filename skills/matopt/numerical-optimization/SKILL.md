@@ -36,3 +36,12 @@ metadata:
 - If `success` is false, change solver, scaling, or bounds before claiming a minimum.
 - Maximise `f` by minimising `-f`; say so.
 - Integer / combinatorial problems: say when a continuous relaxation is used.
+
+## Required report
+
+Lead with this report before extra commentary:
+
+1. **Solver.** The algorithm, and why it matches the bounds or constraints.
+2. **Starting points.** Every start that was tried.
+3. **Outcome.** `success`, `message`, iteration count, objective value, and the point `x`.
+4. **Minimum check.** Gradient norm or KKT residual, constraint violation, and whether the other starts agreed. If this check fails, do not call the point a minimum.

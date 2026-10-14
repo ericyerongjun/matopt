@@ -35,4 +35,19 @@ Use the persistent `python` kernel. Load tables with pandas (`uploads/…`).
 - Paired designs: use paired tests; do not ignore clustering.
 - Save diagnostic plots under `figures/` and reference them in Markdown.
 
+## Required report
+
+Lead with this report before extra commentary:
+
+1. **Question.** The estimand, in words, and the unit of independence.
+2. **Hypothesis.** The null and alternative, or the model being estimated.
+3. **Assumptions.** Which checks were run, and whether they hold.
+4. **Procedure.** The test or model, and why it was chosen.
+5. **Estimate.** The point estimate with its standard error.
+6. **Interval.** The confidence or credible interval and its level.
+7. **Effect size.** A magnitude the reader can interpret, together with the p-value.
+8. **Sample size.** n for the analysis, not only the raw table.
+
+If the request is to explore, profile, or plot a whole table and no estimand is specified, do not invent a test. Hand that task to the `lambda-eda`, `lambda-report`, or `lambda-data-agent` playbook.
+
 See [references/tests.md](references/tests.md) for a compact test chooser.

@@ -158,6 +158,44 @@ test("starter presets fill an editable draft once, retaining files and tools wit
   assert.deepEqual(submissions, []);
 });
 
+test("a starter draft pins its skill without sending, and the next starter replaces that skill", async () => {
+  const submissions: unknown[] = [];
+  const props: Props = {
+    commands: [
+      { kind: "skill", name: "statistical-inference", description: "Tests and intervals", source: "matopt" },
+      { kind: "skill", name: "numerical-optimization", description: "Numerical optimisation", source: "matopt" },
+      { kind: "tool", name: "read_file", description: "Read a file", source: "matopt" },
+    ],
+    onSubmit: (text, files, skills, tools) => { submissions.push({ text, files, skills, tools }); },
+  };
+  render(props);
+  type("/read-file");
+  act(() => { key("Tab"); });
+  await act(async () => {
+    render({ ...props, draftPreset: { id: 1, text: "Compare the two groups", skills: ["statistical-inference"] } });
+    await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+  });
+  assert.equal(textarea().value, "Compare the two groups");
+  assert.ok(button("Remove Statistical inference"));
+  assert.ok(button("Remove Read files"));
+  assert.deepEqual(submissions, []);
+  await act(async () => {
+    render({ ...props, draftPreset: { id: 2, text: "Minimize f(x, y)", skills: ["numerical-optimization"] } });
+    await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+  });
+  assert.equal(textarea().value, "Minimize f(x, y)");
+  assert.equal(document.querySelector('button[aria-label="Remove Statistical inference"]'), null);
+  assert.ok(button("Remove Numerical optimization"));
+  assert.ok(button("Remove Read files"));
+  await act(async () => { button("Send").click(); });
+  assert.deepEqual(submissions, [{
+    text: "/numerical-optimization /read-file Minimize f(x, y)",
+    files: [],
+    skills: ["numerical-optimization"],
+    tools: ["read_file"],
+  }]);
+});
+
 test("native file picker preserves binary upload data and releases attachment preview after send", async () => {
   let resolveSubmission: (value: { text: string; files: File[] }) => void = () => {};
   const submitted = new Promise<{ text: string; files: File[] }>((resolve) => { resolveSubmission = resolve; });
