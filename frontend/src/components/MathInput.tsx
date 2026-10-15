@@ -2,7 +2,8 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { ArrowUp, Check, Plus, Square, X } from "lucide-react";
-import { activeSlashToken, commandToken } from "../services/slash.ts";
+import { activeSlashToken, commandToken, parseSlashCommands } from "../services/slash.ts";
+import { composeQuotedMessage, MAX_QUOTES, prepareQuote, type QuoteRequest } from "../services/quote.ts";
 import type { CommandInfo, SkillInfo } from "../services/skills";
 import { skillIntro } from "../services/skills.ts";
 import {
@@ -33,6 +34,7 @@ interface Props {
   toolbar?: ReactNode;
   /** Fill an editable draft once per action ID, without submitting or clearing selections. */
   draftPreset?: { id: number; text: string; skills?: string[] };
+  quoteRequest?: QuoteRequest;
   showDisclaimer?: boolean;
   commands?: CommandInfo[];
   /** @deprecated pass commands */
@@ -72,13 +74,16 @@ function PromptAttachments({ pinned, removePinned, disabled }: {
 }
 
 function MatOptPrompt({ onSubmit, onStop, stopControl = "inline", disabled = false, loading = false,
-  placeholder = "Ask anything, or type /", toolbar, draftPreset, showDisclaimer = true,
+  placeholder = "Ask anything, or type /", toolbar, draftPreset, quoteRequest, showDisclaimer = true,
   commands, skills = [], externalSkill = null, externalKey = 0, onExternalSkillConsumed,
 }: Props) {
   const controller = usePromptInputController();
   const value = controller.textInput.value;
   const setValue = controller.textInput.setInput;
   const [pinned, setPinned] = useState<PinnedCommand[]>([]);
+  const [quotes, setQuotes] = useState<QuoteRequest[]>([]);
+  const [quoteError, setQuoteError] = useState(false);
+  const appliedQuote = useRef<string | null>(null);
   const [activeIndex, setActiveIndex] = useState(0);
   const [caret, setCaret] = useState(0);
   const [composing, setComposing] = useState(false);
@@ -109,13 +114,24 @@ function MatOptPrompt({ onSubmit, onStop, stopControl = "inline", disabled = fal
       return `${presentation.label} ${presentation.description ?? ""}`.toLowerCase().includes(query);
     })];
   }, [catalog, slashQuery]);
-  const canSend = Boolean(value.trim() || pinned.length) && !disabled;
+  const canSend = Boolean(value.trim() || pinned.length || quotes.length) && !disabled;
   const showStop = loading && !canSend && stopControl === "inline";
 
   useEffect(() => {
     live.current.mounted = true;
     return () => { live.current.mounted = false; };
   }, []);
+  useEffect(() => {
+    if (!quoteRequest || disabled || appliedQuote.current === quoteRequest.id) return;
+    appliedQuote.current = quoteRequest.id;
+    const quote = { ...prepareQuote(quoteRequest), id: quoteRequest.id };
+    if (!quote.text) return;
+    const duplicate = quotes.some((item) => item.text === quote.text && item.source === quote.source);
+    setQuoteError(!duplicate && quotes.length >= MAX_QUOTES);
+    if (!duplicate && quotes.length < MAX_QUOTES) setQuotes((current) => [...current, quote]);
+    const frame = requestAnimationFrame(() => textareaRef.current?.focus());
+    return () => cancelAnimationFrame(frame);
+  }, [quoteRequest, disabled]);
   useEffect(() => {
     if (!draftPreset || disabled || composing || appliedPreset.current === draftPreset.id) return;
     appliedPreset.current = draftPreset.id;
@@ -243,17 +259,26 @@ function MatOptPrompt({ onSubmit, onStop, stopControl = "inline", disabled = fal
   }, [slashOpen, tokenIdentity]);
 
   const submit = async (message: PromptInputMessage) => {
-    const payload = resolvePromptSubmission(message.text, pinned, catalog);
+    const payload = resolvePromptSubmission(message.text || (quotes.length ? "Explain the quoted passage." : ""), pinned, catalog);
     if (disabled || !payload) throw new Error("Enter task instructions before sending.");
     const submittedSelectionIds = new Set(pinned.map((command) => command.selectionId));
+    const submittedQuoteIds = new Set(quotes.map((quote) => quote.id));
+    let text = payload.text;
+    if (quotes.length) {
+      const parsed = parseSlashCommands(payload.text, { skills: payload.skills, tools: payload.tools });
+      const prefix = [...payload.skills, ...payload.tools].map(commandToken).join(" ");
+      text = [prefix, composeQuotedMessage(quotes, parsed.rest)].filter(Boolean).join(" ");
+    }
     const callback = onSubmit;
     const files = await promptFilesForUpload(message.files);
     if (!live.current.mounted || live.current.disabled || live.current.onSubmit !== callback) {
       throw new Error("The active task changed before the attachments were ready.");
     }
-    const accepted = await callback(payload.text, files, payload.skills, payload.tools);
+    const accepted = await callback(text, files, payload.skills, payload.tools);
     if (accepted === false) throw new Error("The message could not be sent. Your draft has been kept.");
     setPinned((current) => current.filter((command) => !submittedSelectionIds.has(command.selectionId)));
+    setQuotes((current) => current.filter((quote) => !submittedQuoteIds.has(quote.id)));
+    setQuoteError(false);
     if (textareaRef.current?.value === message.text) setCaret(0);
   };
   const onKeyDown = (event: KeyboardEvent<HTMLTextAreaElement>) => {
@@ -278,7 +303,7 @@ function MatOptPrompt({ onSubmit, onStop, stopControl = "inline", disabled = fal
     }
   };
 
-  return <div className="matopt-composer matopt-composer-modern relative w-full" ref={wrapperRef} data-matopt-native-composer="true" data-empty={!value && !pinned.length && !controller.attachments.files.length}>
+  return <div className="matopt-composer matopt-composer-modern relative w-full" ref={wrapperRef} data-matopt-native-composer="true" data-empty={!value && !pinned.length && !quotes.length && !controller.attachments.files.length}>
     {slashOpen && createPortal(<div ref={menuRef} data-matopt-command-menu="true" className="matopt-command-menu matopt-command-menu-modern"
       style={{ position: "fixed", zIndex: 70, ...(menuPosition ?? { visibility: "hidden" }), maxHeight: menuPosition?.maxHeight ?? 360 }}
       onMouseDown={(event) => event.preventDefault()}>
@@ -303,13 +328,20 @@ function MatOptPrompt({ onSubmit, onStop, stopControl = "inline", disabled = fal
     </div>, document.body)}
     <PromptInput multiple onSubmit={submit}
       onDropCapture={(event) => { if (disabled || loading) { event.preventDefault(); event.stopPropagation(); } }}>
+      {quotes.length > 0 && <PromptInputHeader className="matopt-composer-quotes" aria-label="Quoted passages">
+        {quotes.map((quote, index) => <div className="matopt-composer-quote" key={quote.id}>
+          <blockquote>{quote.text}</blockquote><button type="button" disabled={disabled} aria-label={`Remove quote ${index + 1}`}
+            onClick={() => { setQuotes((current) => current.filter((item) => item.id !== quote.id)); setQuoteError(false); }}><X size={14} aria-hidden="true" /></button>
+        </div>)}
+      </PromptInputHeader>}
+      {quoteError && <p className="px-4 text-ui-sm" role="status">You can quote up to {MAX_QUOTES} passages. Remove one to add another.</p>}
       <PromptAttachments pinned={pinned} disabled={disabled} removePinned={(command) => {
         setPinned((current) => current.filter((item) => keyFor(item) !== keyFor(command)));
         requestAnimationFrame(() => textareaRef.current?.focus());
       }} />
       <PromptInputBody className="matopt-composer-body">
         <PromptInputTextarea ref={textareaRef} rows={1} aria-label="Task instructions" disabled={disabled}
-          placeholder={loading ? "Steer this turn…" : placeholder} onKeyDown={onKeyDown}
+          placeholder={loading ? "Steer this turn…" : quotes.length ? "Ask about the quoted passage…" : placeholder} onKeyDown={onKeyDown}
           role="combobox" aria-autocomplete="list" aria-expanded={slashOpen} aria-controls={slashOpen ? menuIds.list : undefined}
           aria-activedescendant={slashOpen ? menuIds.option : undefined}
           onChange={(event) => { setCaret(event.currentTarget.selectionStart); setDismissedToken(null); }}

@@ -20,7 +20,7 @@ function assistant(parts: Part[], status: AssistantContent['status'] = 'complete
     return { id: 'a1', conversation_id: 'task', seq: 1, role: 'assistant', created_at: 1,
         content: { parts, model: 'deepseek-flash', provider: 'deepseek', reasoning: 'high', usage: {}, plan: [], stats: { llm_calls: 1, tool_calls: 0 }, status } };
 }
-function mount(messages: ChatMessage[], extra: { streaming?: boolean; onPickOption?: (text: string) => void; onOpenWork?: () => void } = {}) {
+function mount(messages: ChatMessage[], extra: { streaming?: boolean; onPickOption?: (text: string) => void; onOpenWork?: () => void; onQuote?: (quote: import('../services/quote.ts').QuoteRef) => void } = {}) {
     container = document.createElement('div'); document.body.append(container); root = createRoot(container);
     act(() => root?.render(<ZCodeIntlProvider initialLocale="en-US"><TooltipProvider>
         <MessageList messages={messages} conversationId="task" {...extra} />
@@ -332,4 +332,67 @@ test('interrupted partial output keeps its provisional label and can be copied w
     await tick();
     assert.deepEqual(copied, ['**literal source**']);
     assert.equal(dom.innerHTML.includes('PRIVATE_'), false);
+});
+
+test('scroll-to-bottom resumes following without forcing readers down on streaming updates', () => {
+    const dom = mount([assistant([{ type: 'text', text: 'First answer' }])]);
+    const viewport = dom.querySelector<HTMLElement>('[data-testid="chat-view"]')!;
+    Object.defineProperties(viewport, { scrollHeight: { configurable: true, value: 1600 }, clientHeight: { configurable: true, value: 400 } });
+    act(() => { viewport.scrollTop = 200; viewport.dispatchEvent(new Event('scroll', { bubbles: true })); });
+    const update = (cid: string) => act(() => root?.render(<ZCodeIntlProvider initialLocale="en-US"><TooltipProvider>
+        <MessageList messages={[assistant([{ type: 'text', text: 'Streaming update' }], 'streaming')]} conversationId={cid} streaming />
+    </TooltipProvider></ZCodeIntlProvider>));
+    update('task');
+    assert.equal(viewport.scrollTop, 200);
+    const button = dom.querySelector<HTMLButtonElement>('button[aria-label="Scroll to bottom"]')!;
+    assert.ok(button);
+    act(() => button.click());
+    assert.equal(viewport.scrollTop, 1600);
+    assert.equal(dom.querySelector('button[aria-label="Scroll to bottom"]'), null);
+    act(() => { viewport.scrollTop = 200; viewport.dispatchEvent(new Event('scroll', { bubbles: true })); });
+    update('another-task');
+    assert.equal(viewport.scrollTop, 1600);
+    assert.equal(dom.querySelector('button[aria-label="Scroll to bottom"]'), null);
+});
+
+test('quoted user messages display all literal quoted text and the question on reload', async () => {
+    const { composeQuotedMessage } = await import('../services/quote.ts');
+    const text = composeQuotedMessage([{ source: 'assistant', text: '<question>literal text</question>' }], 'Why is it true?');
+    const dom = mount([{ id: 'u1', conversation_id: 'task', seq: 1, role: 'user', created_at: 1, content: { text, attachments: [] } }]);
+    assert.equal(dom.querySelector('blockquote')?.textContent, '<question>literal text</question>');
+    assert.equal(dom.querySelector('.matopt-user-content p')?.textContent, 'Why is it true?');
+    assert.ok(!dom.textContent?.includes('"version"'));
+});
+
+test('a selected answer opens the quote menu while a plain right click keeps the browser menu', async () => {
+    const quoted: unknown[] = [];
+    const dom = mount([assistant([{ type: 'text', text: 'A passage to discuss.' }])], { onQuote: (quote) => quoted.push(quote) });
+    const viewport = dom.querySelector<HTMLElement>('[data-testid="chat-view"]')!;
+    const plain = new MouseEvent('contextmenu', { bubbles: true, cancelable: true });
+    act(() => viewport.dispatchEvent(plain));
+    assert.equal(plain.defaultPrevented, false);
+    const passage = dom.querySelector('[data-testid="assistant-answer"] p')!;
+    const range = document.createRange(); range.selectNodeContents(passage);
+    const selection = window.getSelection()!; selection.removeAllRanges(); selection.addRange(range);
+    const event = new MouseEvent('contextmenu', { bubbles: true, cancelable: true, clientX: 30, clientY: 40 });
+    await act(async () => { passage.dispatchEvent(event); });
+    assert.equal(event.defaultPrevented, true);
+    const item = Array.from(document.querySelectorAll<HTMLElement>('[role="menuitem"]')).find((node) => node.textContent?.includes('Quote in reply'))!;
+    assert.ok(item);
+    await act(async () => { item.click(); });
+    assert.deepEqual(quoted, [{ text: 'A passage to discuss.', source: 'assistant' }]);
+    assert.equal(document.querySelector('[role="menu"]'), null);
+    assert.equal(selection.toString(), '');
+});
+
+test('a selection crossing message boundaries never receives an incorrect quote attribution', () => {
+    const dom = mount([assistant([{ type: 'text', text: 'First' }]), { ...assistant([{ type: 'text', text: 'Second' }]), id: 'a2' }], { onQuote: () => assert.fail('must not quote') });
+    const paragraphs = dom.querySelectorAll('[data-testid="assistant-answer"] p');
+    const range = document.createRange(); range.setStart(paragraphs[0].firstChild!, 0); range.setEnd(paragraphs[1].firstChild!, 3);
+    const selection = window.getSelection()!; selection.removeAllRanges(); selection.addRange(range);
+    const event = new MouseEvent('contextmenu', { bubbles: true, cancelable: true });
+    act(() => paragraphs[0].dispatchEvent(event));
+    assert.equal(event.defaultPrevented, false);
+    assert.equal(document.querySelector('[role="menu"]'), null);
+    selection.removeAllRanges();
 });
