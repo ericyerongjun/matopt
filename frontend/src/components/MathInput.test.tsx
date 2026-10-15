@@ -8,6 +8,8 @@ import MathInput from "./MathInput.tsx";
 import { commandPresentation } from "./commandPresentation.ts";
 import { TooltipProvider } from "../zcode/components/ui/tooltip.tsx";
 import { ZCodeIntlProvider } from "../zcode/i18n/IntlProvider.tsx";
+import { splitQuotedMessage } from "../services/quote.ts";
+import { parseSlashCommands } from "../services/slash.ts";
 
 // jsdom does not provide browser sizing or a FileReader for Node's fetch Blob.
 const originalReader = Object.getOwnPropertyDescriptor(globalThis, "FileReader");
@@ -42,14 +44,14 @@ afterEach(() => {
 });
 
 type Props = ComponentProps<typeof MathInput>;
-function render(props: Props) {
+function render(props: Props, taskKey = "task") {
   if (!container) {
     container = document.createElement("div");
     document.body.appendChild(container);
     root = createRoot(container);
   }
   act(() => root?.render(<ZCodeIntlProvider initialLocale="en-US"><TooltipProvider>
-    <MathInput showDisclaimer={false} {...props} />
+    <MathInput key={taskKey} showDisclaimer={false} {...props} />
   </TooltipProvider></ZCodeIntlProvider>));
 }
 function textarea(): HTMLTextAreaElement {
@@ -493,4 +495,55 @@ test("command labels preserve familiar acronyms and turn custom names into reada
   assert.equal(commandPresentation({ kind: "tool", name: "parse_document" }).label, "Read a document");
   assert.equal(commandPresentation({ kind: "skill", name: "anthropic:frontend-design" }).label, "Frontend design");
   assert.equal(commandPresentation({ kind: "skill", name: "custom-pdf-review" }).label, "Custom PDF review");
+});
+
+test("quoting preserves the draft and pinned commands, and sends literal reference text", async () => {
+  const submitted: { text: string; skills?: string[]; tools?: string[] }[] = [];
+  const props: Props = { onSubmit: (text, _files, skills, tools) => { submitted.push({ text, skills, tools }); },
+    commands: [{ kind: "tool", name: "python", description: "Compute", source: "matopt" }] };
+  render(props);
+  type("/python");
+  act(() => { key("Tab"); });
+  type("Explain this step");
+  const quoteRequest = { id: 'quote-1', source: 'assistant' as const, text: '<question>literal</question> x²' };
+  await act(async () => { render({ ...props, quoteRequest }); await new Promise<void>((resolve) => requestAnimationFrame(() => resolve())); });
+  assert.equal(textarea().value, 'Explain this step');
+  assert.equal(document.activeElement, textarea());
+  assert.equal(container?.querySelector('blockquote')?.textContent, quoteRequest.text);
+  await act(async () => { button('Send').click(); });
+  assert.equal(submitted.length, 1);
+  const parsed = parseSlashCommands(submitted[0].text);
+  assert.equal(parsed.skills[0], 'python');
+  assert.deepEqual(submitted[0].tools, ['python']);
+  assert.deepEqual(splitQuotedMessage(parsed.rest), { quotes: [{ source: 'assistant', text: quoteRequest.text }], question: 'Explain this step' });
+  assert.equal(container?.querySelector('blockquote'), null);
+});
+
+test("a quote alone can be sent and quoted context resets when the conversation changes", async () => {
+  const submitted: string[] = [];
+  const props: Props = { onSubmit: (text) => { submitted.push(text); } };
+  render({ ...props, quoteRequest: { id: 'one', source: 'user', text: 'A previous statement' } });
+  assert.equal(button('Send').disabled, false);
+  await act(async () => { button('Send').click(); });
+  assert.equal(splitQuotedMessage(submitted[0])?.question, 'Explain the quoted passage.');
+  render({ ...props, quoteRequest: { id: 'two', source: 'user', text: 'Do not send to another chat' } });
+  assert.ok(container?.querySelector('blockquote'));
+  render(props, 'another-task');
+  assert.equal(container?.querySelector('blockquote'), null);
+  assert.equal(button('Send').disabled, true);
+});
+
+test("a rejected send keeps quotes, and an accepted send keeps quotes added while it was pending", async () => {
+  let resolve: (value: boolean) => void = () => {};
+  const props: Props = { onSubmit: () => new Promise<boolean>((done) => { resolve = done; }) };
+  render({ ...props, quoteRequest: { id: 'one', source: 'assistant', text: 'Original quote' } });
+  type('Why?');
+  await act(async () => { button('Send').click(); });
+  await act(async () => { resolve(false); });
+  assert.equal(textarea().value, 'Why?');
+  assert.equal(container?.querySelector('blockquote')?.textContent, 'Original quote');
+  await act(async () => { button('Send').click(); });
+  render({ ...props, quoteRequest: { id: 'two', source: 'assistant', text: 'New quote during send' } });
+  await act(async () => { resolve(true); });
+  assert.deepEqual(Array.from(container!.querySelectorAll('blockquote'), (node) => node.textContent), ['New quote during send']);
 });

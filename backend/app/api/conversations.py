@@ -12,6 +12,7 @@ from fastapi.responses import Response
 from pydantic import BaseModel
 
 from app.runtime import get_runtime
+from app.quoted_context import quoted_context_markdown
 from app.agent.presentation import public_content, public_messages
 
 router = APIRouter(prefix="/api", tags=["conversations"])
@@ -179,7 +180,7 @@ def _to_markdown(conv: dict, messages: list[dict]) -> str:
     for m in messages:
         c = public_content(m["content"]) if m["role"] == "assistant" else (m["content"] or {})
         if m["role"] == "user":
-            out.append(f"## You\n\n{c.get('text', '')}\n")
+            out.append(f"## You\n\n{quoted_context_markdown(c.get('text', ''))}\n")
             if c.get("attachments"):
                 out.append("Attachments: " + ", ".join(a.get("path", a.get("name", "")) for a in c["attachments"]) + "\n")
         else:
@@ -229,7 +230,7 @@ def _to_notebook(conv: dict, messages: list[dict], ws) -> str:
     for m in messages:
         c = public_content(m["content"]) if m["role"] == "assistant" else (m["content"] or {})
         if m["role"] == "user":
-            nb.cells.append(new_markdown_cell(f"**You:** {c.get('text', '')}"))
+            nb.cells.append(new_markdown_cell(f"**You:** {quoted_context_markdown(c.get('text', ''))}"))
             continue
         if c.get("notice"):
             nb.cells.append(new_markdown_cell("> " + c["notice"]))

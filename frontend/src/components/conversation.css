@@ -159,3 +159,4 @@ a.matopt-work-output:hover, button.matopt-work-output:hover { text-decoration: u
 }
 @media (max-width: 360px) { .matopt-message-column { padding-inline: 16px; } .matopt-live-work[data-work-status="running"], .matopt-live-work[data-work-status="paused"] { padding-inline: 12px; } }
 @media (prefers-reduced-motion: reduce) { .matopt-work-spinning { animation: none; } .matopt-work-chevron, .matopt-update-history > summary svg { transition: none; } .matopt-live-work [data-state] { animation: none !important; } }
+.matopt-quoted-passage { border-left: 2px solid var(--color-border-hover); padding-left: 12px; color: var(--color-foreground-subtle); max-height: 180px; overflow: auto; }

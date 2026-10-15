@@ -20,6 +20,7 @@ from app.agent.events import Artifact, ToolResult
 from app.agent.harness import AgentHarness, RunRequest
 from app.agent.presentation import public_messages
 from app.agent.prompts import FINAL_RESPONSE_PROMPT, VERIFIER_PROMPT
+from app.academic_guidance import ACADEMIC_GUIDANCE
 from app.agent.session.derive import derive_messages
 from app.agent.tools.base import Tool, ToolRegistry
 from app.agent.tools.document_tool import ParseDocumentTool
@@ -327,6 +328,42 @@ async def test_default_agent_streams_live_activity_checked_answer_and_reconciles
     assert any(STEER in str(message.get("content")) for message in resumed)
     assert any(message.get("role") == "assistant" and message.get("content") == FINAL for message in resumed)
     assert followup.events[-1]["type"] == "done"
+
+
+@pytest.mark.asyncio
+async def test_academic_guidance_reaches_solver_verifier_and_final_writer(rig):
+    derivation = r"""Assume $X$ has a finite second moment. Write $\mu = \mathbb{E}[X]$.
+
+$$
+\begin{aligned}
+\operatorname{Var}(X)
+&= \mathbb{E}\left[(X-\mu)^2\right] \\
+&= \mathbb{E}[X^2] - \mu^2.
+\end{aligned}
+$$
+
+The finite second moment justifies expanding the expectation term by term.
+"""
+    rig.provider.script = [{"text": derivation}, report("correct")]
+    capture = Capture(rig.harness, RunRequest(conversation_id=rig.cid,
+        text="Derive the variance identity and state its assumptions.", verify=True)).start()
+    try:
+        await capture.finish()
+    finally:
+        await capture.close()
+    prompts = [messages[0]["content"] for messages, _ in rig.provider.requests]
+    assert len(prompts) == 3  # solver, one bounded verification, final writer
+    assert VERIFIER_PROMPT in prompts and FINAL_RESPONSE_PROMPT in prompts
+    for prompt in prompts:
+        assert prompt.count(ACADEMIC_GUIDANCE) == 1
+        assert r"\mathbb{E}" in prompt and r"\begin{aligned}" in prompt
+        assert "\x08" not in prompt and "\x0c" not in prompt  # no escaped backspace/form-feed
+    assert "<verdict>uncertain</verdict>" in VERIFIER_PROMPT
+    assert "Use only these supplied results. You have no tools." in FINAL_RESPONSE_PROMPT
+    assert rig.provider.final_requests[0][0]["answer"] == derivation
+    assert rig.provider.final_requests[0][1] is None
+    assert answer_event(capture.events)["content"]["parts"][0]["text"] == derivation
+    assert not rig.provider.script
 
 
 @pytest.mark.asyncio

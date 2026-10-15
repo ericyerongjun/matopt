@@ -29,6 +29,7 @@ import MessageList from "./components/MessageList";
 import { ActivityPanel } from "./components/WorkActivity";
 import ModelPicker from "./components/ModelPicker";
 import { TASK_STARTERS, taskStarterDraft } from "./services/taskStarters";
+import type { QuoteRef, QuoteRequest } from "./services/quote";
 
 
 /** Usage is loaded only while its tab is open; normal UI never downloads raw diagnostics. */
@@ -71,6 +72,8 @@ export default function MatOptApp() {
   const [uiFontSize, setUiFontSize] = useState(loadUiFontSizePx);
   const [theme, setTheme] = useState<Theme>(loadTheme);
   const [draftPreset, setDraftPreset] = useState<{ id: number; text: string; skills?: string[] } | undefined>();
+  const [quoteRequest, setQuoteRequest] = useState<(QuoteRequest & { conversationId: string | null }) | undefined>();
+  const quotePassage = (quote: QuoteRef) => setQuoteRequest({ ...quote, id: crypto.randomUUID(), conversationId: convos.activeId });
   const chat = useChat({ activeId: convos.activeId, messages: convos.messages, setMessages: convos.setMessages,
     setActiveId: convos.setActiveId, createConversation: convos.create, refreshList: convos.refreshList,
     provider: llm.provider, model: llm.model, reasoning: llm.reasoning, verify: llm.verify,
@@ -104,7 +107,7 @@ export default function MatOptApp() {
   const handleExplain = useCallback((text: string) => { void handleSend(text); }, [handleSend]);
   const handleUpload = async (list: File[]) => { if (!convos.activeId) return; await uploadFiles(convos.activeId, list); await files.refresh(); };
   useEffect(() => watchSystemTheme(loadTheme), []);
-  useEffect(() => { setPaneVisible(false); setActivityVisible(false); setActivityView("timeline"); setDraftPreset(undefined); }, [convos.activeId]);
+  useEffect(() => { setPaneVisible(false); setActivityVisible(false); setActivityView("timeline"); setDraftPreset(undefined); setQuoteRequest(undefined); }, [convos.activeId]);
   useEffect(() => {
     const query = window.matchMedia("(max-width: 1023px)");
     const changed = () => { if (query.matches && paneVisible) setSidebarVisible(false); };
@@ -139,11 +142,12 @@ export default function MatOptApp() {
   </DropdownMenu>;
   const modelPicker = <ModelPicker catalog={llm.catalog} provider={llm.provider} model={llm.model} label={llm.selectedLabel} onSelect={llm.select} disabled={chat.streaming} levels={llm.allowedLevels} reasoning={llm.reasoning} onReasoningChange={llm.selectReasoning} menuUp />;
   const composer = <MathInput key={convos.activeId ?? "draft"} onSubmit={handleSend} onStop={() => void chat.stop()} loading={attachedRun}
+    quoteRequest={quoteRequest?.conversationId === convos.activeId ? quoteRequest : undefined}
     stopControl={attachedRun && messages.length > 0 ? "external" : "inline"}
     disabled={inputDisabled} showDisclaimer={false} commands={skillCatalog.commands} toolbar={modelPicker} draftPreset={messages.length ? undefined : draftPreset} />;
   const conversation = <>
     <div className="matopt-conversation-body">
-      {convos.loadingThread ? <p className="matopt-loading" role="status">Loading chat…</p> : messages.length ? <MessageList messages={messages} conversationId={convos.activeId} streaming={attachedRun} onPickOption={handleExplain} onOpenWork={openActivity} />
+      {convos.loadingThread ? <p className="matopt-loading" role="status">Loading chat…</p> : messages.length ? <MessageList messages={messages} conversationId={convos.activeId} streaming={attachedRun} onPickOption={handleExplain} onOpenWork={openActivity} onQuote={inputDisabled ? undefined : quotePassage} />
         : <div className="matopt-welcome"><div className="matopt-welcome-inner">
           <div className="matopt-welcome-symbol" aria-hidden="true"><Sigma /></div>
           <h1>What would you like to work on?</h1>

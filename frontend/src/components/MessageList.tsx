@@ -1,9 +1,11 @@
 /** MatOpt protocol binding for complete native ZCode messages and task elements. */
-import { useLayoutEffect, useRef, useState, type ReactNode } from "react";
-import { Check, ChevronDown, Copy } from "lucide-react";
+import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
+import { ArrowDown, Check, ChevronDown, Copy } from "lucide-react";
 import type { ActivityItem, ChatMessage, ResultBlock } from "../types/protocol.ts";
 import { isAssistantContent, isUserContent } from "../types/protocol.ts";
 import { parseSlashCommands } from "../services/slash.ts";
+import { splitQuotedMessage, type QuoteRef } from "../services/quote.ts";
+import QuoteContextMenu from "./QuoteContextMenu.tsx";
 import { commandPresentation } from "./commandPresentation.ts";
 import { projectAssistantPresentation } from "../services/presentation.ts";
 import MarkdownRenderer from "./MarkdownRenderer.tsx";
@@ -23,6 +25,7 @@ interface Props {
     streaming?: boolean;
     onPickOption?: (text: string) => void;
     onOpenWork?: () => void;
+    onQuote?: (quote: QuoteRef) => void;
 }
 
 function TaskHeader({ title, children, live = false }: { title: string; children?: ReactNode; live?: boolean }) {
@@ -49,14 +52,17 @@ function AssistantFooter({ answer }: { answer: string }) {
     </MessageActions>;
 }
 
-export default function MessageList({ messages, conversationId, streaming = false, onPickOption, onOpenWork }: Props) {
+export default function MessageList({ messages, conversationId, streaming = false, onPickOption, onOpenWork, onQuote }: Props) {
     const rootRef = useRef<HTMLDivElement>(null);
     const pinnedRef = useRef(true);
+    const [atBottom, setAtBottom] = useState(true);
+    const [quoteMenu, setQuoteMenu] = useState<(QuoteRef & { x: number; y: number }) | null>(null);
+    const [copyError, setCopyError] = useState(false);
     const stick = () => {
         const element = rootRef.current;
-        if (element && pinnedRef.current) element.scrollTop = element.scrollHeight;
+        if (element && pinnedRef.current) { element.scrollTop = element.scrollHeight; setAtBottom(true); }
     };
-    useLayoutEffect(() => { pinnedRef.current = true; stick(); }, [conversationId]);
+    useLayoutEffect(() => { pinnedRef.current = true; stick(); setQuoteMenu(null); setCopyError(false); }, [conversationId]);
     useLayoutEffect(stick, [messages, streaming]);
     useLayoutEffect(() => {
         const inner = rootRef.current?.firstElementChild;
@@ -65,15 +71,57 @@ export default function MessageList({ messages, conversationId, streaming = fals
         observer.observe(inner);
         return () => observer.disconnect();
     }, []);
-    return <div className="min-h-0 min-w-0 flex-1 overflow-y-auto overscroll-contain" ref={rootRef} data-testid="chat-view"
+    useEffect(() => {
+        if (!quoteMenu) return;
+        const close = () => setQuoteMenu(null);
+        window.addEventListener("resize", close);
+        return () => window.removeEventListener("resize", close);
+    }, [quoteMenu]);
+    const openQuoteMenu = (x: number, y: number) => {
+        if (!onQuote) return false;
+        const selection = window.getSelection();
+        if (!selection || selection.isCollapsed || !selection.rangeCount || !selection.toString().trim()) return false;
+        const range = selection.getRangeAt(0);
+        const rowFor = (node: Node) => (node.nodeType === Node.ELEMENT_NODE ? node as Element : node.parentElement)?.closest<HTMLElement>("[data-quote-source]");
+        const row = rowFor(range.startContainer);
+        if (!row || row !== rowFor(range.endContainer) || !rootRef.current?.contains(row)) return false;
+        const source = row.dataset.quoteSource;
+        if (source !== "user" && source !== "assistant") return false;
+        setQuoteMenu({ x, y, source, text: selection.toString().trim() });
+        setCopyError(false);
+        return true;
+    };
+    return <div className="relative flex min-h-0 min-w-0 flex-1 flex-col">
+      <div className="min-h-0 min-w-0 flex-1 overflow-y-auto overscroll-contain" ref={rootRef} data-testid="chat-view"
+        onContextMenu={(event) => { if (openQuoteMenu(event.clientX, event.clientY)) event.preventDefault(); }}
+        onKeyDown={(event) => {
+            if (event.key !== "ContextMenu" && !(event.shiftKey && event.key === "F10")) return;
+            const bounds = rootRef.current?.getBoundingClientRect();
+            if (openQuoteMenu((bounds?.left ?? 0) + 16, (bounds?.top ?? 0) + 16)) event.preventDefault();
+        }}
         onScroll={() => {
             const element = rootRef.current;
-            if (element) pinnedRef.current = element.scrollHeight - element.scrollTop - element.clientHeight < 72;
+            if (element) {
+                pinnedRef.current = element.scrollHeight - element.scrollTop - element.clientHeight < 72;
+                setAtBottom(pinnedRef.current);
+            }
+            setQuoteMenu(null);
         }}>
         <div className="matopt-message-column" data-markdown-table-layout-root="true">
             {messages.map((message) => <MessageRow key={message.id} message={message} conversationId={conversationId}
                 streaming={streaming && isAssistantContent(message.content) && message.content.status === "streaming"} onPickOption={onPickOption} onOpenWork={onOpenWork} />)}
         </div>
+      </div>
+      {!atBottom && <Button type="button" variant="outline" size="icon-md" className="absolute bottom-3 left-1/2 -translate-x-1/2 rounded-full bg-background shadow-sm"
+          aria-label="Scroll to bottom" onClick={() => { pinnedRef.current = true; stick(); }}><ArrowDown className="size-4" aria-hidden="true" /></Button>}
+      {copyError && <p className="absolute bottom-14 left-1/2 -translate-x-1/2 bg-background p-2 text-ui-sm" role="status">Could not copy the selection. Use your browser’s copy command.</p>}
+      {quoteMenu && onQuote && <QuoteContextMenu x={quoteMenu.x} y={quoteMenu.y} onClose={() => setQuoteMenu(null)}
+          onQuote={() => { onQuote({ text: quoteMenu.text, source: quoteMenu.source }); setQuoteMenu(null); window.getSelection()?.removeAllRanges(); }}
+          onCopy={() => {
+              const text = quoteMenu.text;
+              setQuoteMenu(null);
+              void (async () => { try { await navigator.clipboard.writeText(text); } catch { setCopyError(true); } })();
+          }} />}
     </div>;
 }
 
@@ -115,13 +163,15 @@ function MessageRow({ message, conversationId, streaming, onPickOption, onOpenWo
 }) {
     if (message.role === "user" && isUserContent(message.content)) {
         const parsed = parseSlashCommands(message.content.text);
+        const quoted = splitQuotedMessage(parsed.rest);
         const commands = [...parsed.skills.map((name) => ({ name, kind: "skill" as const })), ...parsed.tools.map((name) => ({ name, kind: "tool" as const }))];
-        return <Message from="user" className="matopt-user-message" data-message-id={message.id}><MessageContent className="matopt-user-content">
+        return <Message from="user" className="matopt-user-message" data-message-id={message.id} data-quote-source="user"><MessageContent className="matopt-user-content">
             {commands.length > 0 && <div className="matopt-message-commands">{commands.map((command) => {
                 const { label, Icon } = commandPresentation({ name: command.name });
                 return <span className="matopt-command-badge" key={`${command.kind}:${command.name}`} title={`/${command.name}`}><Icon size={16} aria-hidden="true" />{label}</span>;
             })}</div>}
-            {parsed.rest && <p className="whitespace-pre-wrap break-words">{parsed.rest}</p>}
+            {quoted?.quotes.map((quote, index) => <blockquote key={index} className="matopt-quoted-passage whitespace-pre-wrap break-words">{quote.text}</blockquote>)}
+            {(quoted?.question || parsed.rest) && <p className="whitespace-pre-wrap break-words">{quoted ? quoted.question : parsed.rest}</p>}
             {message.content.attachments?.length > 0 && <Attachments variant="inline" className="matopt-message-files">
                 {message.content.attachments.map((attachment) => {
                     const href = attachment.url || `/api/files/${message.conversation_id}/${attachment.path}`;
@@ -149,7 +199,7 @@ function MessageRow({ message, conversationId, streaming, onPickOption, onOpenWo
     return <Message from="assistant" className="matopt-assistant-message" data-message-id={message.id}><MessageContent className="matopt-assistant-content w-full">
         <div className="matopt-answer-author"><span className="matopt-answer-mark" aria-hidden="true">Σ</span><span>MatOpt</span></div>
         {presentation.work && <WorkDisclosure work={presentation.work} conversationId={conversationId} onOpenWork={onOpenWork} />}
-        <div data-testid="assistant-answer" className="matopt-answer-document min-w-0">
+        <div data-testid="assistant-answer" data-quote-source="assistant" className="matopt-answer-document min-w-0">
             {presentation.resultBlocks.map((block) => <PublicResult key={block.id} block={block} conversationId={conversationId} items={presentation.work?.items ?? []} onOpenWork={onOpenWork} />)}
             {presentation.answer && <MarkdownRenderer content={presentation.answer} conversationId={conversationId} streaming={streaming} />}
             {presentation.surfaces.map((surface) => <UISurfaceView key={surface.id} surface={surface} />)}
