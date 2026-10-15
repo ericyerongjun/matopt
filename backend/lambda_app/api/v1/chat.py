@@ -22,6 +22,7 @@ from lambda_app.services.agent_service import AgentService
 from lambda_app.services.sandbox_file_manager import SANDBOX_SKILLS_DIR, SANDBOX_WORK_DIR
 from lambda_app.api.v1.files import extract_oss_object_name
 from app.llm.catalog import PROVIDER_ID
+from app.academic_guidance import with_academic_guidance
 from app.agent.budget import BudgetExhausted
 from app.agent.lambda_bridge import get_lambda_exec_context, reap_tasks
 
@@ -725,7 +726,7 @@ When you receive an error from tool execution:
         ).order_by(UsageRecord.id.asc()).all() if assistant_ids else []
         prior_reasoning = _persisted_reasoning(prior_usage)
         
-        formatted_messages = [{"role": "system", "content": system_prompt}]
+        formatted_messages = [{"role": "system", "content": with_academic_guidance(system_prompt)}]
         for msg in messages:
             msg_content = msg.content
             # For the last user message, use LLM message with file contents

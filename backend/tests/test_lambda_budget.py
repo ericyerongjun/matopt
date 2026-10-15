@@ -396,6 +396,35 @@ def lambda_db():
 
 
 @pytest.mark.asyncio
+async def test_chat_applies_shared_academic_guidance_to_data_agent(tmp_path, monkeypatch, lambda_db):
+    from app.academic_guidance import ACADEMIC_GUIDANCE
+    from lambda_app.api.v1 import chat
+    from lambda_app.models.schemas import ChatRequest
+
+    requests = []
+
+    async def stream(messages, model):
+        requests.append(messages)
+        yield {"type": "done", "content": "A finite second moment is required.", "usage": None}
+
+    svc = AgentService()
+    monkeypatch.setattr(svc, "is_session_sync_current", lambda *args: True)
+    monkeypatch.setattr(svc, "get_cached_synced_files", lambda *args: [])
+    monkeypatch.setattr(svc, "get_available_files_prompt", lambda *args: "")
+    monkeypatch.setattr(chat, "agent_service", svc)
+    monkeypatch.setattr(chat.llm_service, "stream_chat", stream)
+    db, user = lambda_db
+    with bind_lambda_exec_context(context(tmp_path, RunBudget())):
+        await collect(chat.stream_chat_response(ChatRequest(message="State the assumptions for variance."), user, db))
+    assert len(requests) == 1
+    system = requests[0][0]
+    assert system["role"] == "system" and system["content"].count(ACADEMIC_GUIDANCE) == 1
+    assert r"\mathbb{E}" in system["content"]
+    assert "You are LAMBDA" in system["content"]
+    assert "session_id:" in system["content"]
+
+
+@pytest.mark.asyncio
 @pytest.mark.parametrize("stop", ["task_cancel", "parent_cancel", "budget"])
 async def test_chat_reaps_shielded_inner_tool_on_control(tmp_path, monkeypatch, lambda_db, stop):
     from lambda_app.api.v1 import chat

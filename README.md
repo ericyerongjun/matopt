@@ -31,6 +31,12 @@ is Off, Low, High or Max. [Official model documentation](https://api-docs.deepse
 ZCode source mappings and UI checks: [ADE migration](docs/ZCODE-ADE-MIGRATION.md).
 See [docs/PROTOCOL.md](docs/PROTOCOL.md) and [backend/README.md](backend/README.md).
 
+Shared [academic response guidance](backend/app/academic_guidance.md) governs
+mathematical notation, derivations, research rigor, and adaptive explanation depth.
+It applies to the main assistant, final answer writer, verifier, and LAMBDA data
+agent. Role-specific evidence limits and output formats still apply. Edit this
+document and restart the backend to update the guidance; no new API setting is needed.
+
 Attach a PDF or screenshot and ask your question. The configured DeepSeek vision
 model reads it before the reasoning turn, preserving equations and tables in a
 page-labelled Markdown file. Progress, page coverage and any unreadable content
