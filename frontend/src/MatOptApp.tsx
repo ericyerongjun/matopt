@@ -1,6 +1,6 @@
 /** MatOpt conversation workspace, using the licensed ZCode component primitives. */
 import { useCallback, useEffect, useState } from "react";
-import { Activity, ChartNoAxesCombined, Download, FileCode2, Globe, Layers, Monitor, Moon, PanelLeft, RotateCcw, Settings, ShieldCheck, Sigma, SquareFunction, SquarePen, Sun, Type, X } from "lucide-react";
+import { Activity, Calculator, ChartNoAxesCombined, Download, FileCode2, Layers, Monitor, Moon, PanelLeft, RotateCcw, Settings, ShieldCheck, Sigma, SquareFunction, SquarePen, Sun, Type, X } from "lucide-react";
 import { Button } from "@/components/ui/button.js";
 import { DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu.js";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs.js";
@@ -28,6 +28,7 @@ import MathInput from "./components/MathInput";
 import MessageList from "./components/MessageList";
 import { ActivityPanel } from "./components/WorkActivity";
 import ModelPicker from "./components/ModelPicker";
+import { TASK_STARTERS, taskStarterDraft } from "./services/taskStarters";
 
 
 /** Usage is loaded only while its tab is open; normal UI never downloads raw diagnostics. */
@@ -69,7 +70,7 @@ export default function MatOptApp() {
   const [activityView, setActivityView] = useState("timeline");
   const [uiFontSize, setUiFontSize] = useState(loadUiFontSizePx);
   const [theme, setTheme] = useState<Theme>(loadTheme);
-  const [draftPreset, setDraftPreset] = useState<{ id: number; text: string } | undefined>();
+  const [draftPreset, setDraftPreset] = useState<{ id: number; text: string; skills?: string[] } | undefined>();
   const chat = useChat({ activeId: convos.activeId, messages: convos.messages, setMessages: convos.setMessages,
     setActiveId: convos.setActiveId, createConversation: convos.create, refreshList: convos.refreshList,
     provider: llm.provider, model: llm.model, reasoning: llm.reasoning, verify: llm.verify,
@@ -149,11 +150,13 @@ export default function MatOptApp() {
           <p className="matopt-welcome-description">Explore data, solve a problem, or build something useful.</p>
           {composer}
           <div className="matopt-task-starters" aria-label="Start with a draft">
-            {[
-              { label: "Analyze data", Icon: ChartNoAxesCombined, text: "Help me analyze a dataset. " },
-              { label: "Solve a problem", Icon: SquareFunction, text: "Help me work through this problem step by step: " },
-              { label: "Explore a topic", Icon: Globe, text: "Help me research this topic and compare reliable sources: " },
-            ].map(({ label, Icon, text }) => <button key={label} type="button" disabled={inputDisabled} title="Add a starting point to your draft" onClick={() => setDraftPreset((previous) => ({ id: (previous?.id ?? 0) + 1, text }))}><Icon aria-hidden="true" />{label}</button>)}
+            {TASK_STARTERS.map((starter) => {
+              const Icon = starter.skill === "numerical-optimization" ? Calculator : starter.label === "Fit a regression" ? SquareFunction : ChartNoAxesCombined;
+              return <button key={starter.label} type="button" disabled={inputDisabled} title="Add this example to your draft" onClick={() => {
+                const draft = taskStarterDraft(starter);
+                setDraftPreset((previous) => ({ id: (previous?.id ?? 0) + 1, text: draft.text, skills: draft.skills }));
+              }}><Icon aria-hidden="true" />{starter.label}</button>;
+            })}
           </div>
         </div></div>}
     </div>

@@ -182,6 +182,21 @@ def test_docker_layout_finds_skills_next_to_backend(tmp_path):
     assert backend / "skills" / "anthropic" in found
 
 
+def test_inference_and_optimisation_skill_reports():
+    inference = (MATOPT / "statistical-inference" / "SKILL.md").read_text()
+    assert "## Required report" in inference
+    assert "do not invent a test" in inference
+    for playbook in ("lambda-eda", "lambda-report", "lambda-data-agent"):
+        assert playbook in inference
+    for field in ("estimand", "Hypothesis", "Assumptions", "Effect size", "Sample size"):
+        assert field in inference
+    optimisation = (MATOPT / "numerical-optimization" / "SKILL.md").read_text()
+    assert "## Required report" in optimisation
+    for field in ("Solver", "Starting points", "Outcome", "Minimum check"):
+        assert field in optimisation
+    assert "do not call the point a minimum" in optimisation
+
+
 def test_tool_router_aliases():
     tools = build_tools(SkillRegistry())
     router = ToolRouter()
