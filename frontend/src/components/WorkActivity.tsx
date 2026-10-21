@@ -167,6 +167,8 @@ export function WorkDisclosure({ work, conversationId, onOpenWork }: { work: Pre
         : `Worked${elapsed ? ` for ${elapsed}` : ""}`;
     const title = live ? work.status === "paused" ? "Paused" : "Working…" : `${outcome} · ${count} ${work.items.length ? count === 1 ? "action" : "actions" : count === 1 ? "step" : "steps"}`;
     const active = work.items.filter((item) => item.kind !== "phase" && ["running", "queued", "paused"].includes(item.status));
+    // Milestones the agent wrote with update_plan; shown inline so long runs read as a checklist.
+    const plan = work.items.filter((item) => item.kind === "phase" && item.purpose === "Task milestone" && item.status !== "cancelled");
     const visibleActive = showAllActive ? active : active.slice(0, 3);
     const statusIcon = work.status === "complete" ? "completed" : work.status === "error" ? "failed" : work.status === "stopped" ? "cancelled" : work.status === "paused" ? "paused" : "running";
     return <div className="matopt-live-work" data-work-status={work.status}>
@@ -175,6 +177,9 @@ export function WorkDisclosure({ work, conversationId, onOpenWork }: { work: Pre
                 <WorkIcon status={statusIcon} /><span role={!work.progress?.text || !live ? "status" : undefined}>{title}</span>{live && duration !== undefined && <span className="matopt-work-elapsed" aria-hidden="true">{formatElapsed(duration)}</span>}<ChevronDown className="matopt-work-chevron" aria-hidden="true" />
             </Button></TaskTrigger>
             {live && <div className="matopt-work-now">
+                {plan.length > 0 && <ol className="matopt-work-plan" aria-label="Task plan">{plan.map((item) => <li key={item.id} data-activity-status={item.status}>
+                    <WorkIcon status={item.status} /><span>{item.label}</span>
+                </li>)}</ol>}
                 {work.progress?.text && <p className="matopt-work-commentary" role="status" aria-live="polite">{work.progress.text}</p>}
                 {active.length > 0 && <ul className="matopt-active-actions" aria-label="Active actions">{visibleActive.map((item) => <li key={item.id} data-activity-id={item.id} data-activity-status={item.status}>
                     <WorkIcon status={item.status} /><div><span>{item.label}</span>{item.attempt > 1 && <span className="matopt-work-retry">Attempt {item.attempt}</span>}<MeasuredProgress item={item} /></div><span className="matopt-work-state">{STATUS[item.status]}</span>

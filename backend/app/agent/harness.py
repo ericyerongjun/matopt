@@ -871,6 +871,10 @@ class AgentHarness:
             ctx.state["lambda_record_call"] = record_auxiliary_call
             system = {"role": "system", "content": self._system_prompt(workspace, route, ui=ctx.state["ui_enabled"])}
             turn_context = self._turn_context(workspace, route, cid)
+            if not prior_messages:
+                # Titles depend only on the first request; starting once setup
+                # succeeds lets the header update while the agent works.
+                self._start_title(cid, provider, options, req.text, state.session)
             if state.session is not None:
                 state.session.set_system(system, turn=state.turn, step=state.step)
                 state.session.append_message(turn_context, source="turn-context", turn=state.turn)
@@ -1046,8 +1050,6 @@ class AgentHarness:
                     elif not internal_events:
                         await original_emit(ev("error", message=state.notice or "The answer could not be completed. Please try again.",
                                                conversation_id=cid, message_id=message_id, seq=checkpoint_seq))
-                    if not prior_messages and status == "complete" and options and provider:
-                        self._start_title(cid, provider, options, req.text, state.session)
             finally:
                 if claimed:
                     self._active.pop(cid, None)

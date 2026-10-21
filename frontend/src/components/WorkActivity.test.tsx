@@ -151,3 +151,12 @@ test('filtered histories show only matching turns and one global empty state whi
   assert.equal(view.querySelector('.matopt-public-activity > .matopt-work-empty')?.textContent, 'No outputs yet.');
   assert.equal(view.querySelector<HTMLOListElement>('.matopt-activity-turns')?.hidden, true);
 });
+test('a running card shows the agent plan as an inline checklist and drops replaced steps', () => {
+  const milestone = (id: string, label: string, status: 'completed' | 'running' | 'queued' | 'cancelled') => ({ id, parent_id: null, seq: 0, kind: 'phase' as const, phase: 'work' as const, label, purpose: 'Task milestone', status, started_at: 1, updated_at: 1, finished_at: null, attempt: 1, outputs: [] });
+  const value = { ...work(), items: [milestone('t1', 'Derive the gradient', 'completed'), milestone('t2', 'Run BFGS', 'running'), milestone('t3', 'Plot convergence', 'queued'), milestone('t4', 'Old step', 'cancelled')] };
+  const view = mount(<WorkDisclosure work={value} />);
+  const steps = [...view.querySelectorAll('.matopt-work-plan > li')];
+  assert.deepEqual(steps.map((step) => [step.textContent, step.getAttribute('data-activity-status')]), [['Derive the gradient', 'completed'], ['Run BFGS', 'running'], ['Plot convergence', 'queued']]);
+  act(() => root?.render(<WorkDisclosure work={{ ...value, status: 'complete', durationMs: 5000 }} />));
+  assert.equal(view.querySelector('.matopt-work-plan'), null, 'the finished card collapses to its summary');
+});

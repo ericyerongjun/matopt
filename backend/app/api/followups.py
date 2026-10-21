@@ -19,6 +19,7 @@ router = APIRouter(prefix="/api", tags=["followups"])
 PROMPT = (
     "Given the assistant reply below, propose {count} short follow-up questions the user might ask next "
     "(under 90 characters each, same language as the reply, math wrapped in $...$). "
+    "Each must go beyond the reply: never ask something the reply already answers. "
     "Return ONLY a JSON array of strings.\n\nAssistant reply:\n{content}"
 )
 

@@ -87,6 +87,11 @@
 .matopt-work-retry { margin-left: 6px; white-space: nowrap; }
 .matopt-work-now { padding-top: 7px; }
 .matopt-work-commentary { color: var(--color-foreground); font-size: var(--matopt-text-compact); line-height: 1.65; margin: 0 0 10px; max-width: 72ch; overflow-wrap: anywhere; }
+.matopt-work-plan { list-style: none; padding: 0; margin: 0 0 10px; display: grid; gap: 5px; }
+.matopt-work-plan > li { display: flex; gap: 8px; align-items: flex-start; font-size: var(--matopt-text-compact); line-height: 1.5; color: var(--color-foreground-subtle); }
+.matopt-work-plan > li > .matopt-work-icon { margin-top: 3px; }
+.matopt-work-plan > li[data-activity-status="running"] { color: var(--color-foreground); }
+.matopt-work-plan > li[data-activity-status="completed"] > span { color: var(--color-foreground-subtle); text-decoration: line-through; text-decoration-color: color-mix(in oklab, currentColor 45%, transparent); }
 .matopt-active-actions { list-style: none; padding: 0; margin: 0; display: grid; gap: 7px; }
 .matopt-active-actions > li { display: flex; gap: 8px; align-items: flex-start; color: var(--color-foreground-subtle); font-size: var(--matopt-text-compact); line-height: 1.5; }
 .matopt-active-actions > li > .matopt-work-icon { margin-top: 3px; color: var(--mo-accent, var(--color-ring)); }

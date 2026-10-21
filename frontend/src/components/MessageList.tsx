@@ -9,6 +9,7 @@ import QuoteContextMenu from "./QuoteContextMenu.tsx";
 import { commandPresentation } from "./commandPresentation.ts";
 import { projectAssistantPresentation } from "../services/presentation.ts";
 import MarkdownRenderer from "./MarkdownRenderer.tsx";
+import { InlineMathText } from "./InlineMathText.tsx";
 import { WorkDisclosure } from "./WorkActivity.tsx";
 export { WorkDisclosure, SafeWorkTimeline } from "./WorkActivity.tsx";
 import { ArtifactView } from "./ArtifactView.tsx";
@@ -216,7 +217,7 @@ function MessageRow({ message, conversationId, streaming, onPickOption, onOpenWo
                 {presentation.earlierDrafts.map((draft, index) => <MarkdownRenderer key={index} content={draft} conversationId={conversationId} />)}
             </TaskContent>
         </Task>}
-        {presentation.options.length > 0 && <div className="flex flex-wrap gap-2">{presentation.options.map((option) => <Button key={option} type="button" variant="outline" size="sm" disabled={!onPickOption} onClick={() => onPickOption?.(option)}>{option}</Button>)}</div>}
+        {presentation.options.length > 0 && <div className="flex flex-wrap gap-2">{presentation.options.map((option) => <Button key={option} type="button" variant="outline" size="sm" disabled={!onPickOption} onClick={() => onPickOption?.(option)}><InlineMathText text={option} /></Button>)}</div>}
         {(content.status === "stopped" || content.status === "error") && <p className="text-foreground-subtle text-ui-sm" role="status">
             {content.status === "stopped" ? "Stopped." : "Couldn’t complete that analysis. Try again, or rephrase the question."}
         </p>}

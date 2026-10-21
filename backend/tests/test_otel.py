@@ -41,7 +41,7 @@ async def test_turn_exports_agent_chat_and_tool_spans_without_content_by_default
     assert root.attributes["gen_ai.conversation.id"] == cid
     tool = spans["execute_tool echo"]
     assert tool.parent.span_id == root.context.span_id and tool.attributes["gen_ai.tool.call.id"]
-    chat = next(s for s in exporter.get_finished_spans() if s.name.startswith("chat"))
+    chat = next(s for s in exporter.get_finished_spans() if s.name.startswith("chat") and "matopt.step" in s.attributes)
     assert chat.attributes["gen_ai.usage.input_tokens"] == 10 and chat.parent.span_id == root.context.span_id
     assert not any("secret" in str(v) or "private question" in str(v)
                    for s in exporter.get_finished_spans() for v in s.attributes.values())

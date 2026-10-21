@@ -97,6 +97,8 @@ class LiveProvider(FakeProvider):
             yield event
 
     async def complete(self, messages, options):
+        if isinstance(messages[-1]["content"], str) and messages[-1]["content"].startswith("Write a short title"):
+            return CompletionResult("Test title", None, "stop")  # Titles run alongside the first turn.
         # The actual document tool sends rasterized PDF pages to this provider.
         self.vision_requests.append(deepcopy(messages))
         assert isinstance(messages[-1]["content"], list)
