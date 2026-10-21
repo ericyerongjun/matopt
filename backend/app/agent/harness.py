@@ -1175,6 +1175,9 @@ class AgentHarness:
         extra = []
         if self.tools.get("wolfram_alpha"):
             extra.append("`wolfram_alpha` — short factual/computational answers from Wolfram|Alpha for cross-checking.")
+        if self.tools.get("lean_check"):
+            extra.append("`lean_check` — compile a Lean 4 proof; it passes only without sorry, admit or new axioms. "
+                         "Use it when the user asks for a formal or machine-checked proof, or a key lemma warrants one.")
         extra.append("`search_skills` / `load_skill` — find and activate a specialised playbook from the skill space.")
         if self.tools.get("lambda_data_agent"):
             extra.append(

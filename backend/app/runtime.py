@@ -14,6 +14,7 @@ from app.agent.tools.base import ToolRegistry
 from app.agent.tools.document_tool import ParseDocumentTool
 from app.agent.tools.discovery_tool import SearchToolsTool, LoadToolSchemasTool
 from app.agent.tools.file_tools import EditFileTool, GrepTool, ListFilesTool, ReadFileTool, WriteFileTool
+from app.agent.tools.lean_tool import LeanCheckTool
 from app.agent.tools.math_tools import CheckEquivalenceTool, WolframAlphaTool
 from app.agent.tools.plan_tool import UpdatePlanTool
 from app.agent.tools.progress_tool import ReportProgressTool
@@ -98,6 +99,8 @@ def build_tools(skills: SkillRegistry | None = None) -> ToolRegistry:
         tools.append(LambdaDataAgentTool())
     if settings.wolfram_app_id:
         tools.append(WolframAlphaTool(settings.wolfram_app_id))
+    if lean := LeanCheckTool.detect():
+        tools.append(lean)
     registry = ToolRegistry(tools)
     discovery = ToolRouter()
     registry.register(SearchToolsTool(registry, discovery))

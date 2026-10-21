@@ -24,7 +24,10 @@ Recompute; do not trust the derivation that produced the candidate.
 3. `check_equivalence` for symbolic / LaTeX answers.
 4. Numeric probe: evaluate both sides at several random admissible points.
 5. Edge cases: 0, 1, domain endpoints, large-n.
-6. Report verdict: confirmed / contradicted / inconclusive, with the evidence.
+6. Formal proof (when `lean_check` is available and the claim is a theorem, not a number): state it in Lean 4 and
+   prove it. Only a `VERIFIED` result counts; never weaken the statement to make it compile, and report the exact
+   theorem that was checked.
+7. Report verdict: confirmed / contradicted / inconclusive, with the evidence.
 
 ## Rules
 

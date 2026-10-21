@@ -91,6 +91,11 @@ class Settings(BaseSettings):
     deepseek_api_key: Optional[str] = None
     deepseek_base_url: Optional[str] = None
     wolfram_app_id: Optional[str] = None
+    # Lean 4 proof checking (lean_check tool): a Lake project with Mathlib, or a
+    # lean binary (LEAN_COMMAND, PATH or ~/.elan/bin). Absent both, no tool.
+    lean_project_dir: Optional[str] = None
+    lean_command: Optional[str] = None
+    lean_timeout: int = 300
     llm_timeout: float = 600.0
     max_output_tokens: int = Field(default=0, ge=0, le=MAX_OUTPUT_TOKENS)  # 0 = provider default
 
