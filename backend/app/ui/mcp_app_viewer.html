@@ -1,0 +1,139 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>MatOpt interactive output</title>
+  <style>
+    :root { --matopt-bg: #fff; --matopt-text: #171717; --matopt-muted: #6b6b6b; --matopt-border: #e5e5e5; --matopt-control: #f1f1f1; color-scheme: light; font-family: ui-sans-serif, -apple-system, system-ui, "Segoe UI", Helvetica, Arial, sans-serif; color: var(--matopt-text); background: var(--matopt-bg); }
+    :root[data-theme="dark"] { --matopt-bg: #212121; --matopt-text: #ececec; --matopt-muted: #a6a6a6; --matopt-border: #3d3d3d; --matopt-control: #2f2f2f; color-scheme: dark; }
+    body { margin: 0; padding: 16px; box-sizing: border-box; }
+    *, *::before, *::after { box-sizing: inherit; }
+    button, input, select, textarea { font: inherit; }
+    :focus-visible { outline: 2px solid currentColor; outline-offset: 3px; }
+    @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; } }
+  </style>
+</head>
+<body><p role="status">Loading interactive output…</p>
+<script>
+/* MCP Apps view (ext-apps 2026-01-26) hosting one saved MatOpt mini-app.
+   It mirrors frontend/sandbox/runtime.js: the same window.matopt API, carried
+   over the host's JSON-RPC postMessage channel instead of matopt:* messages. */
+(() => {
+  "use strict";
+  const PROTOCOL_VERSION = "2026-01-26";
+  const SURFACE_META = "matopt/surface";
+  if (parent === window) return;
+  let nextId = 1;
+  let rendered = false;
+  let state = {};
+  let theme = "light";
+  let lastHeight = 0;
+  const pending = new Map();
+  const stateListeners = new Set();
+  const themeListeners = new Set();
+  const copy = (value) => JSON.parse(JSON.stringify(value));
+  const send = (message) => parent.postMessage({ jsonrpc: "2.0", ...message }, "*");
+  const notify = (method, params = {}) => send({ method, params });
+  const request = (method, params) => new Promise((resolve, reject) => {
+    const id = nextId++;
+    pending.set(id, { resolve, reject });
+    send({ id, method, params });
+  });
+  function validState(value) {
+    if (!value || typeof value !== "object" || Array.isArray(value)) return false;
+    try { return JSON.stringify(value).length <= 65536; } catch { return false; }
+  }
+  function resize() {
+    const height = Math.max(160, Math.min(1200, Math.ceil(document.body?.scrollHeight || 160)));
+    if (height !== lastHeight) { lastHeight = height; notify("ui/notifications/size-changed", { height }); }
+  }
+  function setState(next) {
+    if (!validState(next)) return;
+    // Only keys declared in the saved server-owned state are accepted. State is
+    // view-local here; the MatOpt host remains the only place that persists it.
+    const allowed = {};
+    for (const key of Object.keys(state)) if (Object.hasOwn(next, key)) allowed[key] = next[key];
+    state = { ...state, ...copy(allowed) };
+    for (const listener of stateListeners) { try { listener(copy(state)); } catch { /* app-local error */ } }
+    requestAnimationFrame(resize);
+  }
+  function setTheme(next) {
+    theme = next === "dark" ? "dark" : "light";
+    document.documentElement.dataset.theme = theme;
+    for (const listener of themeListeners) { try { listener(theme); } catch { /* app-local error */ } }
+  }
+  const api = Object.freeze({
+    getState: () => copy(state), setState,
+    getTheme: () => theme, resize,
+    onStateChange(listener) { if (typeof listener !== "function") return () => {}; stateListeners.add(listener); return () => stateListeners.delete(listener); },
+    onThemeChange(listener) { if (typeof listener !== "function") return () => {}; themeListeners.add(listener); return () => themeListeners.delete(listener); },
+  });
+  Object.defineProperty(window, "matopt", { value: api, writable: false, configurable: false });
+
+  function showText(text) {
+    const paragraph = document.createElement("p");
+    paragraph.style.whiteSpace = "pre-wrap";
+    paragraph.textContent = text || "This interactive output is unavailable.";
+    document.body.replaceChildren(paragraph);
+    requestAnimationFrame(resize);
+  }
+  function render(html) {
+    if (typeof html !== "string" || html.length > 2_000_000) return;
+    const parsed = new DOMParser().parseFromString(html, "text/html");
+    // The host's CSP blocks network and external assets; keep this header intact.
+    parsed.querySelectorAll("base, meta[http-equiv], link, script[src]").forEach((node) => node.remove());
+    const executableType = (script) => !script.type || ["module", "text/javascript", "application/javascript"].includes(script.type.toLowerCase());
+    for (const node of [...parsed.head.children]) {
+      if (node.tagName === "STYLE" || (node.tagName === "SCRIPT" && !executableType(node))) document.head.appendChild(document.importNode(node, true));
+    }
+    const scripts = [...parsed.querySelectorAll("script")].filter(executableType).map((script) => ({ text: script.textContent || "", type: script.type }));
+    parsed.querySelectorAll("script").forEach((script) => { if (executableType(script)) script.remove(); });
+    document.body.replaceChildren(...[...parsed.body.childNodes].map((node) => document.importNode(node, true)));
+    for (const script of scripts) {
+      const executable = document.createElement("script");
+      if (script.type) executable.type = script.type;
+      executable.textContent = script.text;
+      document.body.appendChild(executable);
+    }
+    new ResizeObserver(resize).observe(document.body);
+    requestAnimationFrame(resize);
+  }
+  function onToolResult(result) {
+    if (rendered || !result || typeof result !== "object") return;
+    rendered = true;
+    const surface = result._meta?.[SURFACE_META];
+    const text = (result.content || []).filter((part) => part?.type === "text").map((part) => part.text).join("\n");
+    if (result.isError || !surface || typeof surface.html !== "string" || !validState(surface.state)) { showText(text); return; }
+    state = copy(surface.state);
+    render(surface.html);
+  }
+  addEventListener("message", (event) => {
+    const message = event.data;
+    if (event.source !== parent || !message || message.jsonrpc !== "2.0") return;
+    if (message.id !== undefined && message.method === undefined) {
+      const waiter = pending.get(message.id);
+      if (!waiter) return;
+      pending.delete(message.id);
+      if (message.error) waiter.reject(message.error); else waiter.resolve(message.result);
+    } else if (message.method === "ui/notifications/tool-result") onToolResult(message.params);
+    else if (message.method === "ui/notifications/host-context-changed") { if (message.params?.theme) setTheme(message.params.theme); }
+    else if (message.method === "ui/resource-teardown" && message.id !== undefined) send({ id: message.id, result: {} });
+    else if (message.id !== undefined) send({ id: message.id, error: { code: -32601, message: "Method not found" } });
+  });
+  document.addEventListener("click", (event) => {
+    if (event.target instanceof Element && event.target.closest("a[href]")) event.preventDefault();
+  }, true);
+  document.addEventListener("submit", (event) => event.preventDefault(), true);
+  request("ui/initialize", {
+    protocolVersion: PROTOCOL_VERSION,
+    appInfo: { name: "matopt-mini-app-viewer", version: "1" },
+    appCapabilities: {},
+  }).then((result) => {
+    setTheme(result?.hostContext?.theme);
+    notify("ui/notifications/initialized");
+  }, () => showText("This host could not start the interactive output."));
+})();
+</script>
+</body>
+</html>
