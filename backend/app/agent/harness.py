@@ -871,9 +871,10 @@ class AgentHarness:
             ctx.state["lambda_record_call"] = record_auxiliary_call
             system = {"role": "system", "content": self._system_prompt(workspace, route, ui=ctx.state["ui_enabled"])}
             turn_context = self._turn_context(workspace, route, cid)
-            if not prior_messages:
+            if not prior_messages and conv["title"] in ("New chat", _heuristic_title(req.text)):
                 # Titles depend only on the first request; starting once setup
-                # succeeds lets the header update while the agent works.
+                # succeeds lets the header update while the agent works. A title
+                # the user chose is never replaced.
                 self._start_title(cid, provider, options, req.text, state.session)
             if state.session is not None:
                 state.session.set_system(system, turn=state.turn, step=state.step)

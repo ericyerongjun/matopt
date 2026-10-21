@@ -639,3 +639,16 @@ async def test_later_turns_extend_the_earlier_request_as_an_exact_prefix(tmp_pat
     assert "new_result.csv" in second[-2]["content"]
     assert second[-1]["content"] == "second question"
     db.close()
+
+
+@pytest.mark.asyncio
+async def test_auto_title_replaces_placeholders_but_keeps_a_chosen_title(tmp_path):
+    db = Database(tmp_path / "test.sqlite")
+    harness = make_harness(db, FakeProvider([{"text": "a"}, {"text": "b"}]), tmp_path)
+    chosen = db.create_conversation(title="My derivation notes")["id"]
+    placeholder = db.create_conversation(title="New chat")["id"]
+    await collect(harness, conversation_id=chosen, text="integrate x^2")
+    await collect(harness, conversation_id=placeholder, text="integrate x^3")
+    assert db.get_conversation(chosen)["title"] == "My derivation notes"
+    assert db.get_conversation(placeholder)["title"] == "Fake title"
+    db.close()

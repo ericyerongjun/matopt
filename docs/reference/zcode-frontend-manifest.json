@@ -13842,7 +13842,7 @@
     {
       "path": "frontend/src/components/MessageList.tsx",
       "mode": "host-adapter",
-      "expected_sha256": "8726771253ea946de1f2022093b0248d857d2d571e1240e0e03fd27de4889d47",
+      "expected_sha256": "196dea6c4fdfa533b0d123501bb116cac444cf570b48a34abb64cc69ee3e538f",
       "sources": [],
       "notes": "MatOpt durable-history projection with public work, revisioned results, and native surfaces. Adds quoted follow-ups and an explicit scroll-to-bottom control while preserving reader scroll position, keyed rows, copying, disclosure and canonical output behavior. Follow-up chips render inline $...$ math with KaTeX."
     },
