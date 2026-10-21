@@ -62,7 +62,7 @@ from app.agent.tools.router import ToolRouter
 from app.agent.tools.read_state import latest_read, parse_read_state_metadata
 from app.agent.workspace import Workspace
 from app.llm.base import ChatOptions, LLMProvider, ToolCallSpec
-from app.llm.catalog import canonical_reasoning
+from app.llm.catalog import CONTEXT_WINDOW, canonical_reasoning
 from app.storage.db import Database, new_id
 
 logger = logging.getLogger(__name__)
@@ -149,6 +149,7 @@ class TurnState:
     output_generation: int = 0
     publish_outputs: bool = True
     last_finish_reason: Optional[str] = None
+    last_prompt_tokens: Optional[int] = None
     answer_truncated: bool = False
     work: dict = field(default_factory=lambda: {"status": "running", "tool_count": 0,
         "verification": {"status": "not_requested", "rounds": 0}, "steps": []})
@@ -1336,7 +1337,7 @@ class AgentHarness:
                     reasoning = "".join(part.get("text", "") for part in parts if part.get("type") == "reasoning")
                     out.append(provider.assistant_message(_collapse_parts(parts), reasoning, []))
         # Trim very long histories from the front (keep the last turns).
-        budget = self.settings.history_char_budget
+        budget = self._context_limits()[0]
         while len(out) > 4 and sum(len(json.dumps(m, ensure_ascii=False)) for m in out) > budget:
             out.pop(0)
             while out and out[0]["role"] != "user":
@@ -1590,6 +1591,8 @@ class AgentHarness:
                     for key, value in usage.items():
                         if type(value) in (int, float):
                             state.usage[key] = state.usage.get(key, 0) + value
+                    if type(usage.get("prompt_tokens")) is int:
+                        state.last_prompt_tokens = usage["prompt_tokens"]
                 if attempts > 1 and state.activity is not None:
                     await state.activity.item(f"{state.activity.id}:retry:{state.step}", status="completed",
                                               summary="The model connection recovered.")
@@ -1886,10 +1889,15 @@ class AgentHarness:
 
     async def _compact_history(self, provider, options: ChatOptions, history: list[dict], state: TurnState) -> bool:
         """Replace the oldest turns with a summary once the history passes its budget."""
-        budget = self.settings.history_char_budget
-        if sum(len(json.dumps(m, ensure_ascii=False)) for m in history) <= budget:
+        budget, token_limit = self._context_limits()
+        size = sum(len(json.dumps(m, ensure_ascii=False)) for m in history)
+        # The provider's own count of the last request is exact; the margin
+        # covers what the loop appended since (each tool output is capped).
+        near_window = state.last_prompt_tokens is not None and state.last_prompt_tokens > token_limit * 0.95
+        if size <= budget and not near_window:
             return False
-        target = int(budget * getattr(self.settings, "compaction_target_ratio", 0.5))
+        state.last_prompt_tokens = None
+        target = int(min(budget, size) * getattr(self.settings, "compaction_target_ratio", 0.5))
         cut = compaction.plan_cut(history, target)
         if cut is None:
             return _trim_live_history(history, budget)
@@ -1901,6 +1909,12 @@ class AgentHarness:
         # A summary of the whole past can still exceed a small budget.
         _trim_live_history(history, budget)
         return True
+
+    def _context_limits(self) -> tuple[int, int]:
+        """(history character budget, prompt token limit) for the model's context window."""
+        reserve = max(self.settings.context_reserve_tokens, self.settings.max_output_tokens or 0)
+        tokens = CONTEXT_WINDOW - reserve
+        return self.settings.history_char_budget or tokens * 3, tokens
 
     async def _summarize_span(self, provider, options: ChatOptions, span: list[dict], state: TurnState) -> str:
         task_id = new_id("task_")

@@ -110,7 +110,12 @@ class Settings(BaseSettings):
     run_max_tool_starts: int = Field(default=160, ge=1)
     run_timeout_seconds: float = Field(default=1800, gt=0, allow_inf_nan=False)
     recent_turns_full_replay: int = 3
-    history_char_budget: int = 240_000
+    # History may use the model's whole context window less a reply reserve.
+    # Unset, the character budget is derived from that window (about 3
+    # characters per token); compaction also triggers from the provider's
+    # reported prompt tokens, so token-dense text cannot overflow the window.
+    history_char_budget: Optional[int] = None
+    context_reserve_tokens: int = 65_536
     compaction_target_ratio: float = 0.5  # compact to this share of the budget so it fires rarely
     keepalive_seconds: float = 10.0
     session_log_enabled: bool = True             # disable to use the legacy message replay path
@@ -122,7 +127,7 @@ class Settings(BaseSettings):
     # ── Tools ───────────────────────────────────────────────────────────
     tool_timeout: int = 120
     tool_max_timeout: int = 900
-    tool_max_output_chars: int = 12_000
+    tool_max_output_chars: int = 100_000  # per call; one runaway print cannot fill the window
     kernel_idle_seconds: int = 1800
     # Children spawned for agent actions (bash, the Jupyter kernel) get the
     # explicit allowlist in app/agent/child_env.py instead of the backend's
@@ -183,7 +188,7 @@ class Settings(BaseSettings):
     mineru_lang: str = "en"
     mineru_timeout: int = 900
     mineru_model_source: str = "huggingface"       # huggingface | modelscope | local
-    document_preview_chars: int = 6000
+    document_preview_chars: int = 100_000
 
     # ── Derived paths ───────────────────────────────────────────────────
     @property

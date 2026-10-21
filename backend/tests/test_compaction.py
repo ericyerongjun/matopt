@@ -101,3 +101,29 @@ async def test_failed_summariser_falls_back_to_digest(tmp_path):
     summary = next(m for m in provider.calls[-1] if compaction.is_summary(m))
     assert "automatic digest" in summary["content"] and "User: first question" in summary["content"]
     db.close()
+
+
+def test_default_budget_follows_the_model_context_window(tmp_path):
+    from app.llm.catalog import CONTEXT_WINDOW
+    harness = make_harness(Database(tmp_path / "t.sqlite"), FakeProvider([]), tmp_path, history_char_budget=None)
+    chars, tokens = harness._context_limits()
+    assert tokens == CONTEXT_WINDOW - harness.settings.context_reserve_tokens
+    assert chars == tokens * 3 and chars > 2_500_000
+
+
+@pytest.mark.asyncio
+async def test_reported_prompt_tokens_trigger_compaction_before_characters_do(tmp_path):
+    """Token-dense text (for example CJK) can fill the window under the character budget."""
+    from app.agent.harness import TurnState
+    db = Database(tmp_path / "test.sqlite")
+    provider = SummarisingProvider([])
+    harness = make_harness(db, provider, tmp_path, history_char_budget=None)
+    history = [{"role": "system", "content": "s"}, *turn("q1", "a1", 1000), *turn("q2", "a2", 1000), *turn("q3", "a3")]
+    state = TurnState()
+    assert not await harness._compact_history(provider, None, history, state)
+    state.last_prompt_tokens = harness._context_limits()[1]  # the provider reports a full window
+    from app.llm.base import ChatOptions
+    assert await harness._compact_history(provider, ChatOptions(model="deepseek-flash"), history, state)
+    assert compaction.is_summary(history[1]) and history[-1]["content"] == "a3"
+    assert state.last_prompt_tokens is None
+    db.close()
