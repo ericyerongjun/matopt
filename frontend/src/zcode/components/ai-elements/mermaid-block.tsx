@@ -2,7 +2,9 @@
  * Apache-2.0; original notices retained. MatOpt host adaptations are identified below. */
 "use client";
 
-import { createMermaidPlugin, type MermaidConfig } from "@streamdown/mermaid";
+// MatOpt host: Mermaid loads on first diagram instead of in the entry chunk.
+import type { MermaidConfig } from "mermaid";
+import { createLazyMermaidPlugin as createMermaidPlugin } from "@/lib/lazyMermaidPlugin.js";
 import { Loader2Icon } from "lucide-react";
 import type { HTMLAttributes } from "react";
 import { useEffect, useId, useMemo, useState } from "react";

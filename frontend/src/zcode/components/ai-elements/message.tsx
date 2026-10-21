@@ -16,7 +16,8 @@ import { code } from "@streamdown/code";
 import { createMathPlugin } from "@streamdown/math";
 // MatOpt host: retain existing accessible KaTeX output and mathematical macros.
 import { KATEX_OPTIONS } from "../../../utils/mathRenderOptions.ts";
-import { mermaid } from "@streamdown/mermaid";
+// MatOpt host: Mermaid loads on first diagram instead of in the entry chunk.
+import { lazyMermaid as mermaid } from "@/lib/lazyMermaidPlugin.js";
 import type { EditorInfo, FileStat, OpenInEditorOptions } from "@zcode/shared";
 import type { UIMessage } from "ai";
 import { ChevronLeftIcon, ChevronRightIcon, CopyIcon, ExternalLinkIcon } from "lucide-react";

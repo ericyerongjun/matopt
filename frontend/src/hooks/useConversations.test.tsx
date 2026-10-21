@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { afterEach, beforeEach, test } from "node:test";
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
-import type { AxiosResponse, InternalAxiosRequestConfig } from "axios";
+import type { ApiRequestConfig, ApiResponse } from "../services/api.ts";
 import apiClient from "../services/api.ts";
 import { useConversations } from "./useConversations.ts";
 import type { Conversation } from "../types/protocol.ts";
@@ -12,18 +12,18 @@ const originalAdapter = apiClient.defaults.adapter;
 let root: Root | null = null, container: HTMLDivElement | null = null;
 let hook: ReturnType<typeof useConversations>;
 interface DeferredRequest {
-    url: string; config: InternalAxiosRequestConfig;
-    resolve: (response: AxiosResponse) => void; reject: (error: Error) => void;
+    url: string; config: ApiRequestConfig;
+    resolve: (response: ApiResponse) => void; reject: (error: Error) => void;
 }
 let requests: DeferredRequest[] = [];
 beforeEach(() => window.history.replaceState(null, "", "/"));
 afterEach(() => { act(() => root?.unmount()); root = null; container?.remove(); container = null; apiClient.defaults.adapter = originalAdapter; requests = []; });
-function response(request: DeferredRequest, data: unknown): AxiosResponse { return { data, config: request.config, headers: {}, status: 200, statusText: "OK" }; }
+function response(request: DeferredRequest, data: unknown): ApiResponse { return { data, config: request.config, headers: {}, status: 200, statusText: "OK" }; }
 function Harness() { hook = useConversations(); return <output>{hook.activeId ?? "draft"}:{hook.loadingThread ? "loading" : "ready"}:{hook.error ?? ""}</output>; }
 function mount() {
     apiClient.defaults.adapter = (config) => {
         if (config.method === "get" && config.url === "/conversations") return Promise.resolve({ data: { conversations: [] }, config, headers: {}, status: 200, statusText: "OK" });
-        return new Promise<AxiosResponse>((resolve, reject) => requests.push({ url: config.url ?? "", config, resolve, reject }));
+        return new Promise<ApiResponse>((resolve, reject) => requests.push({ url: config.url ?? "", config, resolve, reject }));
     };
     container = document.createElement("div"); document.body.appendChild(container); root = createRoot(container);
     act(() => root?.render(<Harness />));

@@ -11,8 +11,6 @@ export async function recogniseFormula(
     const form = new FormData();
     form.append("image", image);
 
-    const { data } = await apiClient.post<OcrResponseBody>("/ocr", form, {
-        headers: { "Content-Type": "multipart/form-data" },
-    });
+    const { data } = await apiClient.post<OcrResponseBody>("/ocr", form);
     return data;
 }

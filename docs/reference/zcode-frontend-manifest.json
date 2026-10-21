@@ -13842,9 +13842,9 @@
     {
       "path": "frontend/src/components/MessageList.tsx",
       "mode": "host-adapter",
-      "expected_sha256": "1734cbe83a67dc38ad0ca839214a87efe50b2dff7e156aebf66349390763acac",
+      "expected_sha256": "8726771253ea946de1f2022093b0248d857d2d571e1240e0e03fd27de4889d47",
       "sources": [],
-      "notes": "MatOpt durable-history projection with public work, revisioned results, and native surfaces. Adds quoted follow-ups and an explicit scroll-to-bottom control while preserving reader scroll position, keyed rows, copying, disclosure and canonical output behavior."
+      "notes": "MatOpt durable-history projection with public work, revisioned results, and native surfaces. Adds quoted follow-ups and an explicit scroll-to-bottom control while preserving reader scroll position, keyed rows, copying, disclosure and canonical output behavior. Follow-up chips render inline $...$ math with KaTeX."
     },
     {
       "path": "frontend/src/components/ModelPicker.tsx",
@@ -14275,8 +14275,8 @@
     },
     {
       "path": "frontend/src/zcode/components/ai-elements/mermaid-block.tsx",
-      "mode": "banner-only-copy",
-      "expected_sha256": "f673ba6614db91511b7a12c648ded2c1c9befd0372879869689ae6749bd552a7",
+      "mode": "whole-file-adapted",
+      "expected_sha256": "caa4780e74f33db445e5f9296a5fe69c96cb614acbf1a511e2e1c429ac8bd149",
       "sources": [
         {
           "path": "packages/ui/src/components/ai-elements/mermaid-block.tsx",
@@ -14284,12 +14284,12 @@
           "sha256": "4cc6783097a6ecbb1896ee1f3dd1d89115ca81f3efb15d9fbabcf448063818ae"
         }
       ],
-      "provenance_banner": "/* Vendored whole file from ZCode 29628c9acdb81b703bbd4080c207a0e7ce5e276e: packages/ui/src/components/ai-elements/mermaid-block.tsx\n * Apache-2.0; original notices retained. MatOpt host adaptations are identified below. */\n"
+      "notes": "Whole native source; the Mermaid plugin is the host's lazy-loading equivalent with identical defaults."
     },
     {
       "path": "frontend/src/zcode/components/ai-elements/message.tsx",
       "mode": "whole-file-adapted",
-      "expected_sha256": "8f24d80b5e93b21c83a431e18a7ccef3781fc57ff95da515c7e67cdba7b439cd",
+      "expected_sha256": "d43d97a48e5c2322e525089be5262b56bbeacfe3a5e7889fb03b28b1fb377a39",
       "sources": [
         {
           "path": "packages/ui/src/components/ai-elements/message.tsx",
@@ -14297,7 +14297,7 @@
           "sha256": "6c35829ed11321e850cd59e20c1c88fdd452e8e2d9b5da45f808371021aabf99"
         }
       ],
-      "notes": "Whole native source with MatOpt math-render options and scientific-fence render slots; unused desktop store import removed."
+      "notes": "Whole native source with MatOpt math-render options and scientific-fence render slots; unused desktop store import removed. Mermaid is the host's lazy-loading plugin, keeping it out of the entry chunk."
     },
     {
       "path": "frontend/src/zcode/components/ai-elements/prompt-input-actions.tsx",
@@ -16593,6 +16593,13 @@
         }
       ],
       "provenance_banner": "/* Vendored whole file from ZCode 29628c9acdb81b703bbd4080c207a0e7ce5e276e: packages/ui/src/workspace-grouped-tasks/task-row-action-button.tsx\n * Apache-2.0; original notices retained. */\n"
+    },
+    {
+      "path": "frontend/src/zcode/lib/lazyMermaidPlugin.ts",
+      "mode": "host-adapter",
+      "expected_sha256": "00c8534c1b3e05ac65fcfd65dd86ef758b3a96116698cc74542831618a383a24",
+      "sources": [],
+      "notes": "MatOpt replacement for @streamdown/mermaid's plugin with the same interface and defaults; imports mermaid on first render."
     }
   ]
 }
