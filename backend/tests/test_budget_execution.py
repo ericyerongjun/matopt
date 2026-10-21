@@ -1,7 +1,6 @@
 """Shared tool/OCR budget boundaries with deterministic gates and fake providers."""
 import asyncio
 import dataclasses
-import os
 import threading
 from types import SimpleNamespace
 
@@ -331,37 +330,3 @@ async def test_stopped_fast_extractor_keeps_workspace_owned_until_thread_exits(c
         release.set()
         await asyncio.gather(task, return_exceptions=True)
         await execute.shutdown()
-
-
-@pytest.mark.asyncio
-async def test_mineru_deadline_reaps_started_process_group(context, monkeypatch, tmp_path):
-    ctx, _ = context
-    clock = Clock()
-    ctx.state["run_budget"] = RunBudget(timeout_seconds=1, clock=clock)
-    executable = tmp_path / "mineru-test"
-    executable.write_text("#!/bin/sh\ni=0\nwhile [ $i -lt 20 ]; do echo $$; i=$((i+1)); done\nexec sleep 30\n")
-    executable.chmod(0o700)
-    child_started, pids = asyncio.Event(), []
-
-    async def emit(event):
-        if event.type == "tool_progress" and event.data["delta"].strip().isdigit():
-            pids.append(int(event.data["delta"].strip()))
-            child_started.set()
-
-    ctx.emit = emit
-    actual_wait = asyncio.wait
-
-    async def gated_wait(tasks, *, timeout=None, return_when=asyncio.ALL_COMPLETED):
-        if any("_run_mineru.<locals>.collect" in getattr(task.get_coro(), "__qualname__", "") for task in tasks):
-            assert timeout == 1
-            await asyncio.wait_for(child_started.wait(), 3)
-            clock.now += 1
-            return set(), set(tasks)
-        return await actual_wait(tasks, timeout=timeout, return_when=return_when)
-
-    monkeypatch.setattr(asyncio, "wait", gated_wait)
-    with pytest.raises(BudgetExhausted):
-        await ParseDocumentTool()._run_mineru(str(executable), make_pdf(ctx, 1), tmp_path / "out", None, "en", ctx)
-    assert len(pids) == 1
-    with pytest.raises(ProcessLookupError):
-        os.kill(pids[0], 0)

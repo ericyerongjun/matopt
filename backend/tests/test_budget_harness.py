@@ -155,26 +155,25 @@ async def test_final_writer_cannot_bypass_allowance_or_publish_the_private_draft
 
 
 @pytest.mark.asyncio
-async def test_document_ocr_and_worker_consume_the_same_model_allowance(rig):
+async def test_document_ocr_pages_are_accounted_but_do_not_consume_the_model_allowance(rig):
+    """A long PDF must not starve the turn: pages count toward usage, not the attempt cap."""
     rig.config.run_max_model_attempts = 2
     rig.harness.tools.register(PublishResultTool())
     upload = rig.workspace.save_upload("scanned-calculation.pdf", scanned_pdf())
-    rig.provider.script = [publish_partial(), {"text": "No separate worker allowance is available."}]
+    rig.provider.script = [publish_partial(), {"text": "The worker kept both of its attempts."}]
     capture = Capture(rig.harness, RunRequest(rig.cid, "Read the attached calculation and publish the result.",
         attachments=[{"name": upload.name, "path": rig.workspace.relpath(upload)}])).start()
     try:
         await capture.finish()
         saved = saved_answer(rig, capture)
-        assert_partial_retained(saved)
-        assert len(rig.provider.vision_requests) == len(rig.provider.requests) == 1
-        assert not rig.provider.final_requests
+        assert len(rig.provider.vision_requests) == 1 and len(rig.provider.requests) == 2
         budget = saved["budget"]
-        assert budget["model_attempts"] == 2
+        assert budget["model_attempts"] == 3
+        assert budget["capped_model_attempts"] == 2 and budget["uncapped_model_attempts"] == 1
         assert budget["remaining_model_attempts"] == 0
         assert sorted(receipt["source"] for receipt in budget["model_receipts"].values()) == [
-            "document_ocr", "native:answer"]
+            "document_ocr", "native:answer", "native:answer"]
         assert budget["usage"]["complete"]
-        assert budget["usage"]["exact"]["total_tokens"] == 25
     finally:
         await capture.close()
 

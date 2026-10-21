@@ -1,5 +1,5 @@
 /**
- * Document service — upload and parse PDFs / images via MinerU.
+ * Document service — upload and parse PDFs / images with DeepSeek multimodal OCR.
  */
 
 import apiClient from "./api";

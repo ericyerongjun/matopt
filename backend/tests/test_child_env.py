@@ -264,46 +264,6 @@ def test_escape_hatch_restores_the_ambient_environment(planted_env, monkeypatch,
     assert env["HOME"] == str(tmp_path / "ws")
 
 
-# ── explicitly forwarded operator credentials ───────────────────────────
-#
-# `allow_sensitive_extra` exists for the MinerU subprocess, which needs
-# HF_TOKEN to fetch gated model weights. These tests pin the narrowness of
-# that escape: it forwards exactly what the caller named, and nothing else.
-
-
-def test_allow_sensitive_extra_forwards_only_the_named_credential(planted_env):
-    env = build_child_env(
-        extra={"MINERU_MODEL_SOURCE": "huggingface", "HF_TOKEN": "hf-operator"},
-        allow_sensitive_extra=True,
-    )
-    assert env["HF_TOKEN"] == "hf-operator"
-    assert env["MINERU_MODEL_SOURCE"] == "huggingface"
-    # Everything the caller did NOT name stays out, including other
-    # credential-shaped names that were present in the ambient environment.
-    assert "DEEPSEEK_API_KEY" not in env
-    assert "GITHUB_TOKEN" not in env
-
-
-def test_allow_sensitive_extra_does_not_disable_the_ambient_allowlist(planted_env):
-    """The flag permits a named extra; it must not re-open ambient inheritance."""
-    env = build_child_env(extra={"HF_TOKEN": "hf-operator"}, allow_sensitive_extra=True)
-    leaked = [k for k in env if SENSITIVE_ENV_PATTERN.search(k) and k != "HF_TOKEN"]
-    assert leaked == []
-
-
-def test_sensitive_extra_still_rejected_without_the_flag(planted_env):
+def test_credential_shaped_extras_are_rejected(planted_env):
     with pytest.raises(RuntimeError):
         build_child_env(extra={"HF_TOKEN": "smuggled"})
-
-
-def test_mineru_keeps_the_real_home(planted_env, tmp_path):
-    """MinerU must NOT get workspace_root: its model cache lives under HOME.
-
-    Redirecting HOME would re-download multi-GB weights per conversation.
-    """
-    real_home = os.path.expanduser("~")
-    env = build_child_env(
-        extra={"MINERU_MODEL_SOURCE": "huggingface"},
-        allow_sensitive_extra=True,
-    )
-    assert env.get("HOME", real_home) == real_home

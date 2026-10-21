@@ -42,7 +42,7 @@ networkx>=3.3
 openpyxl>=3.1
 math-verify>=0.7
 
-# ── Documents (fast PDF/text fallback; MinerU lives in its own venv, see scripts/setup_mineru.sh) ──
+# ── Documents (local rendering for DeepSeek OCR and the fast PDF/text fallback) ──
 pymupdf>=1.25
 pymupdf4llm>=0.0.17
 pillow>=11.1

@@ -3,35 +3,25 @@
 
 Backends
 - **multimodal** (default): the configured DeepSeek vision model. PDFs are
-  rendered locally and read a page at a time with explicit limits.
-- **mineru** (optional): the MinerU CLI run as a subprocess. MinerU lives in
-  its own virtualenv because its dependency set (torch, antlr4 runtime
-  versions) conflicts with the main backend. Auto-detected from
-  ``settings.mineru_command``, ``backend/.venv-mineru/bin/mineru`` or ``PATH``.
+  rendered locally and their pages read concurrently, with explicit limits.
 - **fast** (fallback): pymupdf4llm for born-digital PDFs (no formula OCR),
   pytesseract for images when available.
 """
 
 from __future__ import annotations
 
-import asyncio
 import hashlib
 import json
-import os
 import re
-import shutil
-import sys
-import tempfile
 import time
 from pathlib import Path
 from typing import Any, Optional
 
-from app.agent.child_env import build_child_env
 from app.agent.events import ToolResult
 from app.agent.budget import BudgetExhausted
 from app.agent.tools.base import Tool, ToolContext, output_bound_bytes, truncate_text
 from app.agent.workspace import WorkspaceError
-from app.config import BACKEND_DIR, settings
+from app.config import settings
 from app.agent.document_ocr import (
     DOCUMENT_EXTENSIONS, PARSER_VERSION, DocumentError, DocumentCancelled,
     cancellable, owned_thread, plan_document, read_document, safe_provider_error, is_visual_document,
@@ -43,24 +33,11 @@ IMAGE_EXT = DOCUMENT_EXTENSIONS - PDF_EXT
 OFFICE_EXT = {".docx", ".pptx", ".doc", ".ppt"}
 
 
-def find_mineru() -> Optional[str]:
-    candidates = [
-        settings.mineru_command,
-        str(BACKEND_DIR / ".venv-mineru" / "bin" / "mineru"),
-        str(Path.home() / ".matopt" / "mineru-venv" / "bin" / "mineru"),
-        shutil.which("mineru"),
-    ]
-    for c in candidates:
-        if c and Path(c).exists() and os.access(c, os.X_OK):
-            return c
-    return None
-
-
 class ParseDocumentTool(Tool):
     name = "parse_document"
     # NOT read-only, despite what the old flag said: the tool writes derived
     # files into the workspace (`parsed/<stem>.md` plus `parsed/<stem>/images/`)
-    # and shells out to MinerU. Declaring it read-only let the parallel
+    # Declaring it read-only let the parallel
     # heuristic run two parses side by side while they wrote the same paths.
     # Nothing user-authored is overwritten, so no approval gate.
     read_only = False
@@ -69,16 +46,16 @@ class ParseDocumentTool(Tool):
     side_effect_scope = "workspace"
     risk_level = "low"
     needs_approval = False
-    # MinerU is the long leg and enforces this cap; the fast extractor is a
-    # local pymupdf/pytesseract call with no bound of its own.
-    timeout_ms = int(max(settings.mineru_timeout, settings.document_ocr_timeout) * 1000)
+    # Multimodal reading enforces this cap; the fast extractor is a local
+    # pymupdf/pytesseract call with no bound of its own.
+    timeout_ms = int(settings.document_ocr_timeout * 1000)
     max_output_bytes = output_bound_bytes(settings.document_preview_chars)
     ui_kind = "document"
     description = (
         "Convert a PDF, scanned page or image (including handwritten/printed formulas) in the workspace into Markdown with LaTeX "
         "formulas, tables and extracted figures. The full Markdown is saved to parsed/<name>.md (read it with read_file); "
         "the tool returns the beginning of the text plus statistics. 'auto' uses the configured DeepSeek multimodal model "
-        "for OCR, formulas, tables and chart/diagram descriptions. Other backends: 'multimodal', 'mineru', 'fast' "
+        "for OCR, formulas, tables and chart/diagram descriptions, reading every page by default. Other backends: 'multimodal', 'fast' "
         "(embedded PDF text only, or local image OCR). Original files are preserved. "
         "Page limits and unreadable areas are reported; use pages='1-5' to choose a PDF page batch."
     )
@@ -86,14 +63,13 @@ class ParseDocumentTool(Tool):
         "type": "object",
         "properties": {
             "path": {"type": "string", "description": "Workspace-relative path, e.g. uploads/paper.pdf"},
-            "backend": {"type": "string", "enum": ["auto", "multimodal", "mineru", "fast"], "description": "Default auto prefers the configured DeepSeek vision model."},
+            "backend": {"type": "string", "enum": ["auto", "multimodal", "fast"], "description": "Default auto prefers the configured DeepSeek vision model."},
             "pages": {"type": "string", "description": "Page range like '1-5' or '3' (1-based, PDFs only)."},
-            "lang": {"type": "string", "description": "OCR language hint for MinerU, e.g. en, ch, japan, korean (default from config)."},
         },
         "required": ["path"],
     }
 
-    async def run(self, ctx: ToolContext, path: str, backend: str = "auto", pages: str | None = None, lang: str | None = None, **_: Any) -> ToolResult:
+    async def run(self, ctx: ToolContext, path: str, backend: str = "auto", pages: str | None = None, **_: Any) -> ToolResult:
         config = ctx.settings or settings
         if ctx.settings is None:
             ctx.settings = config
@@ -105,7 +81,9 @@ class ParseDocumentTool(Tool):
         visual = ext in DOCUMENT_EXTENSIONS or is_visual_document(src)
         if ext not in OFFICE_EXT and not visual:
             return ToolResult(ok=False, output="", error=f"Unsupported file type {ext}. Supported: PDF, images, docx/pptx.")
-        if backend not in {"auto", "multimodal", "mineru", "fast"}:
+        if backend == "mineru":  # Removed backend; older playbooks may still name it.
+            backend = "auto"
+        if backend not in {"auto", "multimodal", "fast"}:
             return ToolResult(ok=False, output="", error="Unknown document backend.")
         try:
             page_range = _parse_pages(pages)
@@ -138,29 +116,12 @@ class ParseDocumentTool(Tool):
         out_dir.mkdir(parents=True, exist_ok=True)
         md_path = ctx.workspace.root / "parsed" / f"{src.stem}.md"
 
-        mineru = find_mineru() if backend in ("auto", "mineru") else None
         started = time.monotonic()
         used = None
         error_notes: list[str] = list(plan.notes) if plan else []
         if backend == "auto" and visual:
             error_notes.append("DeepSeek vision was unavailable or disabled; this is local extraction only. Visual contents may be missing.")
         markdown: Optional[str] = None
-        if mineru:
-            await ctx.emit(_status(ctx, "Running MinerU OCR…"))
-            try:
-                markdown = await self._run_mineru(mineru, src, out_dir, page_range, lang or settings.mineru_lang, ctx)
-                used = "mineru"
-            except BudgetExhausted:
-                raise
-            except DocumentCancelled as exc:
-                return ToolResult(ok=False, error=str(exc), meta={"cancelled": True})
-            except Exception as exc:  # noqa: BLE001
-                error_notes.append(f"MinerU failed: {exc}")
-                if backend == "mineru":
-                    return ToolResult(ok=False, output="", error=error_notes[-1])
-        elif backend == "mineru":
-            return ToolResult(ok=False, output="", error="MinerU is not installed. Run scripts/setup_mineru.sh, or use backend='fast'.")
-
         if markdown is None:
             try:
                 markdown = await cancellable(owned_thread(self._run_fast, src, out_dir, page_range, plan.kind if plan else None), ctx.cancel,
@@ -252,83 +213,6 @@ class ParseDocumentTool(Tool):
 
     # ── backends ────────────────────────────────────────────────────────
 
-    async def _run_mineru(self, mineru: str, src: Path, out_dir: Path, page_range, lang: str, ctx: ToolContext) -> str:
-        with tempfile.TemporaryDirectory(prefix="mineru_") as tmp:
-            cmd = [mineru, "-p", str(src), "-o", tmp, "-b", settings.mineru_backend, "-l", lang]
-            if settings.mineru_device and settings.mineru_device != "auto":
-                cmd += ["-d", settings.mineru_device]
-            if page_range:
-                cmd += ["-s", str(page_range[0] - 1), "-e", str(page_range[1] - 1)]
-            # Allowlist-only environment, same as the shell and kernel tools.
-            #
-            # Deliberately WITHOUT `workspace_root`, so HOME keeps pointing at
-            # the real home directory: MinerU downloads multi-GB model weights
-            # into the HuggingFace cache under HOME, and redirecting HOME would
-            # re-download them for every conversation. The allowlist still drops
-            # ambient credentials; MINERU_MODEL_SOURCE and HF_TOKEN ride in
-            # through `extra` because they are what MinerU needs to fetch gated
-            # models. `assert_no_sensitive_env` skips credential-shaped names
-            # passed explicitly via `extra`, which is why HF_TOKEN is only
-            # forwarded when the operator actually set it.
-            extra: dict[str, str] = {"MINERU_MODEL_SOURCE": settings.mineru_model_source}
-            hf_token = (os.environ.get("HF_TOKEN") or os.environ.get("HUGGING_FACE_HUB_TOKEN") or "").strip()
-            if hf_token:
-                extra["HF_TOKEN"] = hf_token
-            env = build_child_env(extra=extra, allow_sensitive_extra=True)
-            proc = await asyncio.create_subprocess_exec(
-                *cmd, cwd=tmp, env=env, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.STDOUT, start_new_session=True,
-            )
-            log: list[str] = []
-
-            async def pump() -> None:
-                assert proc.stdout is not None
-                while True:
-                    line = await proc.stdout.readline()
-                    if not line:
-                        break
-                    text = line.decode("utf-8", errors="replace")
-                    log.append(text)
-                    if len(log) % 20 == 0:
-                        await ctx.progress(text)
-
-            pump_task = asyncio.create_task(pump())
-
-            async def collect() -> None:
-                await pump_task
-                await proc.wait()
-
-            try:
-                await cancellable(collect(), ctx.cancel, settings.mineru_timeout, budget=ctx.state.get("run_budget"))
-            finally:
-                if proc.returncode is None:
-                    try:
-                        os.killpg(os.getpgid(proc.pid), 9)
-                    except ProcessLookupError:
-                        pass
-                    except OSError:
-                        proc.kill()
-                    await proc.wait()
-                if not pump_task.done():
-                    pump_task.cancel()
-                await asyncio.gather(pump_task, return_exceptions=True)
-            if proc.returncode != 0:
-                tail = "".join(log[-15:]).strip()
-                raise RuntimeError(f"mineru exited with code {proc.returncode}: {tail[-800:]}")
-            md_files = sorted(Path(tmp).rglob("*.md"), key=lambda p: p.stat().st_size, reverse=True)
-            if not md_files:
-                raise RuntimeError("MinerU produced no Markdown output")
-            md_file = md_files[0]
-            markdown = md_file.read_text(encoding="utf-8", errors="replace")
-            img_src = md_file.parent / "images"
-            if img_src.exists():
-                dest = out_dir / "images"
-                if dest.exists():
-                    shutil.rmtree(dest)
-                shutil.copytree(img_src, dest)
-            for extra in md_file.parent.glob("*_content_list.json"):
-                shutil.copy2(extra, out_dir / "content_list.json")
-            return markdown
-
     @staticmethod
     def _run_fast(src: Path, out_dir: Path, page_range, kind: str | None = None) -> str:
         ext = src.suffix.lower()
@@ -341,7 +225,7 @@ class ParseDocumentTool(Tool):
             md = pymupdf4llm.to_markdown(str(src), pages=pages, write_images=True, image_path=str(img_dir), image_format="png", dpi=110)
             md = md.replace(str(img_dir) + "/", "images/").replace(str(img_dir), "images")
             if len(md.strip()) < 40:
-                md += "\n\n> Little embedded text was extracted. Scanned/visual contents were not read; configure DeepSeek multimodal OCR or use MinerU."
+                md += "\n\n> Little embedded text was extracted. Scanned/visual contents were not read; configure DeepSeek multimodal OCR."
             return md
         if kind == "image" or ext in IMAGE_EXT:
             try:
@@ -351,7 +235,7 @@ class ParseDocumentTool(Tool):
                 text = pytesseract.image_to_string(Image.open(src))
                 return f"# OCR of {src.name} (tesseract, no formula recognition)\n\n{text}"
             except ImportError as exc:
-                raise RuntimeError("Image OCR needs MinerU (scripts/setup_mineru.sh) or pytesseract (`pip install pytesseract`, tesseract is installed via Homebrew).") from exc
+                raise RuntimeError("Image OCR needs the DeepSeek multimodal model (DEEPSEEK_API_KEY) or pytesseract.") from exc
         if ext in OFFICE_EXT:
             import pymupdf
 

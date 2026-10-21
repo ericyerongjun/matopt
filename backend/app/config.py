@@ -172,22 +172,16 @@ class Settings(BaseSettings):
     # ── Document understanding (the configured DeepSeek vision model) ──
     document_ocr_enabled: bool = True
     document_auto_parse: bool = True
-    document_ocr_max_pages: int = Field(default=12, ge=1, le=100)
-    document_ocr_max_files: int = Field(default=6, ge=1, le=20)
-    document_ocr_max_file_mb: int = Field(default=25, ge=1, le=200)
+    document_ocr_max_pages: int = Field(default=500, ge=1, le=2000)  # per call; whole documents by default
+    document_ocr_concurrency: int = Field(default=8, ge=1, le=32)    # pages read in parallel
+    document_ocr_max_files: int = Field(default=20, ge=1, le=50)
+    document_ocr_max_file_mb: int = Field(default=200, ge=1, le=1000)
     document_ocr_max_dimension: int = Field(default=2048, ge=512, le=4096)
     document_ocr_max_pixels: int = Field(default=32_000_000, ge=1_000_000, le=64_000_000)
     document_ocr_page_timeout: float = Field(default=90.0, gt=0, le=600)
-    document_ocr_timeout: float = Field(default=300.0, gt=0, le=1800)
+    document_ocr_timeout: float = Field(default=1800.0, gt=0, le=7200)
     document_ocr_max_tokens: int = Field(default=6000, ge=256, le=16384)
 
-    # ── Optional local document parsing fallback (MinerU) ───────────────
-    mineru_command: Optional[str] = None           # path to the mineru CLI; auto-detected if empty
-    mineru_backend: str = "pipeline"               # pipeline | vlm-transformers | vlm-http-client ...
-    mineru_device: str = "auto"                    # auto | cpu | mps | cuda
-    mineru_lang: str = "en"
-    mineru_timeout: int = 900
-    mineru_model_source: str = "huggingface"       # huggingface | modelscope | local
     document_preview_chars: int = 100_000
 
     # ── Derived paths ───────────────────────────────────────────────────
