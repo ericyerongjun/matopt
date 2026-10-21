@@ -3,6 +3,7 @@
  * the avatar panel, and the live speech level the avatar lip-syncs to.
  */
 import { create } from "zustand";
+import { DEFAULT_TUTOR, isTutorId, type TutorId } from "../avatar/tutors.ts";
 
 export type Viseme = { aa: number; ih: number; ou: number; ee: number; oh: number };
 export const SILENT: Viseme = { aa: 0, ih: 0, ou: 0, ee: 0, oh: 0 };
@@ -13,6 +14,8 @@ interface Preferences {
     speakReplies: boolean;
     conversation: boolean;
     avatarOpen: boolean;
+    /** Which built-in tutor the avatar panel shows. */
+    tutor: TutorId;
 }
 
 interface VoiceStore extends Preferences {
@@ -26,7 +29,7 @@ interface VoiceStore extends Preferences {
 }
 
 const KEY = "matopt.voice";
-const DEFAULTS: Preferences = { language: null, speakReplies: false, conversation: false, avatarOpen: false };
+const DEFAULTS: Preferences = { language: null, speakReplies: false, conversation: false, avatarOpen: false, tutor: DEFAULT_TUTOR };
 
 function load(): Preferences {
     try {
@@ -36,6 +39,7 @@ function load(): Preferences {
             speakReplies: saved.speakReplies === true,
             conversation: saved.conversation === true,
             avatarOpen: saved.avatarOpen === true,
+            tutor: isTutorId(saved.tutor) ? saved.tutor : DEFAULT_TUTOR,
         };
     } catch {
         return DEFAULTS;
@@ -49,8 +53,8 @@ export const useVoiceStore = create<VoiceStore>((set, get) => ({
     mood: "idle",
     setPreference: (key, value) => {
         set({ [key]: value } as Partial<VoiceStore>);
-        const { language, speakReplies, conversation, avatarOpen } = get();
-        try { localStorage.setItem(KEY, JSON.stringify({ language, speakReplies, conversation, avatarOpen })); } catch { /* Preferences are optional. */ }
+        const { language, speakReplies, conversation, avatarOpen, tutor } = get();
+        try { localStorage.setItem(KEY, JSON.stringify({ language, speakReplies, conversation, avatarOpen, tutor })); } catch { /* Preferences are optional. */ }
     },
     setSpeech: (speaking, viseme = SILENT) => set({ speaking, viseme }),
     setMood: (mood) => set({ mood }),

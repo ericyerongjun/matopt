@@ -1,16 +1,20 @@
 #!/usr/bin/env python3
-"""Build MatOpt's default tutor avatar from VRoid's CC0 Base_Male sample.
+"""Build MatOpt's tutor avatars from VRoid's CC0 Base_Male sample.
 
-The tutor is a fan-made tribute styled after Jensen Huang's signature look
-(swept-back silver hair, black T-shirt, black leather jacket). It is not
-affiliated with or endorsed by NVIDIA or Mr Huang, carries no logos, and
-does not use his voice.
+Each style is a fan-made tribute caricature, not affiliated with or endorsed
+by the person or their employer, with no logos and no cloned voice:
 
-Only material parameters, one texture and one mesh primitive change; the
+- ``jensen``: swept-back silver hair, open black leather jacket over a black T-shirt.
+- ``andrej``: short, loose dark-brown fringe, lighter skin, a charcoal hoodie
+  (built from HairSample_Male, whose hair and hooded top suit the look).
+
+Only material parameters, a few textures and one mesh primitive change; the
 rig, expressions and lip-sync blendshapes are VRoid's originals.
 
     curl -sSfLO https://opengameart.org/sites/default/files/base_male.zip && unzip base_male.zip
-    python3 scripts/build_tutor_avatar.py Base_Male.vrm frontend/public/avatars/tutor.vrm
+    python3 scripts/build_tutor_avatar.py Base_Male.vrm frontend/public/avatars/tutor-jensen.vrm --style jensen
+    curl -sSfLO https://opengameart.org/sites/default/files/hairsample_male.zip && unzip hairsample_male.zip
+    python3 scripts/build_tutor_avatar.py HairSample_Male.vrm frontend/public/avatars/tutor-andrej.vrm --style andrej
 """
 from __future__ import annotations
 
@@ -20,22 +24,37 @@ import json
 import struct
 from pathlib import Path
 
-from PIL import Image
+from PIL import Image, ImageStat
 
-BASE_SHA256 = None  # informational: verify the source with the OpenGameArt download
-
-# MToon colours (linear RGBA). Hair is a greyscale texture tinted by _Color, so
-# silver with a darker shade reads as salt-and-pepper.
-STYLE = {
-    "HAIR": {"_Color": [0.88, 0.88, 0.90, 1], "_ShadeColor": [0.30, 0.30, 0.34, 1]},
-    # Black leather jacket over a black T-shirt: dark base, deep shade and a cool
-    # rim highlight for the leather sheen. The texture keeps its fold shading.
-    "Tops": {"_Color": [1, 1, 1, 1], "_ShadeColor": [0.42, 0.42, 0.46, 1], "_RimColor": [0.55, 0.56, 0.62, 1],
-             "float": {"_RimFresnelPower": 3.5, "_RimLift": 0.04, "_RimLightingMix": 0.7}},
-    "Bottoms": {"_Color": [0.12, 0.12, 0.14, 1], "_ShadeColor": [0.05, 0.05, 0.06, 1]},
-    "Shoes": {"_Color": [0.10, 0.10, 0.11, 1], "_ShadeColor": [0.04, 0.04, 0.05, 1]},
-    "SKIN": {"_Color": [1.00, 0.84, 0.70, 1], "_ShadeColor": [0.93, 0.66, 0.52, 1]},
-    "FaceBrow": {"_Color": [0.35, 0.33, 0.33, 1]},
+# MToon colours (linear RGBA) per style. Hair is a greyscale texture tinted by
+# _Color, so the shade colour sets how dark its strands read.
+STYLES = {
+    "jensen": {
+        "title": "MatOpt Tutor (Jensen Huang tribute)",
+        "top": "leather_jacket", "sleeves": True,
+        "materials": {
+            "HAIR": {"_Color": [0.88, 0.88, 0.90, 1], "_ShadeColor": [0.30, 0.30, 0.34, 1]},
+            # Leather: dark texture, deep shade and a cool rim highlight for the sheen.
+            "Tops": {"_Color": [1, 1, 1, 1], "_ShadeColor": [0.42, 0.42, 0.46, 1], "_RimColor": [0.55, 0.56, 0.62, 1],
+                     "float": {"_RimFresnelPower": 3.5, "_RimLift": 0.04, "_RimLightingMix": 0.7}},
+            "Bottoms": {"_Color": [0.12, 0.12, 0.14, 1], "_ShadeColor": [0.05, 0.05, 0.06, 1]},
+            "Shoes": {"_Color": [0.10, 0.10, 0.11, 1], "_ShadeColor": [0.04, 0.04, 0.05, 1]},
+            "SKIN": {"_Color": [1.00, 0.84, 0.70, 1], "_ShadeColor": [0.93, 0.66, 0.52, 1]},
+            "FaceBrow": {"_Color": [0.35, 0.33, 0.33, 1]},
+        },
+    },
+    "andrej": {
+        "title": "MatOpt Tutor (Andrej Karpathy tribute)",
+        "top": "plain_tee", "sleeves": False, "hair_ramp": ((34, 24, 18), (138, 102, 76)),
+        "materials": {
+            "HAIR": {"_Color": [1, 1, 1, 1], "_ShadeColor": [0.5, 0.45, 0.42, 1]},
+            "Tops": {"_Color": [1, 1, 1, 1], "_ShadeColor": [0.6, 0.6, 0.64, 1]},
+            "Bottoms": {"_Color": [0.20, 0.23, 0.30, 1], "_ShadeColor": [0.09, 0.10, 0.14, 1]},
+            "Shoes": {"_Color": [0.85, 0.85, 0.86, 1], "_ShadeColor": [0.55, 0.55, 0.58, 1]},
+            "SKIN": {"_Color": [1.00, 0.93, 0.86, 1], "_ShadeColor": [0.93, 0.74, 0.68, 1]},
+            "FaceBrow": {"_Color": [0.22, 0.16, 0.13, 1]},
+        },
+    },
 }
 REMOVE_MATERIALS = ("Accessory_Tie",)
 
@@ -77,19 +96,32 @@ def replace_image(gltf: dict, binary: bytearray, index: int, png: bytes) -> None
     gltf["images"][index]["mimeType"] = "image/png"
 
 
-def brown_iris(png: bytes) -> bytes:
-    """Recolour the blue iris to dark brown, keeping its shading and alpha."""
+def recolor(png: bytes, dark: tuple, light: tuple, stretch: bool = False) -> bytes:
+    """Map a texture's shading onto a dark-to-light colour ramp, keeping alpha.
+
+    ``stretch`` spreads a dark texture's luminance over the full ramp first, so
+    near-black hair can become brown with its strand detail intact.
+    """
     image = Image.open(io.BytesIO(png)).convert("RGBA")
-    dark, light = (38, 22, 14), (122, 82, 52)
     pixels = image.load()
+    low, high = 0.0, 1.0
+    if stretch:  # luminance range of the visible (non-transparent) pixels
+        dark_end, light_end = ImageStat.Stat(image.convert("L"), mask=image.getchannel("A")).extrema[0]
+        low, high = dark_end / 255, light_end / 255
+    span = max(high - low, 1e-6)
     for y in range(image.height):
         for x in range(image.width):
             r, g, b, a = pixels[x, y]
-            lum = (0.299 * r + 0.587 * g + 0.114 * b) / 255
+            lum = min(1.0, max(0.0, ((0.299 * r + 0.587 * g + 0.114 * b) / 255 - low) / span))
             pixels[x, y] = tuple(int(d + (l - d) * lum) for d, l in zip(dark, light)) + (a,)
     out = io.BytesIO()
     image.save(out, "PNG", optimize=True)
     return out.getvalue()
+
+
+def brown_iris(png: bytes) -> bytes:
+    """Recolour the blue iris to dark brown, keeping its shading and alpha."""
+    return recolor(png, (38, 22, 14), (122, 82, 52))
 
 
 def leather_jacket(png: bytes) -> bytes:
@@ -122,6 +154,21 @@ def leather_jacket(png: bytes) -> bytes:
     return out.getvalue()
 
 
+def plain_tee(png: bytes) -> bytes:
+    """Repaint a top in plain charcoal cotton, keeping its fold shading."""
+    image = Image.open(io.BytesIO(png)).convert("RGBA")
+    pixels = image.load()
+    cotton = (66, 68, 74)
+    for y in range(image.height):
+        for x in range(image.width):
+            r, g, b, a = pixels[x, y]
+            lum = (0.299 * r + 0.587 * g + 0.114 * b) / 255
+            pixels[x, y] = tuple(min(255, int(c * (0.7 + 0.4 * lum))) for c in cotton) + (a,)
+    out = io.BytesIO()
+    image.save(out, "PNG", optimize=True)
+    return out.getvalue()
+
+
 def leather_sleeves(png: bytes) -> bytes:
     """Paint long black leather sleeves over the arm areas of the body texture.
 
@@ -146,14 +193,16 @@ def leather_sleeves(png: bytes) -> bytes:
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument("source", type=Path, help="VRoid Base_Male.vrm (CC0)")
+    parser.add_argument("source", type=Path, help="VRoid Base_Male.vrm (jensen) or HairSample_Male.vrm (andrej), both CC0")
     parser.add_argument("output", type=Path)
+    parser.add_argument("--style", choices=sorted(STYLES), default="jensen")
     args = parser.parse_args()
+    preset = STYLES[args.style]
     gltf, binary = read_glb(args.source)
     vrm = gltf["extensions"]["VRM"]
 
     for props in vrm["materialProperties"]:
-        for key, style in STYLE.items():
+        for key, style in preset["materials"].items():
             if key in props["name"]:
                 for name, value in style.items():
                     if name == "float":
@@ -170,19 +219,27 @@ def main() -> None:
 
     tops = next(p for p in vrm["materialProperties"] if "Tops" in p["name"])
     texture = gltf["textures"][tops["textureProperties"]["_MainTex"]]
-    replace_image(gltf, binary, texture["source"], leather_jacket(image_bytes(gltf, binary, texture["source"])))
+    repaint = {"leather_jacket": leather_jacket, "plain_tee": plain_tee}[preset["top"]]
+    replace_image(gltf, binary, texture["source"], repaint(image_bytes(gltf, binary, texture["source"])))
 
-    body = next(p for p in vrm["materialProperties"] if "Body_00_SKIN" in p["name"])
-    texture = gltf["textures"][body["textureProperties"]["_MainTex"]]
-    replace_image(gltf, binary, texture["source"], leather_sleeves(image_bytes(gltf, binary, texture["source"])))
+    if preset.get("hair_ramp"):
+        for props in vrm["materialProperties"]:
+            if props["name"].endswith("_HAIR") or "_HAIR_" in props["name"]:
+                index = gltf["textures"][props["textureProperties"]["_MainTex"]]["source"]
+                replace_image(gltf, binary, index, recolor(image_bytes(gltf, binary, index), *preset["hair_ramp"], stretch=True))
+
+    if preset["sleeves"]:
+        body = next(p for p in vrm["materialProperties"] if "Body_00_SKIN" in p["name"])
+        texture = gltf["textures"][body["textureProperties"]["_MainTex"]]
+        replace_image(gltf, binary, texture["source"], leather_sleeves(image_bytes(gltf, binary, texture["source"])))
 
     removed = {i for i, material in enumerate(gltf["materials"]) if any(name in material["name"] for name in REMOVE_MATERIALS)}
     for mesh in gltf["meshes"]:
         mesh["primitives"] = [p for p in mesh["primitives"] if p.get("material") not in removed]
 
     vrm["meta"].update({
-        "title": "MatOpt Tutor (Jensen Huang tribute)",
-        "author": "MatOpt, from VRoid Project's Base_Male (CC0)",
+        "title": preset["title"],
+        "author": f"MatOpt, from VRoid Project's {args.source.stem} (CC0)",
         "contactInformation": "",
         "reference": "https://opengameart.org/content/vroid-studio-cc0-models",
         "licenseName": "CC0",

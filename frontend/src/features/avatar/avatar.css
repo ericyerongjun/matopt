@@ -9,6 +9,11 @@
   background: radial-gradient(120% 90% at 50% 25%, var(--mo-surface-2, var(--color-muted)), transparent 70%); }
 .matopt-avatar-stage canvas { display: block; width: 100%; height: 100%; }
 .matopt-avatar-note { position: absolute; inset: 0; display: grid; place-items: center; font-size: var(--matopt-text-compact); color: var(--color-foreground-subtle); }
+.matopt-avatar-tutors { display: flex; justify-content: center; gap: 4px; }
+.matopt-avatar-tutors button { height: 24px; padding: 0 10px; border: 1px solid var(--mo-border, var(--color-border)); border-radius: 999px; background: transparent;
+  color: var(--color-foreground-subtle); font: inherit; font-size: 12px; cursor: pointer; }
+.matopt-avatar-tutors button[aria-checked="true"] { color: var(--color-foreground); border-color: var(--mo-accent, var(--color-ring)); background: color-mix(in oklab, var(--mo-accent, var(--color-ring)) 10%, transparent); }
+.matopt-avatar-tutors button:focus-visible { outline: 2px solid var(--mo-accent, var(--color-ring)); outline-offset: 1px; }
 .matopt-avatar-caption { min-height: 1.4em; margin: 0; text-align: center; font-size: var(--matopt-text-compact); color: var(--color-foreground-subtle); }
 .matopt-avatar-controls { display: flex; align-items: center; gap: 4px; }
 .matopt-avatar-controls button { display: inline-flex; align-items: center; gap: 5px; height: 30px; padding: 0 9px; border: 1px solid transparent; border-radius: 9px;

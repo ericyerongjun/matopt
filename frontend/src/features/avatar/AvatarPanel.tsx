@@ -1,6 +1,7 @@
 import { lazy, Suspense, useEffect, useRef, useState } from "react";
 import { AudioLines, ImageUp, RotateCcw, Square, Volume2, VolumeX, X } from "lucide-react";
 import { clearCustomAvatar, loadCustomAvatar, saveCustomAvatar } from "./customAvatar.ts";
+import { TUTORS } from "./tutors.ts";
 import { stopSpeaking } from "../voice/playback.ts";
 import { useVoiceStore } from "../voice/voiceStore.ts";
 import "./avatar.css";
@@ -11,7 +12,7 @@ const CAPTIONS = { idle: "", listening: "Listening…", thinking: "Thinking…",
 
 /** Docked tutor card: avatar, live state and the voice switches. */
 export function AvatarPanel() {
-    const { mood, speaking, speakReplies, conversation, setPreference } = useVoiceStore();
+    const { mood, speaking, speakReplies, conversation, tutor, setPreference } = useVoiceStore();
     const [customUrl, setCustomUrl] = useState<string | null>(null);
     const [notice, setNotice] = useState<string | null>(null);
     const picker = useRef<HTMLInputElement>(null);
@@ -37,8 +38,12 @@ export function AvatarPanel() {
     const caption = notice ?? (speaking ? CAPTIONS.speaking : CAPTIONS[mood]);
     return <aside className="matopt-avatar-panel" aria-label="Voice tutor">
         <Suspense fallback={<div className="matopt-avatar-stage" data-status="loading"><span className="matopt-avatar-note">Loading avatar…</span></div>}>
-            <AvatarStage key={customUrl ?? "default"} url={customUrl ?? undefined} />
+            <AvatarStage key={customUrl ?? tutor} url={customUrl ?? undefined} tutor={TUTORS[tutor]} />
         </Suspense>
+        {!customUrl && <div className="matopt-avatar-tutors" role="radiogroup" aria-label="Tutor">
+            {Object.values(TUTORS).map((preset) => <button key={preset.id} type="button" role="radio" aria-checked={tutor === preset.id}
+                onClick={() => setPreference("tutor", preset.id)}>{preset.label}</button>)}
+        </div>}
         <p className="matopt-avatar-caption" role="status" aria-live="polite">{caption}</p>
         <input ref={picker} type="file" accept=".vrm" hidden onChange={(event) => { void choose(event.target.files?.[0]); event.target.value = ""; }} />
         <div className="matopt-avatar-controls">
@@ -51,7 +56,7 @@ export function AvatarPanel() {
                 <AudioLines aria-hidden="true" /><span>Talk</span>
             </button>
             <button type="button" className="matopt-avatar-icon" aria-label="Choose avatar (.vrm)" title="Use your own .vrm avatar" onClick={() => picker.current?.click()}><ImageUp aria-hidden="true" /></button>
-            {customUrl && <button type="button" className="matopt-avatar-icon" aria-label="Use the default tutor" title="Use the default tutor" onClick={reset}><RotateCcw aria-hidden="true" /></button>}
+            {customUrl && <button type="button" className="matopt-avatar-icon" aria-label="Use the built-in tutors" title="Use the built-in tutors" onClick={reset}><RotateCcw aria-hidden="true" /></button>}
             {speaking && <button type="button" className="matopt-avatar-icon" aria-label="Stop speaking" title="Stop speaking" onClick={stopSpeaking}><Square aria-hidden="true" /></button>}
             <button type="button" className="matopt-avatar-icon" aria-label="Close avatar" title="Close avatar"
                 onClick={() => { stopSpeaking(); setPreference("avatarOpen", false); }}><X aria-hidden="true" /></button>
