@@ -29,6 +29,8 @@ export interface ChatStreamBody {
     client_run_id?: string;
     message: string;
     attachments?: Attachment[];
+    /** Reply language code (see /api/speech/status). */
+    language?: string;
     provider?: string | null;
     model?: string | null;
     reasoning?: string | null;

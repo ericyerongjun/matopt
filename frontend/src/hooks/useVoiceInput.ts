@@ -7,6 +7,8 @@
  */
 import { useCallback, useEffect, useRef, useState } from "react";
 import { transcribe } from "../services/speech.ts";
+import { stopSpeaking } from "../features/voice/playback.ts";
+import { useVoiceStore } from "../features/voice/voiceStore.ts";
 
 export type VoiceState = "idle" | "recording" | "transcribing" | "error";
 
@@ -68,6 +70,7 @@ export function useVoiceInput({ language, disabled = false, onTranscript }: {
         recorder.onstop = async () => {
             release();
             session.current = null;
+            if (useVoiceStore.getState().mood === "listening") useVoiceStore.getState().setMood("idle");
             const blob = new Blob(current.chunks, { type: recorder.mimeType || mimeType || "audio/webm" });
             if (current.cancelled || Date.now() - current.started < MIN_RECORDING_MS || !blob.size) { setState("idle"); return; }
             setState("transcribing");
@@ -96,6 +99,8 @@ export function useVoiceInput({ language, disabled = false, onTranscript }: {
             tick();
         } catch { /* The level meter is decorative; recording continues without it. */ }
         recorder.start();
+        stopSpeaking();  // Talking over the tutor interrupts it.
+        useVoiceStore.getState().setMood("listening");
         setState("recording");
     }, [release]);
 

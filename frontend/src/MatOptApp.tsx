@@ -1,6 +1,6 @@
 /** MatOpt conversation workspace, using the licensed ZCode component primitives. */
-import { useCallback, useEffect, useState } from "react";
-import { Activity, Calculator, ChartNoAxesCombined, Download, FileCode2, Layers, Monitor, Moon, PanelLeft, RotateCcw, Settings, ShieldCheck, Sigma, SquareFunction, SquarePen, Sun, Type, X } from "lucide-react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { Activity, Calculator, ChartNoAxesCombined, Download, FileCode2, Layers, Monitor, Moon, PanelLeft, RotateCcw, Settings, ShieldCheck, Sigma, Smile, SquareFunction, SquarePen, Sun, Type, X } from "lucide-react";
 import { Button } from "@/components/ui/button.js";
 import { DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu.js";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs.js";
@@ -23,7 +23,11 @@ import { MatOptShell } from "./features/shell/MatOptShell";
 import { ChatSidebar } from "./features/shell/ChatSidebar";
 import { WorkspacePanel, ResultWorkspace, type WorkspaceView } from "./features/shell/WorkspacePanel";
 import { RunControls } from "./features/shell/RunControls";
-import { isAssistantContent } from "./types/protocol";
+import { isAssistantContent, textFromAssistant } from "./types/protocol";
+import { AvatarPanel } from "./features/avatar/AvatarPanel";
+import { LanguagePicker } from "./features/voice/LanguagePicker";
+import { speak, stopSpeaking } from "./features/voice/playback";
+import { useVoiceStore } from "./features/voice/voiceStore";
 import MathInput from "./components/MathInput";
 import MessageList from "./components/MessageList";
 import { ActivityPanel } from "./components/WorkActivity";
@@ -64,6 +68,7 @@ export default function MatOptApp() {
   const convos = useConversations();
   const files = useWorkspaceFiles(convos.activeId);
   const skillCatalog = useSkills();
+  const voice = useVoiceStore();
   const [sidebarVisible, setSidebarVisible] = useState(() => !window.matchMedia("(max-width: 900px)").matches);
   const [paneVisible, setPaneVisible] = useState(false);
   const [view, setView] = useState<WorkspaceView>("results");
@@ -76,7 +81,7 @@ export default function MatOptApp() {
   const quotePassage = (quote: QuoteRef) => setQuoteRequest({ ...quote, id: crypto.randomUUID(), conversationId: convos.activeId });
   const chat = useChat({ activeId: convos.activeId, messages: convos.messages, setMessages: convos.setMessages,
     setActiveId: convos.setActiveId, createConversation: convos.create, refreshList: convos.refreshList,
-    provider: llm.provider, model: llm.model, reasoning: llm.reasoning, verify: llm.verify,
+    provider: llm.provider, model: llm.model, reasoning: llm.reasoning, verify: llm.verify, language: voice.language,
     onArtifacts: () => { void files.refresh(); } });
   const attachedRun = Boolean(chat.streaming && chat.overlay?.cid === convos.activeId);
   const messages = attachedRun && chat.overlay ? chat.overlay.messages : convos.messages;
@@ -105,6 +110,29 @@ export default function MatOptApp() {
     return chat.sendMessage(text, attached, skillNames, toolNames);
   }, [chat.sendMessage, inputDisabled]);
   const handleExplain = useCallback((text: string) => { void handleSend(text); }, [handleSend]);
+  // Hands-free conversation sends what was said; otherwise the transcript is inserted for review.
+  const handleVoiceTranscript = useCallback((text: string) => {
+    if (!useVoiceStore.getState().conversation) return false;
+    void handleSend(text);
+    return true;
+  }, [handleSend]);
+  // The avatar thinks while this chat's run works, smiles when it ends, and reads the answer if asked.
+  const wasRunning = useRef(false);
+  useEffect(() => {
+    const store = useVoiceStore.getState();
+    if (attachedRun) { stopSpeaking(); store.setMood("thinking"); wasRunning.current = true; return; }
+    if (!wasRunning.current) return;
+    wasRunning.current = false;
+    const last = [...messages].reverse().find((message) => message.role === "assistant");
+    const content = last && isAssistantContent(last.content) ? last.content : null;
+    store.setMood(content?.status === "complete" ? "happy" : "idle");
+    const settle = setTimeout(() => { if (useVoiceStore.getState().mood === "happy") useVoiceStore.getState().setMood("idle"); }, 2500);
+    if (content?.status === "complete" && store.speakReplies) {
+      const text = textFromAssistant(content);
+      if (text.trim()) void speak(text).catch(() => undefined);
+    }
+    return () => clearTimeout(settle);
+  }, [attachedRun, messages]);
   const handleUpload = async (list: File[]) => { if (!convos.activeId) return; await uploadFiles(convos.activeId, list); await files.refresh(); };
   useEffect(() => watchSystemTheme(loadTheme), []);
   useEffect(() => { setPaneVisible(false); setActivityVisible(false); setActivityView("timeline"); setDraftPreset(undefined); setQuoteRequest(undefined); }, [convos.activeId]);
@@ -140,11 +168,11 @@ export default function MatOptApp() {
       </DropdownMenuRadioGroup>
     </DropdownMenuContent>
   </DropdownMenu>;
-  const modelPicker = <ModelPicker catalog={llm.catalog} provider={llm.provider} model={llm.model} label={llm.selectedLabel} onSelect={llm.select} disabled={chat.streaming} levels={llm.allowedLevels} reasoning={llm.reasoning} onReasoningChange={llm.selectReasoning} menuUp />;
+  const toolbar = <><ModelPicker catalog={llm.catalog} provider={llm.provider} model={llm.model} label={llm.selectedLabel} onSelect={llm.select} disabled={chat.streaming} levels={llm.allowedLevels} reasoning={llm.reasoning} onReasoningChange={llm.selectReasoning} menuUp /><LanguagePicker disabled={chat.streaming} /></>;
   const composer = <MathInput key={convos.activeId ?? "draft"} onSubmit={handleSend} onStop={() => void chat.stop()} loading={attachedRun}
     quoteRequest={quoteRequest?.conversationId === convos.activeId ? quoteRequest : undefined}
-    stopControl={attachedRun && messages.length > 0 ? "external" : "inline"}
-    disabled={inputDisabled} showDisclaimer={false} commands={skillCatalog.commands} toolbar={modelPicker} draftPreset={messages.length ? undefined : draftPreset} />;
+    stopControl={attachedRun && messages.length > 0 ? "external" : "inline"} voiceLanguage={voice.language} onVoiceTranscript={handleVoiceTranscript}
+    disabled={inputDisabled} showDisclaimer={false} commands={skillCatalog.commands} toolbar={toolbar} draftPreset={messages.length ? undefined : draftPreset} />;
   const conversation = <>
     <div className="matopt-conversation-body">
       {convos.loadingThread ? <p className="matopt-loading" role="status">Loading chat…</p> : messages.length ? <MessageList messages={messages} conversationId={convos.activeId} streaming={attachedRun} onPickOption={handleExplain} onOpenWork={openActivity} onQuote={inputDisabled ? undefined : quotePassage} />
@@ -170,6 +198,7 @@ export default function MatOptApp() {
     {messages.length > 0 && <div className="matopt-composer-dock">{attachedRun && <RunControls paused={chat.paused} pauseRequested={chat.pauseRequested} reconnecting={chat.reconnecting} status={chat.controlStatus}
       onPause={() => void chat.pause()} onResume={() => void chat.resume()} onStop={() => void chat.stop()} />}{composer}<p className="matopt-disclaimer">MatOpt can make mistakes. Check important results.</p></div>}
     {!messages.length && <p className="matopt-disclaimer matopt-welcome-disclaimer">MatOpt can make mistakes. Check important results.</p>}
+    {voice.avatarOpen && <AvatarPanel />}
   </>;
   const presentations = messages.flatMap((message) => message.role === "assistant" && isAssistantContent(message.content)
     ? [{ id: message.id, presentation: projectAssistantPresentation(message.content, attachedRun && message.content.status === "streaming") }] : []);
@@ -194,6 +223,6 @@ export default function MatOptApp() {
     <MatOptShell sidebarOpen={sidebarVisible} paneOpen={paneVisible} onCloseSidebar={dismissSidebar} onClosePane={closePane} conversation={conversation} sidePane={sidePane} inspector={inspector} inspectorOpen={activityVisible} onCloseInspector={closeActivity}
       sidebar={<ChatSidebar conversations={convos.conversations} activeId={convos.activeId} pausedConversationId={attachedRun && chat.paused ? convos.activeId : undefined} loading={convos.loadingList} onNewChat={newChat} onSelect={selectChat} onRename={convos.rename} onDelete={convos.remove} onFiles={openFiles} onClose={dismissSidebar} />}
       header={<><div className="matopt-header-title">{!sidebarVisible && <><Button variant="ghost" size="icon-md" aria-label="Open sidebar" title="Open sidebar" onClick={() => setSidebarVisible(true)}><PanelLeft className="size-5" /></Button><Button variant="ghost" size="icon-md" aria-label="New chat" title="New chat" onClick={newChat}><SquarePen className="size-5" /></Button></>}<div className="matopt-task-identity"><h1 title={taskTitle}>{taskTitle}</h1>{taskContext && <span><i className="is-active" aria-hidden="true" />{taskContext}</span>}</div></div>
-        <div className="matopt-header-actions"><Button variant="ghost" size="sm" aria-label="Open workspace" title="Workspace" aria-expanded={paneVisible && !activityVisible} onClick={() => paneVisible && !activityVisible ? closePane() : openPane(view)}><Layers className="size-4" /><span>Workspace</span></Button><Button variant="ghost" size="sm" aria-label="Open activity" title="Activity" aria-expanded={activityVisible} onClick={() => activityVisible ? closeActivity() : openActivity()}><Activity className="size-4" /><span>Activity</span></Button>{settings}</div></>} />
+        <div className="matopt-header-actions"><Button variant="ghost" size="sm" aria-label="Open workspace" title="Workspace" aria-expanded={paneVisible && !activityVisible} onClick={() => paneVisible && !activityVisible ? closePane() : openPane(view)}><Layers className="size-4" /><span>Workspace</span></Button><Button variant="ghost" size="sm" aria-label="Open activity" title="Activity" aria-expanded={activityVisible} onClick={() => activityVisible ? closeActivity() : openActivity()}><Activity className="size-4" /><span>Activity</span></Button><Button variant="ghost" size="sm" aria-label="Voice tutor" title="Voice tutor" aria-pressed={voice.avatarOpen} onClick={() => voice.setPreference("avatarOpen", !voice.avatarOpen)}><Smile className="size-4" /><span>Tutor</span></Button>{settings}</div></>} />
   </UiWorkspaceProvider>;
 }

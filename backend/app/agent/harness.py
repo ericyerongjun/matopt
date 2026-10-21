@@ -102,6 +102,7 @@ class RunRequest:
     ui_version: Optional[int] = None
     strict_final: bool = False  # verify the exact answer text before releasing it
     run_id: Optional[str] = None
+    language: Optional[str] = None  # reply language chosen in the UI (app.speech.LANGUAGES code)
 
 
 @dataclass
@@ -886,7 +887,7 @@ class AgentHarness:
             # the parent callback records their actual usage, without charging twice.
             ctx.state["lambda_record_call"] = record_auxiliary_call
             system = {"role": "system", "content": self._system_prompt(workspace, route, ui=ctx.state["ui_enabled"])}
-            turn_context = self._turn_context(workspace, route, cid)
+            turn_context = self._turn_context(workspace, route, cid, req.language)
             if not prior_messages and conv["title"] in ("New chat", _heuristic_title(req.text)):
                 # Titles depend only on the first request; starting once setup
                 # succeeds lets the header update while the agent works. A title
@@ -1223,7 +1224,8 @@ class AgentHarness:
             )
         return build_system_prompt(extra, interactive_ui=ui)
 
-    def _turn_context(self, workspace: Workspace, route: Optional[RoutePlan], cid: str) -> dict:
+    def _turn_context(self, workspace: Workspace, route: Optional[RoutePlan], cid: str,
+                      language: Optional[str] = None) -> dict:
         try:
             ds = datasets_block(workspace)
         except Exception:  # noqa: BLE001
@@ -1233,8 +1235,11 @@ class AgentHarness:
             catalog, active = route.as_prompt(getattr(self.settings, "skill_catalog_limit", 16))
         elif len(self.skills):
             catalog = self.skills.catalog_lines()
+        from app.speech import LANGUAGES
+        reply = LANGUAGES.get(language or "")
         content = build_turn_context(workspace.describe_for_prompt(), ds, skills_catalog=catalog,
-                                     skills_active=active, ui_state=self.ui.store.context_summary(cid))
+                                     skills_active=active, ui_state=self.ui.store.context_summary(cid),
+                                     reply_language=reply.label if reply else "")
         return {"role": "user", "content": content}
 
     def _route_turn(self, req: RunRequest, workspace: Workspace) -> RoutePlan:

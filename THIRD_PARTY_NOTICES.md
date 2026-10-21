@@ -347,6 +347,8 @@ contains them.
 | pyopenjtalk-plus and the OpenJTalk dictionary | PyPI | MIT / Modified BSD | Japanese readings |
 | espeakng-loader (bundles libespeak-ng and its data) | PyPI | MIT wrapper; **espeak-ng is GPL-3.0-or-later** | Pronunciation for English and other languages |
 | phonemizer | PyPI | GPL-3.0 | espeak-ng interface used by kokoro-onnx |
+| three.js, @pixiv/three-vrm | npm | MIT | 3D avatar rendering |
+| VRoid AvatarSample_F ("Vita"), `frontend/public/avatars/vita.vrm` | <https://opengameart.org/content/vroid-studio-cc0-models> (VRoid Project) | CC0 1.0; embedded VRM licence: any use, modification and redistribution, no credit required | Tutor avatar |
 
 espeak-ng and phonemizer are GPL-3.0. Running MatOpt, or using it privately
 or for coursework, is unaffected. Distributing a build that contains them

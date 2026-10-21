@@ -197,6 +197,7 @@ def build_turn_context(
     skills_catalog: str = "",
     skills_active: str = "",
     ui_state: str = "",
+    reply_language: str = "",
 ) -> str:
     """Per-turn facts, sent as a message before the user request they describe."""
     catalog_section = ""
@@ -208,6 +209,9 @@ def build_turn_context(
     ui_section = ""
     if ui_state.strip():
         ui_section = "\n# Interactive output state\n" + ui_state.strip() + "\n"
+    if reply_language:
+        ui_section += (f"\n# Reply language\nThe user chose {reply_language}. Write narration and the answer in "
+                       f"{reply_language}; keep mathematics, code and identifiers unchanged.\n")
     return TURN_CONTEXT_TEMPLATE.format(
         today=_dt.date.today().isoformat(),
         files=files_block or "The workspace is empty.",

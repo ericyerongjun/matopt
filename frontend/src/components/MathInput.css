@@ -181,3 +181,9 @@
 .matopt-voice-error { margin: 6px 4px 0; font-size: var(--matopt-text-compact); color: var(--color-destructive, #d9534f); }
 .matopt-voice-error button { border: 0; background: none; color: inherit; text-decoration: underline; cursor: pointer; font: inherit; }
 @media (prefers-reduced-motion: reduce) { .matopt-composer-mic { transition: none; } }
+
+.matopt-language-picker { display: inline-flex; align-items: center; gap: 4px; height: 30px; padding: 0 6px; border-radius: 9px; color: var(--color-foreground-subtle); font-size: 12.5px; }
+.matopt-language-picker:hover { color: var(--color-foreground); background: var(--mo-surface-2, var(--color-muted)); }
+.matopt-language-picker svg { width: 15px; height: 15px; }
+.matopt-language-picker select { appearance: none; border: 0; background: transparent; color: inherit; font: inherit; cursor: pointer; padding-right: 2px; }
+.matopt-language-picker select:focus-visible { outline: 2px solid var(--mo-accent, var(--color-ring)); outline-offset: 2px; border-radius: 4px; }
