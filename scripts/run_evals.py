@@ -50,7 +50,9 @@ def grade(item: dict, boxed: str | None) -> bool:
                     return True
             except (TypeError, ValueError):
                 continue
-        match = re.search(r"-?\d+(?:\.\d+)?(?:[eE]-?\d+)?", boxed.replace(",", ""))
+        # "R^2 = 0.9982" or "t \approx 1.47": grade the value, not the label.
+        value = re.split(r"=|\\approx", boxed)[-1]
+        match = re.search(r"-?\d+(?:\.\d+)?(?:[eE]-?\d+)?", value.replace(",", ""))
         return bool(match) and abs(float(match.group()) - float(item["answer"])) <= item["abs_tol"]
     return bool(verify(parse(f"${item['answer']}$"), parse(f"$\\boxed{{{boxed}}}$")))
 
