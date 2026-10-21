@@ -91,6 +91,11 @@ class Settings(BaseSettings):
     deepseek_api_key: Optional[str] = None
     deepseek_base_url: Optional[str] = None
     wolfram_app_id: Optional[str] = None
+    # Lean 4 proof checking (lean_check tool): a Lake project with Mathlib, or a
+    # lean binary (LEAN_COMMAND, PATH or ~/.elan/bin). Absent both, no tool.
+    lean_project_dir: Optional[str] = None
+    lean_command: Optional[str] = None
+    lean_timeout: int = 300
     llm_timeout: float = 600.0
     max_output_tokens: int = Field(default=0, ge=0, le=MAX_OUTPUT_TOKENS)  # 0 = provider default
 
@@ -106,6 +111,7 @@ class Settings(BaseSettings):
     run_timeout_seconds: float = Field(default=1800, gt=0, allow_inf_nan=False)
     recent_turns_full_replay: int = 3
     history_char_budget: int = 240_000
+    compaction_target_ratio: float = 0.5  # compact to this share of the budget so it fires rarely
     keepalive_seconds: float = 10.0
     session_log_enabled: bool = True             # disable to use the legacy message replay path
     verify_rounds: int = 2

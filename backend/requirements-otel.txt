@@ -1,0 +1,3 @@
+# Optional OpenTelemetry export (set OTEL_EXPORTER_OTLP_ENDPOINT to enable)
+opentelemetry-sdk>=1.30
+opentelemetry-exporter-otlp-proto-http>=1.30

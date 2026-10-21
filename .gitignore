@@ -70,3 +70,7 @@ backend/static/
 
 # Local extra MCP servers (may contain secrets)
 mcp.json
+
+# Lean/Mathlib project created by scripts/setup_lean.sh
+backend/lean/
+frontend/*.tsbuildinfo

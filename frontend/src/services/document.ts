@@ -9,8 +9,7 @@ export async function parseDocument(file: File): Promise<DocumentParseResult> {
     const form = new FormData();
     form.append("file", file);
 
-    const { data } = await apiClient.post("/documents/parse", form, {
-        headers: { "Content-Type": "multipart/form-data" },
+    const { data } = await apiClient.post<{ markdown: string; latex_blocks?: DocumentParseResult["latexBlocks"]; metadata: DocumentParseResult["metadata"] }>("/documents/parse", form, {
         timeout: 300_000, // large documents may take a while
     });
 

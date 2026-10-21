@@ -45,6 +45,14 @@ text extraction remains available as a fallback. See
 [document reading and limits](backend/README.md#pdfs-screenshots-and-scanned-documents) for the
 configuration and supported formats.
 
+## Quality, cost and observability
+
+- **Evals:** [`evals/`](evals/README.md) holds graded problems with computed reference answers; `scripts/run_evals.py` runs them through the live harness and reports pass rate, time, tokens and prompt-cache reuse against a saved baseline.
+- **Prompt caching:** the system prompt is stable across turns and per-turn facts travel in a `<turn-context>` message, so the provider cache covers earlier history ([measurement](docs/PROMPT-CACHE-EXPERIMENT.md)). Long chats are compacted into a rolling summary instead of dropping turns.
+- **Formal proofs:** `scripts/setup_lean.sh` installs Lean 4 (optionally with Mathlib); the `lean_check` tool then machine-checks proofs and rejects `sorry`, `admit` and new axioms.
+- **Tracing:** `pip install -r backend/requirements-otel.txt` and set `OTEL_EXPORTER_OTLP_ENDPOINT` to export each turn as OpenTelemetry GenAI spans (Langfuse, Phoenix, Jaeger).
+- **Pinned installs:** `backend/constraints.txt` records versions verified together; setup and Docker install with it. CI runs backend and frontend tests, the build, the vendor provenance check and `docker compose build`.
+
 ## Skills and MCP
 
 - Catalog: [`skills/`](skills/README.md) — MatOpt playbooks, split [LAMBDA](https://github.com/AMA-CMFAI/LAMBDA) data skills (`/lambda-eda`, `/lambda-report`, `/lambda-slides`, `/lambda-notebook`, `/lambda-data-agent`), plus the full [anthropics/skills](https://github.com/anthropics/skills) tree.

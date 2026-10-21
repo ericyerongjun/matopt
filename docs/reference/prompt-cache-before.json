@@ -1,0 +1,181 @@
+{
+  "conversation_id": "c_c510631422a5440f",
+  "requests": [
+    {
+      "turn": 1,
+      "step": 1,
+      "prompt": 10632,
+      "cached": 0,
+      "rate": 0.0
+    },
+    {
+      "turn": 1,
+      "step": 2,
+      "prompt": 10821,
+      "cached": 10624,
+      "rate": 0.982
+    },
+    {
+      "turn": 1,
+      "step": 3,
+      "prompt": 2888,
+      "cached": 2560,
+      "rate": 0.886
+    },
+    {
+      "turn": 1,
+      "step": 3,
+      "prompt": 0,
+      "cached": 0,
+      "rate": null
+    },
+    {
+      "turn": 1,
+      "step": 3,
+      "prompt": 0,
+      "cached": 0,
+      "rate": null
+    },
+    {
+      "turn": 2,
+      "step": 1,
+      "prompt": 11365,
+      "cached": 2304,
+      "rate": 0.203,
+      "system_changed": true,
+      "tools_changed": true,
+      "tool_order_changed": false
+    },
+    {
+      "turn": 2,
+      "step": 2,
+      "prompt": 11807,
+      "cached": 11520,
+      "rate": 0.976
+    },
+    {
+      "turn": 2,
+      "step": 3,
+      "prompt": 12045,
+      "cached": 11904,
+      "rate": 0.988
+    },
+    {
+      "turn": 2,
+      "step": 4,
+      "prompt": 2907,
+      "cached": 2560,
+      "rate": 0.881
+    },
+    {
+      "turn": 2,
+      "step": 4,
+      "prompt": 0,
+      "cached": 0,
+      "rate": null
+    },
+    {
+      "turn": 2,
+      "step": 4,
+      "prompt": 0,
+      "cached": 0,
+      "rate": null
+    },
+    {
+      "turn": 2,
+      "step": 4,
+      "prompt": 0,
+      "cached": 0,
+      "rate": null
+    },
+    {
+      "turn": 2,
+      "step": 4,
+      "prompt": 0,
+      "cached": 0,
+      "rate": null
+    },
+    {
+      "turn": 2,
+      "step": 4,
+      "prompt": 0,
+      "cached": 0,
+      "rate": null
+    },
+    {
+      "turn": 3,
+      "step": 1,
+      "prompt": 12392,
+      "cached": 2304,
+      "rate": 0.186,
+      "system_changed": true,
+      "tools_changed": true,
+      "tool_order_changed": false
+    },
+    {
+      "turn": 3,
+      "step": 2,
+      "prompt": 12460,
+      "cached": 12288,
+      "rate": 0.986
+    },
+    {
+      "turn": 3,
+      "step": 3,
+      "prompt": 2804,
+      "cached": 2560,
+      "rate": 0.913
+    },
+    {
+      "turn": 3,
+      "step": 3,
+      "prompt": 0,
+      "cached": 0,
+      "rate": null
+    },
+    {
+      "turn": 3,
+      "step": 3,
+      "prompt": 0,
+      "cached": 0,
+      "rate": null
+    },
+    {
+      "turn": 3,
+      "step": 3,
+      "prompt": 0,
+      "cached": 0,
+      "rate": null
+    },
+    {
+      "turn": 3,
+      "step": 3,
+      "prompt": 0,
+      "cached": 0,
+      "rate": null
+    },
+    {
+      "turn": 3,
+      "step": 3,
+      "prompt": 0,
+      "cached": 0,
+      "rate": null
+    },
+    {
+      "turn": 3,
+      "step": 3,
+      "prompt": 0,
+      "cached": 0,
+      "rate": null
+    },
+    {
+      "turn": 3,
+      "step": 3,
+      "prompt": 0,
+      "cached": 0,
+      "rate": null
+    }
+  ],
+  "overall_rate": 0.651,
+  "cross_turn_first_request_rate": 0.194
+}

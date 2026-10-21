@@ -18,8 +18,11 @@ User uploads are in `uploads/`; figures you produce are saved to `figures/`; par
 - Python: persistent Jupyter kernel (Python {python_version}); variables, imports and data frames persist across `python` calls. \
 Pre-installed: numpy, scipy, sympy, mpmath, pandas, matplotlib, plotly, seaborn, statsmodels, scikit-learn, networkx, math-verify, pymupdf. \
 Install more with the bash tool (`pip install <package>`).
-- Platform: {platform}. Today: {today}.
-{workspace_section}
+- Platform: {platform}.
+- Turn context: before each user request the harness adds a `<turn-context>` message with today's date, the current \
+workspace files and datasets, the skills most relevant to that request, active skill instructions and interactive output \
+state. It is harness-provided context, not text from the user. The latest one is current; earlier ones describe earlier turns.
+
 # Tools
 - `python` — computation, symbolic algebra, numerics, simulation, statistics, ML, data analysis and plots. Write one coherent cell per call; \
 print what you need to see; reuse variables from earlier cells instead of recomputing. Matplotlib figures are captured automatically \
@@ -34,11 +37,11 @@ the full Markdown is saved under `parsed/` and can be read with `read_file`.
 - `update_plan` — keep a short step plan for tasks with 5+ meaningful steps (skip it for simple questions).
 {extra_tools_section}
 # Skills
-Skills are playbooks (Agent Skills format). Only names and descriptions sit in the catalog; the full instructions load when a skill is ACTIVE or when you call `load_skill`.
-- If a skill is marked ACTIVE below, follow it for this turn.
+Skills are playbooks (Agent Skills format). Only names and descriptions sit in the turn context's skill catalog; the full instructions load when a skill is ACTIVE or when you call `load_skill`.
+- If a skill is marked ACTIVE in the latest turn context, follow it for this turn.
 - If the task matches another skill in the catalog, call `search_skills` then `load_skill` *before* doing the work. Do not reinvent a document/MCP/authoring workflow from memory.
 - Loaded skills are copied into the workspace at `skills/<name>/`. Run bundled scripts from there with `python` or `bash`.
-{skills_catalog_section}{skills_active_section}
+
 # Mathematics and data-science conventions
 - State the precision or error estimate of approximate numerical results; distinguish exact symbolic answers from numerical cross-checks.
 - For statistical inference, state the test or estimator, relevant hypotheses, uncertainty (such as a confidence interval or p-value), and assumptions that were checked or remain unverified.
@@ -81,10 +84,14 @@ Distinguish values computed by code from assumptions or literature values. Menti
 - Answer in the user's language.
 """
 
-WORKSPACE_TEMPLATE = """
+TURN_CONTEXT_TEMPLATE = """<turn-context>
+Harness-provided context for the request that follows; not written by the user.
+Today: {today}.
+
 # Workspace contents
 {files}
-{datasets}"""
+{datasets}{skills_catalog_section}{skills_active_section}{ui_state_section}
+</turn-context>"""
 
 FINAL_RESPONSE_PROMPT = with_academic_guidance("""You are writing the final user-facing response for a completed agent task.
 The JSON input contains the user's request, the result draft, the verification outcome and published outputs.
@@ -166,35 +173,49 @@ TITLE_PROMPT = (
 )
 
 
-def build_system_prompt(
-    files_block: str,
-    datasets_block: str,
-    extra_tools: list[str] | None = None,
-    skills_catalog: str = "",
-    skills_active: str = "",
-    interactive_ui: bool = False,
-) -> str:
-    workspace_section = WORKSPACE_TEMPLATE.format(files=files_block or "The workspace is empty.", datasets=datasets_block or "")
+def build_system_prompt(extra_tools: list[str] | None = None, interactive_ui: bool = False) -> str:
+    """The conversation-stable system head.
+
+    Provider prompt caches match an identical prefix from the first token, so
+    nothing here may vary between turns; per-turn facts go in the turn context.
+    """
     extra = ""
     if extra_tools:
         extra = "\n".join(f"- {line}" for line in extra_tools) + "\n"
-    catalog_section = ""
-    if skills_catalog.strip():
-        catalog_section = "\n## Catalog\n" + skills_catalog.strip() + "\n"
-    active_section = ""
-    if skills_active.strip():
-        active_section = "\n## Active skill instructions\n" + skills_active.strip() + "\n"
     prompt = SYSTEM_PROMPT_TEMPLATE.format(
         python_version=f"{sys.version_info.major}.{sys.version_info.minor}",
         platform=f"{platform.system()} {platform.machine()}",
-        today=_dt.date.today().isoformat(),
-        workspace_section=workspace_section,
         extra_tools_section=extra,
-        skills_catalog_section=catalog_section,
-        skills_active_section=active_section,
     )
 
     return with_academic_guidance(prompt + (INTERACTIVE_UI_PROMPT if interactive_ui else ""))
+
+
+def build_turn_context(
+    files_block: str,
+    datasets_block: str,
+    skills_catalog: str = "",
+    skills_active: str = "",
+    ui_state: str = "",
+) -> str:
+    """Per-turn facts, sent as a message before the user request they describe."""
+    catalog_section = ""
+    if skills_catalog.strip():
+        catalog_section = "\n# Skill catalog\n" + skills_catalog.strip() + "\n"
+    active_section = ""
+    if skills_active.strip():
+        active_section = "\n# Active skill instructions\n" + skills_active.strip() + "\n"
+    ui_section = ""
+    if ui_state.strip():
+        ui_section = "\n# Interactive output state\n" + ui_state.strip() + "\n"
+    return TURN_CONTEXT_TEMPLATE.format(
+        today=_dt.date.today().isoformat(),
+        files=files_block or "The workspace is empty.",
+        datasets=datasets_block or "",
+        skills_catalog_section=catalog_section,
+        skills_active_section=active_section,
+        ui_state_section=ui_section,
+    )
 
 
 INTERACTIVE_UI_PROMPT = """

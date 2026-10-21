@@ -1,0 +1,10 @@
+# Build-context exclusions for `docker build -f frontend/sandbox/Dockerfile .`
+#
+# Docker prefers this file over the context-root `.dockerignore`, which
+# excludes `frontend/` for the backend image. The sandbox image needs only
+# the three static files its Dockerfile copies.
+
+*
+!frontend/sandbox/index.html
+!frontend/sandbox/runtime.js
+!frontend/sandbox/nginx.conf

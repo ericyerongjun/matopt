@@ -20,16 +20,16 @@
         "noUnusedParameters": false,
         "noFallthroughCasesInSwitch": true,
         "forceConsistentCasingInFileNames": true,
-        "baseUrl": ".",
+        "types": ["node"],
         "paths": {
             "@/*": [
-                "src/zcode/*"
+                "./src/zcode/*"
             ],
             "@zcode/shared": [
-                "src/zcode/shared/index.ts"
+                "./src/zcode/shared/index.ts"
             ],
             "@zcode/model-option-map": [
-                "src/zcode/model-option-map/index.ts"
+                "./src/zcode/model-option-map/index.ts"
             ]
         }
     },

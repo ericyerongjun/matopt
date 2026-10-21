@@ -89,6 +89,12 @@ export function useChat(options: Options) {
                     if (current.current !== session) return;
                     if (!session.accepted && ["message_start", "conversation", "run_state", "work"].includes(event.type)) {
                         session.accepted = true; onAccepted?.(true);
+                        // The server titles a new chat alongside its first turn; pick it up while work continues.
+                        if (!original.some((message) => message.role === "assistant")) {
+                            for (const delay of [3000, 8000]) {
+                                setTimeout(() => { if (!session.abort.signal.aborted) void optionsRef.current.refreshList(); }, delay);
+                            }
+                        }
                     }
                     session.state = applyEvent(session.state, event);
                     publish(session);

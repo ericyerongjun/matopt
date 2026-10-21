@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks, Query
 from fastapi.responses import FileResponse, JSONResponse
 from sqlalchemy.orm import Session
-from typing import List
+from typing import List, Literal
 import json
 import os
 import shutil
@@ -175,7 +175,7 @@ async def export_notebook(
 @router.post("/report/{conversation_id}")
 async def export_report(
     conversation_id: str,
-    format: str = Query(default="md", enum=["md", "pdf", "zip", "slides"]),
+    format: Literal["md", "pdf", "zip", "slides"] = Query(default="md"),
     background_tasks: BackgroundTasks = None,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_active_user)

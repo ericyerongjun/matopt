@@ -1,5 +1,7 @@
 # MatOpt backend — install with:  python3.12 -m venv .venv && .venv/bin/pip install -r requirements.txt
 # (plain pip; uv is intentionally not used)
+# Pinned versions known to work together live in constraints.txt:
+#   pip install -r requirements.txt -c constraints.txt
 
 # ── Web framework ──
 fastapi>=0.126.0

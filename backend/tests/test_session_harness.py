@@ -129,9 +129,10 @@ async def test_steer_is_logged_between_tool_result_and_next_assistant_and_surviv
     resumed = make_harness(db, provider, tmp_path, tools=[EchoTool(db)])
     await collect(resumed, conversation_id=cid, text="continue")
     messages = provider.calls[-2]  # Work request precedes the tool-free final writer.
-    assert [message["role"] for message in messages] == ["system", "user", "assistant", "tool", "user", "assistant", "user"]
-    assert messages[-3]["content"] == "[Steer] use a different method"
-    assert messages[-2]["content"] == "corrected answer"
+    assert [message["role"] for message in messages] == ["system", "user", "user", "assistant", "tool", "user", "assistant", "user", "user"]
+    assert messages[-2]["content"].startswith("<turn-context>")
+    assert messages[-4]["content"] == "[Steer] use a different method"
+    assert messages[-3]["content"] == "corrected answer"
     assert messages[-1]["content"] == "continue"
     db.close()
 
@@ -619,3 +620,35 @@ def test_live_budget_never_drops_the_latest_user_or_leaves_dangling_tool_results
                    {"role": "assistant", "content": "tools"}, *[{"role": "tool", "content": "result"}] * 3]
     assert not _trim_live_history(single_turn, 20)
     assert single_turn[1]["content"].startswith("large")
+
+
+@pytest.mark.asyncio
+async def test_later_turns_extend_the_earlier_request_as_an_exact_prefix(tmp_path):
+    """Provider prompt caches need the system head and prior turns unchanged."""
+    db = Database(tmp_path / "test.sqlite")
+    provider = FakeProvider([{"text": "first answer"}, {"text": "second answer"}])
+    harness = make_harness(db, provider, tmp_path)
+    events = await collect(harness, conversation_id=None, text="first question")
+    cid = events[0]["conversation_id"]
+    Workspace(cid, harness.settings.workspace_dir).root.joinpath("new_result.csv").write_text("x\n1\n")
+    await collect(harness, conversation_id=cid, text="second question")
+    first, second = provider.calls[0], provider.calls[-1]
+    assert second[:len(first)] == first
+    assert first[1]["content"].startswith("<turn-context>")
+    assert "new_result.csv" not in second[0]["content"]
+    assert "new_result.csv" in second[-2]["content"]
+    assert second[-1]["content"] == "second question"
+    db.close()
+
+
+@pytest.mark.asyncio
+async def test_auto_title_replaces_placeholders_but_keeps_a_chosen_title(tmp_path):
+    db = Database(tmp_path / "test.sqlite")
+    harness = make_harness(db, FakeProvider([{"text": "a"}, {"text": "b"}]), tmp_path)
+    chosen = db.create_conversation(title="My derivation notes")["id"]
+    placeholder = db.create_conversation(title="New chat")["id"]
+    await collect(harness, conversation_id=chosen, text="integrate x^2")
+    await collect(harness, conversation_id=placeholder, text="integrate x^3")
+    assert db.get_conversation(chosen)["title"] == "My derivation notes"
+    assert db.get_conversation(placeholder)["title"] == "Fake title"
+    db.close()
