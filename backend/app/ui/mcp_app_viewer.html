@@ -190,7 +190,7 @@
     const notice = view.actions.length && inputsChanged() ? "Controls changed since the last result. Recompute to update it." : "";
     root.replaceChildren();
     const style = document.createElement("style");
-    style.textContent = ":host{display:block;margin-top:12px;font:inherit;color:var(--matopt-text)}:host([hidden]){display:none}div{display:flex;flex-wrap:wrap;gap:8px;align-items:center}button{border:1px solid var(--matopt-border);border-radius:999px;padding:6px 14px;background:var(--matopt-control);color:inherit;font:inherit;cursor:pointer}button:disabled{opacity:.6;cursor:default}p{margin:8px 0 0;color:var(--matopt-muted)}";
+    style.textContent = ":host{display:block;margin-top:12px;font:inherit;color:var(--matopt-text)}div{display:flex;flex-wrap:wrap;gap:8px;align-items:center}button{border:1px solid var(--matopt-border);border-radius:999px;padding:6px 14px;background:var(--matopt-control);color:inherit;font:inherit;cursor:pointer}button:disabled{opacity:.6;cursor:default}p{margin:8px 0 0;color:var(--matopt-muted)}details{margin-top:8px}summary{cursor:pointer;color:var(--matopt-muted)}details p{white-space:pre-wrap;color:inherit}";
     const row = document.createElement("div");
     for (const [label, handler, title] of buttons) {
       const button = document.createElement("button");
@@ -202,12 +202,21 @@
     const line = document.createElement("p");
     line.setAttribute("role", "status");
     line.textContent = status || notice;
-    root.append(style, row, line);
-    toolbar.element.hidden = !buttons.length && !line.textContent;
+    // The readable result, as the in-app "About this result" disclosure shows it.
+    const about = document.createElement("details");
+    const summary = document.createElement("summary");
+    const description = document.createElement("p");
+    summary.textContent = "About this result";
+    description.textContent = view.fallback;
+    about.open = toolbar.aboutOpen;
+    about.addEventListener("toggle", () => { toolbar.aboutOpen = about.open; requestAnimationFrame(resize); });
+    about.append(summary, description);
+    root.append(style, row, line, about);
+    requestAnimationFrame(resize);
   }
   function mountToolbar() {
     const element = document.createElement("matopt-controls");
-    toolbar = { element, root: element.attachShadow({ mode: "closed" }) };
+    toolbar = { element, root: element.attachShadow({ mode: "closed" }), aboutOpen: false };
     document.body.appendChild(element);
     drawToolbar();
   }

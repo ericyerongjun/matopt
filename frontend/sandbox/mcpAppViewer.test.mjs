@@ -39,11 +39,12 @@ async function mount() {
   const reply = (id, result) => deliver({ jsonrpc: "2.0", id, result });
   const buttons = () => [...(shadows.at(-1)?.querySelectorAll("button") || [])];
   const notice = () => shadows.at(-1)?.querySelector("[role=status]")?.textContent;
+  const about = () => shadows.at(-1)?.querySelector("details p")?.textContent;
   const userClick = (element) => fireAnEvent("click", idlUtils.implForWrapper(element), MouseEvent, { bubbles: true });
   const out = () => view.document.getElementById("out")?.textContent;
   const calls = (name) => sent.filter((m) => m.method === "tools/call" && m.params.name === name);
   await tick();
-  return { view, sent, deliver, reply, buttons, notice, userClick, out, calls };
+  return { view, sent, deliver, reply, buttons, notice, about, userClick, out, calls };
 }
 
 async function start(capabilities = {}, surface = SURFACE, theme = "dark") {
@@ -102,8 +103,9 @@ test("control edits save debounced with the surface token and rebase on conflict
 });
 
 test("only a user click runs the host-owned action and the result updates the app", async () => {
-  const { view, sent, reply, buttons, notice, userClick, out, calls } = await start(ALL);
+  const { view, sent, reply, buttons, notice, about, userClick, out, calls } = await start(ALL);
   assert.deepEqual(buttons().map((b) => b.textContent), ["Recompute", "Explain"]);
+  assert.equal(about(), "Frequency 2.");
   view.bump(6);
   assert.match(notice(), /Recompute to update/);
   buttons()[0].click();  // scripted clicks, as generated code could issue, are ignored
@@ -124,6 +126,7 @@ test("only a user click runs the host-owned action and the result updates the ap
     _meta: { "matopt/surface": { ...SURFACE, revision: 3, fallback: "Frequency 6.", state: { frequency: 6 }, computed_state: { frequency: 6 }, token: undefined } } });
   assert.equal(out(), '{"frequency":6} dark');
   assert.equal(notice(), "");
+  assert.equal(about(), "Frequency 6.");
   assert.ok(buttons().every((b) => !b.disabled));
   userClick(buttons()[1]);
   await tick();

@@ -132,5 +132,20 @@ controls:
   and the result display all worked. A hostile mini-app could not find the
   controls or intercept outgoing messages, and never saw the token. `fetch` and
   `blob:` workers were blocked by CSP.
-- **Not yet tried:** an official host (`@modelcontextprotocol/ext-apps` basic
-  host, Claude Desktop, VS Code) and a real OAuth authorization server.
+- An official host was checked: `examples/basic-host` from
+  `@modelcontextprotocol/ext-apps` 2.0.3. It uses `AppBridge` and a sandbox
+  proxy on a separate origin, and was connected to a real MatOpt backend over
+  Streamable HTTP. The basic host has no stdio transport; stdio is covered by
+  the test above. Results:
+  - The host listed `open_ui_app` and hid `save_ui_state` / `run_ui_action`.
+  - The view rendered with the host's theme.
+  - A slider edit saved (revision 2).
+  - Recompute ran real Python in the conversation kernel. The result
+    (revision 3) reached the view, "About this result" and the host's model
+    context.
+  - Reopening restored the saved state.
+  - Toggling the host theme redrew the app.
+  - Explain stayed hidden because that host does not advertise `message`.
+  - This host's proxy allows `blob:` workers. The spec default does not.
+- **Not yet tried:** Claude Desktop, VS Code, and a real OAuth authorization
+  server.
