@@ -55,3 +55,12 @@ class FakeRegistry:
 
     def configured_ids(self):
         return ["deepseek"]
+
+
+def without_transcript(value):
+    """Drop the visible work transcript, where narration and tool output belong."""
+    if isinstance(value, dict):
+        return {k: without_transcript(v) for k, v in value.items() if k != "transcript"}
+    if isinstance(value, list):
+        return [without_transcript(v) for v in value if not (isinstance(v, dict) and v.get("type") == "transcript")]
+    return value

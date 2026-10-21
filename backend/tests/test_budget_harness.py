@@ -17,6 +17,7 @@ from app.agent.harness import RunRequest
 from app.agent.presentation import public_content
 from app.agent.tools.result_tool import PublishResultTool
 from app.llm.base import StreamDelta
+from tests.fake_provider import without_transcript
 from tests.test_agent_activity import (
     BoundaryProvider,
     Capture,
@@ -47,7 +48,8 @@ def saved_answer(rig, capture, *, status="error"):
     assert saved["budget"]["usage"]["unsettled_attempts"] == 0
     if status != "complete":
         assert not any(e["type"] == "done" for e in capture.events)
-    assert not any(value in json.dumps(capture.events) for value in (REASONING, INTERNAL_TEXT))
+    assert REASONING not in json.dumps(capture.events)
+    assert INTERNAL_TEXT not in json.dumps(without_transcript(capture.events))
     return saved
 
 

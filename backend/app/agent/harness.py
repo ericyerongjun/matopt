@@ -31,6 +31,7 @@ from app.agent.datasets import datasets_block
 from app.agent.events import Event, ToolResult, ev, keepalive
 from app.agent.execution import ToolExecutionService, restore_execution_state
 from app.agent import compaction, otel
+from app.agent.transcript import Transcript
 from app.agent.budget import BudgetExhausted, RunBudget
 from app.agent.activity import PublicActivity
 from app.agent.results import ResultPublisher
@@ -150,6 +151,7 @@ class TurnState:
     publish_outputs: bool = True
     last_finish_reason: Optional[str] = None
     last_prompt_tokens: Optional[int] = None
+    transcript: Transcript = field(default_factory=Transcript)
     answer_truncated: bool = False
     work: dict = field(default_factory=lambda: {"status": "running", "tool_count": 0,
         "verification": {"status": "not_requested", "rounds": 0}, "steps": []})
@@ -606,6 +608,19 @@ class AgentHarness:
                 await original_emit(ev("work", work=public_work(state.work)))
 
         async def durable_emit(event: Event) -> None:
+            if state.phase != "verify" and event.type in {"transcript_note", "tool_call_ready", "tool_result"}:
+                if event.type == "transcript_note":
+                    entry = state.transcript.note(event.data["step"], event.data["text"])
+                elif event.type == "tool_call_ready":
+                    entry = state.transcript.action(state.step, event.data["id"],
+                        event.data.get("resolved_name") or event.data.get("name", ""), event.data.get("arguments"))
+                else:
+                    entry = state.transcript.result(event.data["id"], event.data.get("ok"),
+                                                    event.data.get("output"), event.data.get("error"))
+                if entry is not None and not internal_events and not req.strict_final:
+                    await original_emit(ev("transcript", entry=dict(entry)))
+                if event.type == "transcript_note":
+                    return
             kinds = {"plan": "plan/write", "skills": "skill/activated", "phase": "phase/change",
                      "verification": "verification"}
             if state.session is not None and event.type in kinds:
@@ -994,6 +1009,7 @@ class AgentHarness:
                     state.work["status"] = status
                     state.work["tool_count"] = len(state.activity.calls)
                     await state.activity.finish(status)
+                    state.transcript.stop_running()
                     for step in state.work["steps"]:
                         if step["status"] == "running":
                             step["status"] = "complete" if status == "complete" else "error"
@@ -1004,6 +1020,7 @@ class AgentHarness:
                         "stats": {"llm_calls": state.llm_calls, "tool_calls": state.tool_calls,
                                   "verification_checks": state.verification_checks},
                         "presentation": "final", "final_text": state.final_text, "final_ready": state.final_ready,
+                        "transcript": state.transcript.snapshot(),
                         "work": public_work(state.work),
                         "output_generation": state.output_generation, "publish_outputs": state.publish_outputs,
                         "strict_final": req.strict_final,
@@ -1411,6 +1428,8 @@ class AgentHarness:
                         if not state.answer_truncated and state.end_reason == "max-tokens":
                             state.end_reason = None
                     return text
+                if worker and text.strip():
+                    await emit(ev("transcript_note", step=state.step, text=text))
                 results = await self._execute_calls(calls, tools, ctx, emit, state)
                 for call, res in zip(calls, results):
                     history.append(provider.tool_message(call.id, call.name, _tool_message_text(res)))

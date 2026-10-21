@@ -1,7 +1,8 @@
 /** Public activity only. Diagnostic messages and raw tool payloads have no UI path here. */
 import { useEffect, useState } from "react";
-import { Check, ChevronDown, Circle, CircleAlert, ExternalLink, FileText, Globe, Loader2, Pause, Users, X } from "lucide-react";
-import type { ActivityItem, ActivityOutput, ActivityPhase } from "../types/protocol.ts";
+import { Check, ChevronDown, ChevronRight, Circle, CircleAlert, ExternalLink, FileText, Globe, Loader2, Pause, Users, X } from "lucide-react";
+import type { ActivityItem, ActivityOutput, ActivityPhase, TranscriptEntry } from "../types/protocol.ts";
+import { InlineMathText } from "./InlineMathText.tsx";
 import type { PresentedWork } from "../services/presentation.ts";
 import { useOptionalUiWorkspace } from "../features/intelligent-ui/UiWorkspace.tsx";
 import { Button } from "../zcode/components/ui/button.js";
@@ -171,24 +172,45 @@ export function WorkDisclosure({ work, conversationId, onOpenWork }: { work: Pre
     const plan = work.items.filter((item) => item.kind === "phase" && item.purpose === "Task milestone" && item.status !== "cancelled");
     const visibleActive = showAllActive ? active : active.slice(0, 3);
     const statusIcon = work.status === "complete" ? "completed" : work.status === "error" ? "failed" : work.status === "stopped" ? "cancelled" : work.status === "paused" ? "paused" : "running";
+    const transcript = work.transcript ?? [];
     return <div className="matopt-live-work" data-work-status={work.status}>
         <Task open={expanded} onOpenChange={setExpanded} data-testid="work-disclosure">
             <TaskTrigger title={title}><Button type="button" variant="ghost" size="sm" aria-label={title} className="matopt-work-trigger h-auto max-w-full justify-start px-0 text-foreground-subtle hover:bg-transparent">
                 <WorkIcon status={statusIcon} /><span role={!work.progress?.text || !live ? "status" : undefined}>{title}</span>{live && duration !== undefined && <span className="matopt-work-elapsed" aria-hidden="true">{formatElapsed(duration)}</span>}<ChevronDown className="matopt-work-chevron" aria-hidden="true" />
             </Button></TaskTrigger>
+            {live && transcript.length > 0 && <WorkTranscript entries={transcript} />}
             {live && <div className="matopt-work-now">
                 {plan.length > 0 && <ol className="matopt-work-plan" aria-label="Task plan">{plan.map((item) => <li key={item.id} data-activity-status={item.status}>
                     <WorkIcon status={item.status} /><span>{item.label}</span>
                 </li>)}</ol>}
-                {work.progress?.text && <p className="matopt-work-commentary" role="status" aria-live="polite">{work.progress.text}</p>}
-                {active.length > 0 && <ul className="matopt-active-actions" aria-label="Active actions">{visibleActive.map((item) => <li key={item.id} data-activity-id={item.id} data-activity-status={item.status}>
+                {!transcript.length && work.progress?.text && <p className="matopt-work-commentary" role="status" aria-live="polite">{work.progress.text}</p>}
+                {!transcript.length && active.length > 0 && <ul className="matopt-active-actions" aria-label="Active actions">{visibleActive.map((item) => <li key={item.id} data-activity-id={item.id} data-activity-status={item.status}>
                     <WorkIcon status={item.status} /><div><span>{item.label}</span>{item.attempt > 1 && <span className="matopt-work-retry">Attempt {item.attempt}</span>}<MeasuredProgress item={item} /></div><span className="matopt-work-state">{STATUS[item.status]}</span>
                 </li>)}</ul>}
                 {active.length > 3 && <button type="button" className="matopt-more-actions" aria-expanded={showAllActive} onClick={() => setShowAllActive((value) => !value)}>{showAllActive ? "Show fewer actions" : `${active.length - 3} more active ${active.length - 3 === 1 ? "action" : "actions"}`}</button>}
             </div>}
-            <TaskContent className="matopt-work-history"><WorkMilestones work={work} /><SafeWorkTimeline work={work} conversationId={conversationId} />{onOpenWork && <Button type="button" variant="ghost" size="sm" className="matopt-open-activity" onClick={onOpenWork}><ExternalLink className="size-3.5" aria-hidden="true" />Open activity</Button>}</TaskContent>
+            <TaskContent className="matopt-work-history">{transcript.length > 0 && !live ? <WorkTranscript entries={transcript} /> : <><WorkMilestones work={work} /><SafeWorkTimeline work={work} conversationId={conversationId} /></>}{onOpenWork && <Button type="button" variant="ghost" size="sm" className="matopt-open-activity" onClick={onOpenWork}><ExternalLink className="size-3.5" aria-hidden="true" />Open activity</Button>}</TaskContent>
         </Task>
     </div>;
+}
+
+/** Claude Code-style narration and expandable action rows. */
+export function WorkTranscript({ entries }: { entries: TranscriptEntry[] }) {
+    return <ol className="matopt-tx" aria-label="Work transcript">{entries.map((entry) => entry.kind === "note"
+        ? <li key={entry.id} className="matopt-tx-note"><InlineMathText text={entry.text ?? ""} /></li>
+        : <li key={entry.id} className="matopt-tx-action" data-status={entry.status}>
+            <details>
+                <summary>
+                    <span className="matopt-tx-title">{entry.title ?? entry.tool}</span>
+                    {entry.subject && <span className="matopt-tx-subject">{entry.subject}</span>}
+                    {entry.status === "running" && <Loader2 className="matopt-work-icon matopt-work-spinning" aria-label="Running" />}
+                    {entry.status === "error" && <CircleAlert className="matopt-work-icon matopt-tx-failed" aria-label="Failed" />}
+                    {(entry.input || entry.output) && <ChevronRight className="matopt-tx-chevron" aria-hidden="true" />}
+                </summary>
+                {entry.input && <pre className="matopt-tx-block" data-label={entry.language === "json" ? "Arguments" : "Input"}><code>{entry.input}</code></pre>}
+                {entry.output && <pre className="matopt-tx-block matopt-tx-output" data-label={entry.status === "error" ? "Error" : "Output"}><code>{entry.output}</code></pre>}
+            </details>
+        </li>)}</ol>;
 }
 
 function WorkMilestones({ work, collapsible = false }: { work: PresentedWork; collapsible?: boolean }) {

@@ -1,4 +1,4 @@
-import type { ActivityItem, Artifact, AssistantContent, Part, ProgressUpdate, ResultBlock } from "../types/protocol.ts";
+import type { ActivityItem, Artifact, AssistantContent, Part, ProgressUpdate, ResultBlock, TranscriptEntry } from "../types/protocol.ts";
 import { readResultBlock, readPublicProgress, readPublicMilestones } from "../types/protocol.ts";
 import type { UISurface } from "../types/ui.ts";
 
@@ -21,6 +21,8 @@ export interface PresentedWork {
     startedAt?: number;
     finishedAt?: number;
     durationMs?: number;
+    /** Narration and actions, Claude Code style; empty for older messages. */
+    transcript: TranscriptEntry[];
 }
 
 export interface AssistantPresentation {
@@ -108,6 +110,7 @@ function workFor(content: AssistantContent, streaming: boolean): PresentedWork |
             progress: readPublicProgress(publicWork.current_progress) ?? null,
             milestones: readPublicMilestones(publicWork.milestones),
             startedAt: timestamp(publicWork.started_at), finishedAt: timestamp(publicWork.finished_at), durationMs: timestamp(publicWork.duration_ms),
+            transcript: readTranscript(content.transcript, workStatus),
         };
     }
 
@@ -132,7 +135,8 @@ function workFor(content: AssistantContent, streaming: boolean): PresentedWork |
     }
     if (!steps.length && (status === "running" || content.parts.some((part) => part.type === "reasoning"))) steps.push({ label: "Working", status: status === "running" ? "running" : "complete" });
     if (!steps.length) return null;
-    return { status, toolCount: Math.max(toolCount, count(content.stats?.tool_calls)), verification, steps, items: [], progress: null, milestones: [] };
+    return { status, toolCount: Math.max(toolCount, count(content.stats?.tool_calls)), verification, steps, items: [], progress: null, milestones: [],
+        transcript: readTranscript(content.transcript, status) };
 }
 
 function legacyAnswer(parts: Part[]): string {
@@ -195,4 +199,24 @@ export function projectAssistantPresentation(content: AssistantContent, streamin
         options: ready && !streaming && content.status !== "streaming" ? content.parts.flatMap((part) => part.type === "options" ? part.items : []) : [],
         work: workFor(content, streaming),
     };
+}
+
+const TRANSCRIPT_STATUSES = new Set(["running", "done", "error", "stopped"]);
+
+/** Re-validate transcript rows; rows still running in a finished turn are shown as stopped. */
+export function readTranscript(value: unknown, workStatus: PresentedWork["status"]): TranscriptEntry[] {
+    if (!Array.isArray(value)) return [];
+    const live = workStatus === "running" || workStatus === "paused";
+    return value.flatMap((raw): TranscriptEntry[] => {
+        if (!raw || typeof raw !== "object") return [];
+        const entry = raw as Record<string, unknown>;
+        const order = entry.order;
+        if ((entry.kind !== "note" && entry.kind !== "action") || typeof entry.id !== "string"
+            || !Array.isArray(order) || order.length !== 2 || !order.every((n) => typeof n === "number")) return [];
+        const text = (key: string) => typeof entry[key] === "string" ? entry[key] as string : undefined;
+        const status = TRANSCRIPT_STATUSES.has(entry.status as string) ? entry.status as TranscriptEntry["status"] : undefined;
+        return [{ id: entry.id, kind: entry.kind, order: [order[0] as number, order[1] as number], text: text("text"), tool: text("tool"),
+            title: text("title"), subject: text("subject"), language: text("language"), input: text("input"), output: text("output"),
+            status: status === "running" && !live ? "stopped" : status }];
+    });
 }

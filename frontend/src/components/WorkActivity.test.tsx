@@ -160,3 +160,23 @@ test('a running card shows the agent plan as an inline checklist and drops repla
   act(() => root?.render(<WorkDisclosure work={{ ...value, status: 'complete', durationMs: 5000 }} />));
   assert.equal(view.querySelector('.matopt-work-plan'), null, 'the finished card collapses to its summary');
 });
+test('the work transcript shows narration and expandable action rows while running, then folds into the summary', () => {
+  const transcript = [
+    { id: 'note:1', kind: 'note' as const, order: [1, 0] as [number, number], text: 'I will compute $6 \\times 7$ first.' },
+    { id: 'action:c1', kind: 'action' as const, order: [1, 1] as [number, number], tool: 'python', title: 'Ran Python', input: 'print(6*7)', language: 'python', output: '42', status: 'done' as const },
+    { id: 'action:c2', kind: 'action' as const, order: [2, 1] as [number, number], tool: 'read_file', title: 'Read', subject: 'uploads/data.csv', status: 'running' as const },
+  ];
+  const value = { ...work(), items: [], transcript };
+  const view = mount(<WorkDisclosure work={value} />);
+  const rows = [...view.querySelectorAll('.matopt-tx > li')];
+  assert.deepEqual(rows.map((row) => row.className), ['matopt-tx-note', 'matopt-tx-action', 'matopt-tx-action']);
+  assert.ok(rows[0].querySelector('.katex'), 'narration renders inline math');
+  assert.equal(rows[1].querySelector('summary')?.textContent, 'Ran Python');
+  assert.deepEqual([...rows[1].querySelectorAll('pre')].map((block) => [block.getAttribute('data-label'), block.textContent]), [['Input', 'print(6*7)'], ['Output', '42']]);
+  assert.ok(rows[2].querySelector('[aria-label="Running"]') && rows[2].textContent?.includes('uploads/data.csv'));
+  assert.equal(view.querySelector('.matopt-active-actions'), null, 'the transcript replaces the generic action list');
+  act(() => root?.render(<WorkDisclosure work={{ ...value, status: 'complete', durationMs: 4000 }} />));
+  assert.equal(view.querySelector('.matopt-tx'), null, 'a finished turn folds the transcript behind its summary');
+  act(() => view.querySelector<HTMLButtonElement>('.matopt-work-trigger')!.click());
+  assert.equal(view.querySelectorAll('.matopt-tx > li').length, 3);
+});

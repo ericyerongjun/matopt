@@ -67,6 +67,12 @@ def project_public_event(event: Event) -> Event | None:
         if not item:
             return None
         out = {"item": item}
+    elif kind == "transcript":
+        from app.agent.transcript import public_transcript
+        entries = public_transcript([data.get("entry")])
+        if not entries:
+            return None
+        out = {"entry": entries[0]}
     elif kind == "progress":
         from app.agent.activity import public_progress
         update = public_progress(data.get("update"))
