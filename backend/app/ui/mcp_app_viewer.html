@@ -1,0 +1,299 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>MatOpt interactive output</title>
+  <style>
+    :root { --matopt-bg: #fff; --matopt-text: #171717; --matopt-muted: #6b6b6b; --matopt-border: #e5e5e5; --matopt-control: #f1f1f1; --matopt-font: ui-sans-serif, -apple-system, system-ui, "Segoe UI", Helvetica, Arial, sans-serif; color-scheme: light; font-family: var(--matopt-font); color: var(--matopt-text); background: var(--matopt-bg); }
+    :root[data-theme="dark"] { --matopt-bg: #212121; --matopt-text: #ececec; --matopt-muted: #a6a6a6; --matopt-border: #3d3d3d; --matopt-control: #2f2f2f; color-scheme: dark; }
+    body { margin: 0; padding: 16px; box-sizing: border-box; }
+    *, *::before, *::after { box-sizing: inherit; }
+    button, input, select, textarea { font: inherit; }
+    :focus-visible { outline: 2px solid currentColor; outline-offset: 3px; }
+    @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; } }
+  </style>
+</head>
+<body><p role="status">Loading interactive output…</p>
+<script>
+/* MCP Apps view (ext-apps 2026-01-26) hosting one saved MatOpt mini-app.
+   It mirrors frontend/sandbox/runtime.js: the same window.matopt API, carried
+   over the host's JSON-RPC postMessage channel instead of matopt:* messages.
+   Saving, computations and Explain are viewer controls, as in the MatOpt app:
+   generated scripts cannot reach the host channel or the surface token. */
+(() => {
+  "use strict";
+  const PROTOCOL_VERSION = "2026-01-26";
+  const SURFACE_META = "matopt/surface";
+  const host = window.parent;
+  if (host === window) return;
+  // Captured before any generated script runs, which could replace globals.
+  const postToHost = host.postMessage.bind(host);
+  const { stringify, parse } = JSON;
+  const randomKey = () => (crypto.randomUUID ? crypto.randomUUID() : [...crypto.getRandomValues(new Uint8Array(16))].map((b) => b.toString(16).padStart(2, "0")).join(""));
+  const THEME_VARIABLES = { "--color-background-primary": "--matopt-bg", "--color-text-primary": "--matopt-text", "--color-text-secondary": "--matopt-muted",
+    "--color-border-primary": "--matopt-border", "--color-background-secondary": "--matopt-control", "--font-sans": "--matopt-font" };
+  let nextId = 1;
+  let rendered = false;
+  let state = {};
+  let theme = "light";
+  let lastHeight = 0;
+  let capabilities = {};
+  let view = null;
+  let busy = false;
+  let saveTimer = null;
+  let dirty = false;
+  let saving = null;
+  let attempts = 0;
+  let status = "";
+  let toolbar = null;
+  const pending = new Map();
+  const stateListeners = new Set();
+  const themeListeners = new Set();
+  const copy = (value) => parse(stringify(value));
+  const send = (message) => postToHost({ jsonrpc: "2.0", ...message }, "*");
+  const notify = (method, params = {}) => send({ method, params });
+  const request = (method, params) => new Promise((resolve, reject) => {
+    const id = nextId++;
+    pending.set(id, { resolve, reject });
+    send({ id, method, params });
+  });
+  const callTool = (name, args) => request("tools/call", { name, arguments: { conversation_id: view.conversation_id, surface_id: view.id, token: view.token, ...args } });
+  function validState(value) {
+    if (!value || typeof value !== "object" || Array.isArray(value)) return false;
+    try { return stringify(value).length <= 65536; } catch { return false; }
+  }
+  function resize() {
+    const height = Math.max(160, Math.min(1200, Math.ceil(document.body?.scrollHeight || 160)));
+    if (height !== lastHeight) { lastHeight = height; notify("ui/notifications/size-changed", { height }); }
+  }
+  function actionValues(action, values) {
+    const schema = action.input_schema || {};
+    if (schema.additionalProperties === true) return { ...values };
+    const properties = schema.properties && typeof schema.properties === "object" && !Array.isArray(schema.properties) ? schema.properties : {};
+    return Object.fromEntries(Object.keys(properties).filter((key) => Object.hasOwn(values, key)).map((key) => [key, values[key]]));
+  }
+  const inputsChanged = () => view.actions.some((action) => stringify(actionValues(action, state)) !== stringify(actionValues(action, view.computed_state)));
+  function publishState() {
+    for (const listener of stateListeners) { try { listener(copy(state)); } catch { /* app-local error */ } }
+    drawToolbar();
+    requestAnimationFrame(resize);
+  }
+  function setState(next) {
+    if (!validState(next) || !view) return;
+    // Only keys declared in the saved server-owned state are accepted.
+    const allowed = {};
+    for (const key of Object.keys(state)) if (Object.hasOwn(next, key)) allowed[key] = next[key];
+    state = { ...state, ...copy(allowed) };
+    publishState();
+    scheduleSave();
+  }
+  function setTheme(next) {
+    theme = next === "dark" ? "dark" : "light";
+    document.documentElement.dataset.theme = theme;
+    for (const listener of themeListeners) { try { listener(theme); } catch { /* app-local error */ } }
+  }
+  function applyContext(context) {
+    if (!context || typeof context !== "object") return;
+    const variables = context.styles?.variables;
+    if (variables && typeof variables === "object") {
+      for (const [source, target] of Object.entries(THEME_VARIABLES)) {
+        if (typeof variables[source] === "string" && variables[source]) document.documentElement.style.setProperty(target, variables[source]);
+      }
+    }
+    if (context.theme) setTheme(context.theme);
+  }
+  const api = Object.freeze({
+    getState: () => copy(state), setState,
+    getTheme: () => theme, resize,
+    onStateChange(listener) { if (typeof listener !== "function") return () => {}; stateListeners.add(listener); return () => stateListeners.delete(listener); },
+    onThemeChange(listener) { if (typeof listener !== "function") return () => {}; themeListeners.add(listener); return () => themeListeners.delete(listener); },
+  });
+  Object.defineProperty(window, "matopt", { value: api, writable: false, configurable: false });
+
+  function updateModelContext() {
+    if (!capabilities.updateModelContext || !view) return;
+    request("ui/update-model-context", {
+      content: [{ type: "text", text: `Current controls in “${view.title}” (revision ${view.revision}): ${stringify(state).slice(0, 6000)}. Result: ${view.fallback.slice(0, 6000)}` }],
+      structuredContent: { surface_id: view.id, revision: view.revision, state: copy(state), computed_state: copy(view.computed_state) },
+    }).catch(() => {});
+  }
+  function scheduleSave() {
+    if (!capabilities.serverTools) return;
+    dirty = true; attempts = 0;
+    clearTimeout(saveTimer);
+    saveTimer = setTimeout(() => { void flushState(); }, 400);
+  }
+  // Edits during a computation save when it finishes, as in the MatOpt app.
+  async function flushState({ beforeAction = false } = {}) {
+    clearTimeout(saveTimer);
+    if (saving) { await saving; if (!dirty) return; }
+    if (!dirty || (busy && !beforeAction) || !capabilities.serverTools) return;
+    dirty = false;
+    saving = (async () => {
+      let result;
+      try { result = await callTool("save_ui_state", { revision: view.revision, state: copy(state) }); } catch { result = { isError: true }; }
+      const info = result?.structuredContent || {};
+      if (!result?.isError) { view.revision = info.revision ?? view.revision; status = ""; updateModelContext(); return; }
+      dirty = true;
+      if (info.code !== "UI_CONFLICT") { dirty = false; status = "These controls could not be saved."; drawToolbar(); return; }
+      // A newer revision rebases at once; a busy conversation is retried later.
+      const rebase = Number.isInteger(info.revision) && info.revision !== view.revision;
+      if (rebase) view.revision = info.revision;
+      if (++attempts <= 5) saveTimer = setTimeout(() => { void flushState(); }, rebase ? 0 : 3000);
+    })();
+    try { await saving; } finally { saving = null; }
+  }
+  async function runAction(action) {
+    if (busy || !view) return;
+    busy = true; status = "Computing " + action.label + "…"; drawToolbar();
+    try {
+      await flushState({ beforeAction: true });
+      const result = await callTool("run_ui_action", { action_id: action.id, revision: view.revision, values: actionValues(action, state), idempotency_key: randomKey() });
+      const next = result?._meta?.[SURFACE_META];
+      if (!result?.isError && next && validState(next.state)) {
+        // The token is never echoed here: generated scripts may observe later messages.
+        Object.assign(view, { revision: next.revision, title: next.title, fallback: next.fallback, computed_state: next.computed_state, actions: next.actions });
+        state = copy(next.state);
+        status = "";
+        publishState();
+        updateModelContext();
+      } else {
+        const info = result?.structuredContent || {};
+        if (Number.isInteger(info.revision)) view.revision = info.revision;
+        status = (result?.content || []).filter((part) => part?.type === "text").map((part) => part.text).join(" ") || "The computation could not finish. The previous result is still available.";
+      }
+    } catch {
+      status = "The computation could not finish. The previous result is still available.";
+    } finally {
+      busy = false;
+      drawToolbar();
+      if (dirty) void flushState();
+    }
+  }
+  function explain() {
+    if (!capabilities.message || !view) return;
+    const changed = inputsChanged();
+    const text = `Explain the current result in “${view.title}” (surface ${view.id}, revision ${view.revision}).\nCurrent controls: ${stringify(state).slice(0, 6000)}\n` +
+      (changed ? `Displayed result was computed with: ${stringify(view.computed_state).slice(0, 6000)}. The changed controls have not been recomputed; explain the existing result with that distinction.\n` : "") +
+      `Result summary: ${view.fallback.slice(0, 6000)}`;
+    request("ui/message", { role: "user", content: [{ type: "text", text }] }).catch(() => {});
+  }
+  // Viewer controls live in a closed shadow root outside the app's DOM. Only
+  // trusted (user) clicks act, so generated scripts cannot press them.
+  function drawToolbar() {
+    if (!view || !toolbar) return;
+    const root = toolbar.root;
+    const buttons = [];
+    if (capabilities.serverTools) for (const action of view.actions) buttons.push([action.label, () => runAction(action), action.description]);
+    if (capabilities.message) buttons.push(["Explain", explain, "Ask about the current result"]);
+    const notice = view.actions.length && inputsChanged() ? "Controls changed since the last result. Recompute to update it." : "";
+    root.replaceChildren();
+    const style = document.createElement("style");
+    style.textContent = ":host{display:block;margin-top:12px;font:inherit;color:var(--matopt-text)}div{display:flex;flex-wrap:wrap;gap:8px;align-items:center}button{border:1px solid var(--matopt-border);border-radius:999px;padding:6px 14px;background:var(--matopt-control);color:inherit;font:inherit;cursor:pointer}button:disabled{opacity:.6;cursor:default}p{margin:8px 0 0;color:var(--matopt-muted)}details{margin-top:8px}summary{cursor:pointer;color:var(--matopt-muted)}details p{white-space:pre-wrap;color:inherit}";
+    const row = document.createElement("div");
+    for (const [label, handler, title] of buttons) {
+      const button = document.createElement("button");
+      button.type = "button"; button.textContent = label; button.disabled = busy;
+      if (title) button.title = title;
+      button.addEventListener("click", (event) => { if (event.isTrusted) handler(); });
+      row.appendChild(button);
+    }
+    const line = document.createElement("p");
+    line.setAttribute("role", "status");
+    line.textContent = status || notice;
+    // The readable result, as the in-app "About this result" disclosure shows it.
+    const about = document.createElement("details");
+    const summary = document.createElement("summary");
+    const description = document.createElement("p");
+    summary.textContent = "About this result";
+    description.textContent = view.fallback;
+    about.open = toolbar.aboutOpen;
+    about.addEventListener("toggle", () => { toolbar.aboutOpen = about.open; requestAnimationFrame(resize); });
+    about.append(summary, description);
+    root.append(style, row, line, about);
+    requestAnimationFrame(resize);
+  }
+  function mountToolbar() {
+    const element = document.createElement("matopt-controls");
+    toolbar = { element, root: element.attachShadow({ mode: "closed" }), aboutOpen: false };
+    document.body.appendChild(element);
+    drawToolbar();
+  }
+
+  function showText(text) {
+    const paragraph = document.createElement("p");
+    paragraph.style.whiteSpace = "pre-wrap";
+    paragraph.textContent = text || "This interactive output is unavailable.";
+    document.body.replaceChildren(paragraph);
+    requestAnimationFrame(resize);
+  }
+  function render(html) {
+    if (typeof html !== "string" || html.length > 2_000_000) return;
+    const parsed = new DOMParser().parseFromString(html, "text/html");
+    // The host's CSP blocks network and external assets; keep this header intact.
+    parsed.querySelectorAll("base, meta[http-equiv], link, script[src]").forEach((node) => node.remove());
+    const executableType = (script) => !script.type || ["module", "text/javascript", "application/javascript"].includes(script.type.toLowerCase());
+    for (const node of [...parsed.head.children]) {
+      if (node.tagName === "STYLE" || (node.tagName === "SCRIPT" && !executableType(node))) document.head.appendChild(document.importNode(node, true));
+    }
+    const scripts = [...parsed.querySelectorAll("script")].filter(executableType).map((script) => ({ text: script.textContent || "", type: script.type }));
+    parsed.querySelectorAll("script").forEach((script) => { if (executableType(script)) script.remove(); });
+    document.body.replaceChildren(...[...parsed.body.childNodes].map((node) => document.importNode(node, true)));
+    mountToolbar();
+    for (const script of scripts) {
+      const executable = document.createElement("script");
+      if (script.type) executable.type = script.type;
+      executable.textContent = script.text;
+      document.body.insertBefore(executable, toolbar.element);
+    }
+    new ResizeObserver(resize).observe(document.body);
+    requestAnimationFrame(resize);
+  }
+  function onToolResult(result) {
+    if (rendered || !result || typeof result !== "object") return;
+    rendered = true;
+    const surface = result._meta?.[SURFACE_META];
+    const text = (result.content || []).filter((part) => part?.type === "text").map((part) => part.text).join("\n");
+    if (result.isError || !surface || typeof surface.html !== "string" || !validState(surface.state)) { showText(text); return; }
+    view = { conversation_id: surface.conversation_id, id: surface.id, token: surface.token, revision: surface.revision,
+      title: String(surface.title || ""), fallback: String(surface.fallback || text), actions: Array.isArray(surface.actions) ? surface.actions : [],
+      computed_state: validState(surface.computed_state) ? copy(surface.computed_state) : copy(surface.state) };
+    state = copy(surface.state);
+    render(surface.html);
+    updateModelContext();
+  }
+  addEventListener("message", (event) => {
+    const message = event.data;
+    if (event.source !== host || !message || message.jsonrpc !== "2.0") return;
+    if (message.id !== undefined && message.method === undefined) {
+      const waiter = pending.get(message.id);
+      if (!waiter) return;
+      pending.delete(message.id);
+      if (message.error) waiter.reject(message.error); else waiter.resolve(message.result);
+    } else if (message.method === "ui/notifications/tool-result") onToolResult(message.params);
+    else if (message.method === "ui/notifications/host-context-changed") applyContext(message.params);
+    else if (message.method === "ui/resource-teardown" && message.id !== undefined) {
+      const reply = () => send({ id: message.id, result: {} });
+      if (dirty && !busy) flushState().then(reply, reply); else reply();
+    }
+    else if (message.id !== undefined) send({ id: message.id, error: { code: -32601, message: "Method not found" } });
+  });
+  document.addEventListener("click", (event) => {
+    if (event.target instanceof Element && event.target.closest("a[href]")) event.preventDefault();
+  }, true);
+  document.addEventListener("submit", (event) => event.preventDefault(), true);
+  request("ui/initialize", {
+    protocolVersion: PROTOCOL_VERSION,
+    appInfo: { name: "matopt-mini-app-viewer", version: "1" },
+    appCapabilities: {},
+  }).then((result) => {
+    capabilities = result?.hostCapabilities && typeof result.hostCapabilities === "object" ? result.hostCapabilities : {};
+    applyContext(result?.hostContext);
+    notify("ui/notifications/initialized");
+    drawToolbar();
+  }, () => showText("This host could not start the interactive output."));
+})();
+</script>
+</body>
+</html>

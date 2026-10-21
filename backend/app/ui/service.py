@@ -127,6 +127,17 @@ class UIService:
         data["computed_state"] = dict(data["state"])
         return self.store.commit(ctx.conversation_id, data, message_id=ctx.state.get("ui_message_id"))
 
+    async def save_state(self, cid: str, sid: str, revision: int, state: dict) -> dict:
+        """Persist control edits without a model call; refuses while work runs."""
+        if self.harness.is_running(cid):
+            raise UIConflict("This conversation is busy. Wait for the current run to finish.")
+        surface = self.store.patch_state(cid, sid, revision, state)
+        if getattr(self.settings, "session_log_enabled", True):
+            log = await self.harness._open_session(cid)
+            log.append("ui/state", {"surface_id": sid, "revision": surface["revision"], "state": surface["state"]}, ignorable=True)
+            await log.flush()
+        return surface
+
     def prepare_action(self, cid: str, sid: str, request: dict) -> ActionLease | dict:
         receipt = self.store.receipt(cid, request["idempotency_key"], sid, request)
         if receipt is not None:

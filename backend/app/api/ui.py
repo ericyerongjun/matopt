@@ -47,16 +47,10 @@ async def surface(conversation_id: str, surface_id: str):
 async def state(conversation_id: str, surface_id: str, body: UIStateRequest):
     rt = get_runtime()
     _require_conversation(rt, conversation_id)
-    if rt.harness.is_running(conversation_id):
-        raise HTTPException(409, "This conversation is busy. Wait for the current run to finish.")
     try:
-        result = rt.harness.ui.store.patch_state(conversation_id, surface_id, body.revision, body.state)
+        result = await rt.harness.ui.save_state(conversation_id, surface_id, body.revision, body.state)
     except ValueError as exc:
         raise _error(exc) from exc
-    if getattr(rt.harness.settings, "session_log_enabled", True):
-        log = await rt.harness._open_session(conversation_id)
-        log.append("ui/state", {"surface_id": surface_id, "revision": result["revision"], "state": result["state"]}, ignorable=True)
-        await log.flush()
     return {"surface": result}
 
 
