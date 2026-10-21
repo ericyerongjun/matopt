@@ -16,9 +16,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 WORKDIR /app
 
-COPY backend/requirements.txt ./
+COPY backend/requirements.txt backend/constraints.txt ./
 RUN pip install --no-cache-dir --upgrade pip \
-    && pip install --no-cache-dir -r requirements.txt
+    && pip install --no-cache-dir -r requirements.txt -c constraints.txt
 
 COPY backend/ ./
 COPY skills ./skills

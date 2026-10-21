@@ -16,7 +16,10 @@ import base64
 import hashlib
 import json
 import logging
+import os
 import re
+import shutil
+import tempfile
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -134,6 +137,7 @@ class KernelSession:
         self.started = False
         self.execution_count = 0
         self._seen_figure_digests: set[str] = set()
+        self._ipc_dir: str | None = None
 
     # ── lifecycle ───────────────────────────────────────────────────────
 
@@ -142,6 +146,12 @@ class KernelSession:
 
         env = _child_env(self.workspace.root)
         km = AsyncKernelManager(kernel_name="python3")
+        if os.name == "posix":
+            # Unix sockets instead of unencrypted loopback TCP: other local users
+            # and processes cannot connect to the kernel. A short private
+            # directory keeps socket paths under the ~104-character limit.
+            self._ipc_dir = tempfile.mkdtemp(prefix="mo-k")
+            km.transport, km.ip = "ipc", os.path.join(self._ipc_dir, "k")
         await km.start_kernel(cwd=str(self.workspace.root), env=env)
         kc = km.client()
         kc.start_channels()
@@ -150,6 +160,7 @@ class KernelSession:
         except Exception:
             kc.stop_channels()
             await km.shutdown_kernel(now=True)
+            self._remove_ipc_dir()
             raise
         self._km, self._kc = km, kc
         self.started = True
@@ -187,6 +198,12 @@ class KernelSession:
                 await km.shutdown_kernel(now=True)
             except Exception:  # noqa: BLE001
                 logger.debug("shutdown failed", exc_info=True)
+        self._remove_ipc_dir()
+
+    def _remove_ipc_dir(self) -> None:
+        if self._ipc_dir:
+            shutil.rmtree(self._ipc_dir, ignore_errors=True)
+            self._ipc_dir = None
 
     # ── execution ───────────────────────────────────────────────────────
 
