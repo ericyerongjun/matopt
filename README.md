@@ -50,7 +50,7 @@ configuration and supported formats.
 - **Talk:** hold **Right ⌥ Option** (browsers cannot see the fn/Globe key) or click the composer's mic. Speech is transcribed on the backend by Whisper (`small`, CPU) and placed in the composer; quick taps and Option+letter typing never record.
 - **Listen:** turn on *Speak* in the **Tutor** panel, or use **Read aloud** on any answer. Replies are voiced locally by Kokoro (English, 中文, 日本語, Español, Français, Italiano, Português, हिन्दी) and start in about a second; code, tables and display equations are summarised rather than read out.
 - **Hands-free:** *Talk* mode sends what you say and speaks the reply; talking interrupts it.
-- **Avatar:** a VRM character that lip-syncs, blinks, thinks while the agent works and smiles when it is done. Use the panel's picture button to load your own `.vrm` (for example from VRoid Studio); it is kept only in your browser.
+- **Avatar:** the default tutor is a fan-made anime tribute to Jensen Huang (silver swept-back hair, black leather jacket), built from VRoid's CC0 base model by `scripts/build_tutor_avatar.py` and not affiliated with NVIDIA. It lip-syncs, blinks, thinks while the agent works and smiles when it is done. Use the panel's picture button to load your own `.vrm` (for example from VRoid Studio); it is kept only in your browser.
 - **Language:** the composer's language picker sets the reply language, the voice and the transcription hint; *Auto* follows you.
 - Speech models (~800 MB) download once into the data volume at first start. `SPEECH_ENABLED=false` turns voice off; see the GPL note for espeak-ng in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
 

@@ -51,7 +51,7 @@ export function AvatarPanel() {
                 <AudioLines aria-hidden="true" /><span>Talk</span>
             </button>
             <button type="button" className="matopt-avatar-icon" aria-label="Choose avatar (.vrm)" title="Use your own .vrm avatar" onClick={() => picker.current?.click()}><ImageUp aria-hidden="true" /></button>
-            {customUrl && <button type="button" className="matopt-avatar-icon" aria-label="Use the default avatar" title="Use the default avatar" onClick={reset}><RotateCcw aria-hidden="true" /></button>}
+            {customUrl && <button type="button" className="matopt-avatar-icon" aria-label="Use the default tutor" title="Use the default tutor" onClick={reset}><RotateCcw aria-hidden="true" /></button>}
             {speaking && <button type="button" className="matopt-avatar-icon" aria-label="Stop speaking" title="Stop speaking" onClick={stopSpeaking}><Square aria-hidden="true" /></button>}
             <button type="button" className="matopt-avatar-icon" aria-label="Close avatar" title="Close avatar"
                 onClick={() => { stopSpeaking(); setPreference("avatarOpen", false); }}><X aria-hidden="true" /></button>

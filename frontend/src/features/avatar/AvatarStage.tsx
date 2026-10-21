@@ -9,10 +9,13 @@ import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import { VRMLoaderPlugin, VRMUtils, type VRM } from "@pixiv/three-vrm";
 import { useVoiceStore, type Viseme } from "../voice/voiceStore.ts";
 
-export const AVATAR_URL = "/avatars/vita.vrm";
+/** Default tutor: a fan-made Jensen Huang tribute built by scripts/build_tutor_avatar.py. */
+export const AVATAR_URL = "/avatars/tutor.vrm";
 const MOUTH: Array<keyof Viseme> = ["aa", "ih", "ou", "ee", "oh"];
 
 export default function AvatarStage({ url = AVATAR_URL }: { url?: string }) {
+    // The default tutor rests with a slight smile; custom avatars keep their own neutral face.
+    const restingSmile = url === AVATAR_URL ? 0.18 : 0;
     const host = useRef<HTMLDivElement>(null);
     const [status, setStatus] = useState<"loading" | "ready" | "error">("loading");
 
@@ -72,8 +75,9 @@ export default function AvatarStage({ url = AVATAR_URL }: { url?: string }) {
             const head = bone("head");
             if (head) {
                 const position = head.getWorldPosition(new THREE.Vector3());
-                camera.position.set(0, position.y - 0.1, 1.9);
-                camera.lookAt(0, position.y - 0.2, 0);
+                // Head and shoulders, whatever the character's height.
+                camera.position.set(0, position.y + 0.02, 1.45);
+                camera.lookAt(0, position.y - 0.02, 0);
             }
             setStatus("ready");
         }, undefined, () => setStatus("error"));
@@ -86,7 +90,7 @@ export default function AvatarStage({ url = AVATAR_URL }: { url?: string }) {
             if (vrm) {
                 const { viseme, mood, speaking } = useVoiceStore.getState();
                 const ease = (value: number, goal: number, rate: number) => value + (goal - value) * Math.min(1, delta * rate);
-                happy = ease(happy, mood === "happy" ? 0.65 : speaking ? 0.12 : 0, 4);
+                happy = ease(happy, mood === "happy" ? 0.65 : speaking ? Math.max(0.12, restingSmile) : restingSmile, 4);
                 think = ease(think, mood === "thinking" ? 1 : 0, 2.5);
                 listen = ease(listen, mood === "listening" ? 1 : 0, 3);
                 for (const shape of MOUTH) mouth[shape] = ease(mouth[shape], speaking ? viseme[shape] : 0, 18);
@@ -127,7 +131,7 @@ export default function AvatarStage({ url = AVATAR_URL }: { url?: string }) {
             renderer.dispose();
             renderer.domElement.remove();
         };
-    }, [url]);
+    }, [url, restingSmile]);
 
     return <div ref={host} className="matopt-avatar-stage" data-status={status} role="img"
         aria-label={status === "error" ? "The avatar could not be loaded" : "MatOpt tutor avatar"}>
