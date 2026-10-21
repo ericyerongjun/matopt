@@ -104,6 +104,9 @@ def create_app() -> FastAPI:
         }
 
     if mcp_asgi is not None:
+        # RFC 9728 discovery lives at the origin root, outside the mount.
+        app.router.routes.extend(route for route in getattr(mcp_asgi, "routes", [])
+                                 if getattr(route, "path", "").startswith("/.well-known/"))
         app.mount(settings.mcp_mount_path, mcp_asgi)
 
     static_dir = Path(__file__).resolve().parent.parent / "static"

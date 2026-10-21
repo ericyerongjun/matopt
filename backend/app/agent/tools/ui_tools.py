@@ -114,7 +114,7 @@ class CreateUIAppTool(_UITool):
         "It runs only after complete validation in an opaque-origin sandbox with no network, cookies, storage, or API access. "
         "Inline all assets; no CDN scripts, external links, downloads, forms or server calls. "
         "Use window.matopt.getState(), window.matopt.onStateChange(callback), window.matopt.setState(partial) for declared local state; "
-        "window.matopt.getTheme(), onThemeChange(callback), and resize() are also available; theme tokens are --matopt-bg, --matopt-text, --matopt-muted, --matopt-border, and --matopt-control CSS custom properties. Use a Web Worker for expensive local computation. "
+        "window.matopt.getTheme(), onThemeChange(callback), and resize() are also available; theme tokens are --matopt-bg, --matopt-text, --matopt-muted, --matopt-border, and --matopt-control CSS custom properties. Use a blob Web Worker for expensive local computation, falling back to the main thread on the worker's error event (external MCP Apps hosts may block blob: workers). "
         "Declare server action_ids for host-owned computation buttons outside the frame; never execute server code from the frame. "
         "Always provide a meaningful fallback, units, assumptions, and initial state. "
         "A committed receipt confirms the complete app was accepted; it summarizes the result without echoing the HTML."

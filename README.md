@@ -64,4 +64,4 @@ configuration and supported formats.
 - Native controls, charts and tables use validated schemas. More complex mini-apps run on the isolated origin. Python recomputations happen only through declared host actions, with saved parameters, explicit cancellation and replay protection.
 - The harness **routes** the user turn against skill descriptions and file types, auto-loads the best match, and resolves tool-name aliases/typos.
 - Inspect the catalog: `GET /api/skills`, `GET /api/tools`.
-- The conversation kernel is also an MCP server at `http://localhost:8000/mcp` (stdio: `cd backend && .venv/bin/python -m app.agent.mcp`). Extra MCP servers: copy `mcp.json.example` to `mcp.json`.
+- The conversation kernel is also an MCP server at `http://localhost:8000/mcp` (stdio: `cd backend && .venv/bin/python -m app.agent.mcp`). Its `open_ui_app` tool shows saved mini-apps in MCP Apps hosts ([docs/MCP-APPS-EVALUATION.md](docs/MCP-APPS-EVALUATION.md)). Set `MCP_AUTH_TOKEN` or the `MCP_OAUTH_*` settings before exposing HTTP `/mcp` beyond this machine. Extra MCP servers: copy `mcp.json.example` to `mcp.json`.

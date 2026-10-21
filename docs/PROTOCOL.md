@@ -206,6 +206,11 @@ The previous RestrictedPython eval loop is replaced by the conversation kernel, 
 
 - Streamable HTTP: `POST http://localhost:8000/mcp` (FastMCP). Call `open_workspace` first.
 - stdio: `cd backend && .venv/bin/python -m app.agent.mcp`
+- HTTP is unauthenticated unless `MCP_AUTH_TOKEN` (bearer) or `MCP_OAUTH_*` with
+  `MCP_PUBLIC_URL` (OAuth resource server; metadata at
+  `/.well-known/oauth-protected-resource/mcp/`) is set. stdio never needs it.
+- MCP Apps: `open_ui_app` renders a saved mini-app in hosts that support the
+  `io.modelcontextprotocol/ui` extension. See [MCP-APPS-EVALUATION.md](MCP-APPS-EVALUATION.md).
 - Extra servers: repo-root `mcp.json` (`mcpServers` map, same shape as Claude Code).
 
 ## Files

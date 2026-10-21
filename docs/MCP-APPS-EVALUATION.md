@@ -6,122 +6,131 @@ also be exposed as **MCP Apps**? MCP Apps is the stable MCP extension
 host such as Claude, ChatGPT, VS Code or Goose renders a tool's `ui://` resource
 in a sandboxed iframe and talks to it over JSON-RPC `postMessage`.
 
-**Recommendation: go, staged.** Read-only mini-apps map almost directly and are
-prototyped here. State persistence and Python recompute can follow behind
-app-only tools. Native surfaces stay text-only for now. Remote exposure of `/mcp`
-is a **no-go** until the server has authentication. This is a property of the
-kernel server itself, not of MCP Apps.
-
-## Prototype
-
-- `backend/app/ui/mcp_app_viewer.html` is a static view served as
-  `ui://matopt/mini-app-viewer.html` with MIME `text/html;profile=mcp-app`.
-  FastMCP 4.1.3 (already pinned) sets the MIME for `ui://` URIs.
-- `open_ui_app(conversation_id, surface_id)` on the kernel MCP server (`/mcp`,
-  stdio `python -m app.agent.mcp`) declares `_meta.ui.resourceUri` for that view.
-  It is read-only: it reads the saved surface from `UIStore` and never runs a
-  handler.
-  - `content` holds the readable fallback, which is what the model and
-    text-only clients see.
-  - `structuredContent` holds a small summary: id, revision, kind, title and
-    state.
-  - `_meta["matopt/surface"]` holds the HTML and state for the view only, so up
-    to 512 KiB of HTML stays out of model context.
-- The view runs `ui/initialize` (protocol `2026-01-26`), then sends
-  `ui/notifications/initialized`. It then waits for
-  `ui/notifications/tool-result` and mounts the mini-app with the same
-  `window.matopt` API and HTML handling as `frontend/sandbox/runtime.js`.
-  - Theme comes from `hostContext.theme` and `host-context-changed`.
-  - `resize()` sends `ui/notifications/size-changed`.
-  - `ui/resource-teardown` gets a reply.
-  - Errors, native surfaces and missing meta show the text fallback.
-- Every tool on the server, including `open_ui_app`, is stamped
-  `_meta.ui.visibility: ["model"]` (see Security).
-- Tests:
-  - `backend/tests/test_mcp_apps.py` covers the protocol: tool meta,
-    resource MIME, a self-contained view, meta kept out of model text, and
-    degradation for native, unknown, invalid and disabled surfaces.
-  - `frontend/sandbox/mcpAppViewer.test.mjs` simulates a host with jsdom and
-    covers the handshake, theme, rendering, declared-key filtering, fallback,
-    foreign-source rejection, teardown and unknown methods.
+**Decision: go. Implemented.**
+- Mini-apps can be viewed, keep their saved controls, and recompute in Python
+  through two app-only tools that are locked to one surface.
+- Native surfaces stay text-only.
+- HTTP `/mcp` remains unauthenticated by default, the same as the rest of the
+  local API. It now supports a bearer token or OAuth, which are required before
+  exposing it beyond this machine.
 
 The in-app rendering path (`frontend/sandbox`, `UISurfaceView`, REST/SSE) is
-unchanged.
+unchanged. The REST state endpoint now calls the shared `UIService.save_state`.
+
+## What a host sees
+
+| Item | Audience | Purpose |
+| --- | --- | --- |
+| `ui://matopt/mini-app-viewer.html` (`text/html;profile=mcp-app`) | host | Static view: `backend/app/ui/mcp_app_viewer.html` |
+| `open_ui_app(conversation_id, surface_id)` with `_meta.ui.resourceUri` | model | Read-only. Mounts a saved mini-app. |
+| `save_ui_state(conversation_id, surface_id, token, revision, state)` | app | Persists declared controls (`UIService.save_state`) |
+| `run_ui_action(conversation_id, surface_id, token, action_id, revision, values, idempotency_key)` | app | Runs a registered `compute(values)` (`UIService.prepare_action`/`actions`) |
+| Every other tool (`python`, `bash`, files, …) | model | `_meta.ui.visibility: ["model"]`, so views cannot call them |
+
+What `open_ui_app` returns:
+- `content`: the readable fallback, which is what the model and text-only
+  clients see.
+- `structuredContent`: id, revision, kind, title and state.
+- `_meta["matopt/surface"]`: the HTML, state, `computed_state`, action manifests
+  and a surface token. This goes to the view only.
+
+Action results return the new state and fallback, but never the HTML or the
+token.
 
 ## Mapping
 
-| MatOpt | MCP Apps | Fit |
+| MatOpt | MCP Apps | Status |
 | --- | --- | --- |
-| `mini_app` surface: self-contained HTML/CSS/JS | `ui://` resource plus tool result | **Direct.** Inline-only HTML already fits the host's default CSP. |
-| Text `fallback` | `content` text (graceful degradation, SEP-2133) | Direct |
-| `revision`, `state` | `structuredContent` | Direct |
-| `matopt.getTheme` / `onThemeChange` | `hostContext.theme` / `host-context-changed` | Direct. `hostContext.styles.variables` could later feed `--matopt-*`. |
-| `matopt.resize` | `ui/notifications/size-changed` | Direct |
-| `matopt.setState` (host saves via `PATCH …/state` with `revision`) | View-local only in the prototype | **Adapt.** Add an app-only `save_ui_state(cid, sid, revision, state)` tool that calls `UIStore.patch_state`. The revision check gives the same optimistic concurrency. |
-| Host-owned action buttons, then `POST …/actions` (SSE), then Python `compute(values)` in the conversation kernel | View calls `tools/call` on an app-only `run_ui_action` | **Adapt.** Reuse `UIService.prepare_action` / `actions()` unchanged. Map SSE `status` to progress notifications and the final `ui_commit` surface to the call result `_meta`. Stop maps to request cancellation. |
-| Replay protection: idempotency key, request hash, revision, durable receipt | Same, server-side | **Carries over.** The key must be generated in the view (`crypto.randomUUID()`), so it is chosen by model-authored code and is not trusted. Its effect is bounded by the receipt hash check and the kernel lease (`WORKSPACE_BUSY`). |
-| Explain (follow-up with parameters) | `ui/message` / `ui/update-model-context` | Adapt in the host bridge, not in the generated HTML |
-| Export JSON, downloads | none (`ui/open-link` only) | Keep MatOpt-only |
-| Streaming previews (`ui_start`/`ui_patch`) | `tool-input-partial` streams tool *arguments* | No useful mapping; previews stay in-app |
-| `native` surfaces (catalog nodes, Plotly, KaTeX, Mermaid) | Needs a renderer bundled into one `ui://` HTML | **Defer.** It needs a single-file build of the React renderer plus scientific bundles (several MB, and no CDN under default CSP). Text fallback until there is demand. |
-| Blob Web Workers, `blob:` images | Default host CSP has no `blob:` and no `worker-src` | **Gap.** Heavy simulations must degrade to the main thread. CSP domain lists cannot grant `blob:`. Document this in the `create_ui_app` guidance if exposure grows. |
+| `mini_app` HTML/CSS/JS | `ui://` view mounts it from the tool result | Done. Same `window.matopt` API and HTML handling as `runtime.js`. |
+| Text `fallback` | `content` text (graceful degradation, SEP-2133) | Done |
+| `getTheme` / `onThemeChange`, `--matopt-*` tokens | `hostContext.theme`, `styles.variables` (`--color-background-primary`, `--color-text-primary/secondary`, `--color-border-primary`, `--color-background-secondary`, `--font-sans`), `host-context-changed` | Done |
+| `resize()` | `ui/notifications/size-changed` | Done |
+| `setState` (saved via `PATCH …/state`, revision) | Debounced `save_ui_state` when the host has `serverTools` | Done. A conflict adopts the server's revision and retries. A busy conversation retries after 3 s, up to 5 times. Edits during a computation save afterwards. |
+| Host action buttons, then Python in the conversation kernel | Viewer buttons, then `run_ui_action` | Done. Same revision check, kernel lease (`WORKSPACE_BUSY`), cancellation, receipt replay by idempotency key, and failure preservation. Pending edits save first. A notice shows when the controls differ from the computed inputs. |
+| Explain | `ui/message` when the host has `message` | Done. Same text as the in-app Explain. |
+| Model sees current parameters | `ui/update-model-context` when supported | Done. Sent on mount, save and recompute. |
+| Export JSON, downloads | none | MatOpt-only |
+| Streaming previews | `tool-input-partial` streams arguments only | Not mapped |
+| `native` surfaces | Would need the React, Plotly, KaTeX and Mermaid renderer bundled into one HTML file | Deferred. Text fallback. |
+| Blob Web Workers | The default host CSP has no `blob:`. Chromium constructs the worker, then fires `error` (`worker-src`). It does not throw. | `create_ui_app` guidance now says to fall back to the main thread on the worker's `error` event |
 
-## Security against the current boundary
+## Security
 
-What MatOpt enforces today:
+MatOpt's own runtime gives each mini-app an opaque origin and no host verbs.
+Under MCP Apps the host enforces the sandbox. MatOpt declares no
+`_meta.ui.csp`, so the host applies the restrictive default (`connect-src
+'none'`). Web hosts use a double-iframe proxy with `allow-same-origin` on the
+host's sandbox origin, so the view is not opaque there. Use MCP Apps only with
+hosts the user already trusts with the conversation.
 
-- an **opaque origin** (`sandbox="allow-scripts"`, no `allow-same-origin`) on a
-  dedicated static origin;
-- an HTTP CSP with `connect-src`/`frame-src`/`form-action 'none'`;
-- the embedding app's `frame-src` limits;
-- channel and source binding;
-- host-side filtering of declared state keys;
-- a bridge with **no** method for computation, navigation, downloads or model
-  calls.
+Generated mini-app HTML is model-authored, so it is treated as hostile. The
+controls:
 
-1. **MatOpt stops enforcing the boundary itself.** Under MCP Apps the host
-   applies the CSP and iframe sandbox. Web hosts use a double-iframe proxy with
-   `allow-scripts allow-same-origin` on the host's own sandbox origin, so the
-   view is not opaque. It may also have storage. MatOpt declares no
-   `_meta.ui.csp`, which requests the restrictive default (`connect-src 'none'`).
-   The viewer still strips `<base>`, `<link>`, `script[src]` and
-   `meta[http-equiv]` as defense in depth. Accept this only for hosts the user
-   already trusts with the conversation.
-2. **The view gains host verbs.** Model-authored (and possibly prompt-injected)
-   HTML can post `ui/message` (inject a prompt), `ui/open-link` (exfiltrate via
-   URL, usually behind user confirmation) and `tools/call` to the server
-   directly. The prototype's shim exposes none of these, but generated scripts
-   can call `parent.postMessage` themselves.
-3. **Tool reachability from the view is the critical risk.** Default visibility
-   is `["model","app"]`, so a view could call `python`/`bash`. Hosts must reject
-   app calls to tools without `"app"`, so the prototype stamps every tool
-   `["model"]`, and a test asserts it. Any future app-only tool
-   (`save_ui_state`, `run_ui_action`) must be narrowly scoped:
-   - validate against the surface's declared keys and action input schema;
-   - check the revision;
-   - share the kernel lease;
-   - never take code or paths from the view.
+1. **Tool reachability.** Only `save_ui_state` and `run_ui_action` are
+   app-visible. Visibility is not access control, so both also require an
+   HMAC-SHA256 token over `(conversation_id, surface_id)`. Its key lives in
+   `DATA_DIR/mcp_apps.key` (mode 0600) and survives restarts. The token cannot
+   address any other surface, and a missing or wrong token changes nothing.
+2. **The token stays out of generated code.**
+   - Only the mounting result carries it, and that message is dispatched before
+     any generated script runs.
+   - The viewer keeps the token in a closure.
+   - It captures `parent.postMessage` before the app runs, so replacing
+     `window.parent` cannot intercept outgoing calls.
+   - Later results omit the token and the HTML.
+3. **No computation without a user.** Viewer buttons live in a closed shadow
+   root and act only on `isTrusted` clicks. Generated code cannot find them,
+   and its scripted `click()` is ignored.
+4. **Server-side validation is unchanged.**
+   - State edits are limited to declared keys, control domains and 64 KiB.
+   - Action inputs must match the registered JSON Schema.
+   - Handler code and files are server-owned.
+   - Stale revisions are refused.
+   - An idempotency key cannot be reused with different values.
+5. **Remaining host verbs.** Generated code can still post `ui/message` or
+   `ui/open-link` itself, the same way a malicious page could. Hosts normally
+   gate these behind user confirmation. Forged messages from inside the frame
+   can only change view-local data, which `setState` already allows.
+6. **Authentication on `/mcp`.**
+   - `MCP_AUTH_TOKEN` enables a constant-time static bearer check, intended for
+     VS Code, Goose and Claude Code over HTTP.
+   - `MCP_OAUTH_ISSUER`, `MCP_OAUTH_JWKS_URI` and `MCP_PUBLIC_URL` (optionally
+     `MCP_OAUTH_AUDIENCE` and `MCP_OAUTH_SCOPES`) make `/mcp` an OAuth 2.1
+     resource server, which hosts such as Claude.ai and ChatGPT require.
+     - JWTs from that authorization server are verified locally.
+     - The 401 challenge and RFC 9728 metadata point to
+       `/.well-known/oauth-protected-resource/mcp/`, with resource `<public>/mcp/`.
+   - An incomplete OAuth configuration, or a token under 16 characters,
+     disables the HTTP transport rather than serving it open.
+   - MatOpt is single-user. Any authenticated principal may use every
+     conversation, as with the REST API.
 
-   Visibility is not access control. The model can call those tools too, which
-   is acceptable because they are the same validated operations the REST API
-   exposes.
-4. **No authentication on `/mcp`.** The server already runs arbitrary Python and
-   shell per `conversation_id`. That is fine for local stdio hosts (Claude
-   Desktop/Code, VS Code, Goose) but unacceptable on a public URL, which is what
-   Claude.ai and ChatGPT require. `open_ui_app` adds nothing beyond what `bash`
-   already reads. Remote use needs OAuth plus per-conversation authorization
-   first.
-5. **Size and replay.** HTML is bounded at 512 KiB and the whole surface at
-   1 MiB by `UISurface`. A view renders only the first tool result, so later
-   messages cannot swap the app.
+## Verification
 
-## Next steps (if pursued)
-
-1. Add an app-only `save_ui_state`. The viewer calls it, debounced, from
-   `setState` when the host advertises `serverTools`.
-2. Add an app-only `run_ui_action`, wired to `UIService`. The viewer renders
-   action buttons from `surface.actions`. Generated code in the same frame
-   could also post the call, so server-side validation (point 3 under
-   Security) remains the control, not the button.
-3. Check against a real host (`@modelcontextprotocol/ext-apps` basic host, or
-   VS Code) over stdio. That was not done here; the tests simulate the host.
+- `backend/tests/test_mcp_apps.py` checks the protocol over an in-memory MCP
+  client on a real `AgentHarness`:
+  - audiences and MIME;
+  - meta kept out of model text;
+  - token scoping;
+  - revision conflicts and the busy lease;
+  - idempotent replay, schema validation and failure preservation.
+- `backend/tests/test_mcp_auth.py` checks auth on the real `create_app()` mount:
+  - the bearer token is rejected when missing or wrong, and accepted when
+    right;
+  - the OAuth challenge and metadata;
+  - fail-closed configuration.
+- `backend/tests/test_mcp_apps_stdio.py` launches `python -m app.agent.mcp`
+  over stdio, as local hosts do. It reads the view, opens and saves, and shows
+  HTTP auth settings do not affect stdio.
+- `frontend/sandbox/mcpAppViewer.test.mjs` is a jsdom host covering:
+  - handshake, theme and style variables;
+  - the debounced save and conflict rebase;
+  - trusted-click-only actions with save-before-compute;
+  - result updates, Explain, failure text, fallbacks and teardown.
+- A manual check in Chromium used a scratch host page that applied
+  `sandbox="allow-scripts"` and the spec's default CSP. Slider, save, Recompute
+  and the result display all worked. A hostile mini-app could not find the
+  controls or intercept outgoing messages, and never saw the token. `fetch` and
+  `blob:` workers were blocked by CSP.
+- **Not yet tried:** an official host (`@modelcontextprotocol/ext-apps` basic
+  host, Claude Desktop, VS Code) and a real OAuth authorization server.

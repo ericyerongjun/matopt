@@ -150,6 +150,13 @@ class Settings(BaseSettings):
     mcp_enabled: bool = True
     mcp_config_path: Optional[Path] = None     # default: <repo>/mcp.json
     mcp_mount_path: str = "/mcp"
+    # HTTP /mcp is unauthenticated unless one of these is set (stdio needs none).
+    mcp_auth_token: Optional[str] = None       # static bearer token
+    mcp_oauth_issuer: Optional[str] = None     # OAuth authorization server issuer
+    mcp_oauth_jwks_uri: Optional[str] = None   # its JWKS; tokens are verified locally
+    mcp_oauth_audience: Optional[str] = None   # default: <mcp_public_url><mcp_mount_path>
+    mcp_oauth_scopes: str = ""                 # comma-separated required scopes
+    mcp_public_url: Optional[str] = None       # e.g. https://matopt.example.com
 
     # ── LAMBDA data agent (vendored AMA-CMFAI/LAMBDA backend) ───────────
     lambda_enabled: bool = True
