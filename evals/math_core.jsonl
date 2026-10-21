@@ -1,0 +1,43 @@
+{"id": "calc-int-1", "tags": ["calculus"], "question": "Compute the exact value of \\int_0^1 x^2 e^{x}\\,dx.", "answer": "-2 + e"}
+{"id": "calc-int-2", "tags": ["calculus"], "question": "Compute the exact value of \\int_0^{\\infty} \\frac{\\sin x}{x}\\,dx.", "answer": "\\frac{\\pi}{2}"}
+{"id": "calc-int-3", "tags": ["calculus"], "question": "Compute the exact value of \\int_0^{\\pi/2} \\ln(\\sin x)\\,dx.", "answer": "-\\frac{\\pi}{2}\\ln 2"}
+{"id": "calc-lim-1", "tags": ["calculus"], "question": "Evaluate \\lim_{x\\to 0} \\frac{\\tan x - \\sin x}{x^3}.", "answer": "\\frac{1}{2}"}
+{"id": "calc-series-1", "tags": ["calculus"], "question": "Find the exact sum \\sum_{n=1}^{\\infty} \\frac{1}{n^2 (n+1)}.", "answer": "-1 + \\frac{\\pi^{2}}{6}"}
+{"id": "calc-taylor-1", "tags": ["calculus"], "question": "What is the coefficient of x^6 in the Maclaurin series of e^{x}\\cos x?", "answer": "0"}
+{"id": "calc-ode-1", "tags": ["calculus"], "question": "Solve y'' + 4y = 0 with y(0)=1, y'(0)=2. What is y(\\pi/8)? Give an exact value.", "answer": "\\sqrt{2}"}
+{"id": "la-det-1", "tags": ["linear-algebra"], "question": "Compute the determinant of [[2,1,0],[1,3,1],[0,1,4]].", "answer": "18"}
+{"id": "la-eig-1", "tags": ["linear-algebra"], "question": "What is the largest eigenvalue of the matrix [[4,1],[2,3]]?", "answer": "5"}
+{"id": "la-inv-1", "tags": ["linear-algebra"], "question": "Compute the (1,2) entry (row 1, column 2) of the inverse of [[1,2],[3,4]].", "answer": "1"}
+{"id": "la-rank-1", "tags": ["linear-algebra"], "question": "What is the rank of [[1,2,3],[2,4,6],[1,1,1]]?", "answer": "2"}
+{"id": "la-cond-1", "tags": ["linear-algebra"], "question": "Compute the 2-norm condition number of [[802,-400],[-400,200]] to 4 significant figures.", "answer": "2508", "abs_tol": 1.0}
+{"id": "la-norm-1", "tags": ["linear-algebra"], "question": "What is the spectral norm (largest singular value) of [[3,1],[1,3]]?", "answer": "4"}
+{"id": "prob-1", "tags": ["probability"], "question": "Two fair dice are rolled. What is the probability that the sum is at least 10?", "answer": "\\frac{1}{6}"}
+{"id": "prob-2", "tags": ["probability"], "question": "X ~ Poisson(3). Compute P(X = 2) exactly.", "answer": "\\frac{9}{2 e^{3}}"}
+{"id": "prob-3", "tags": ["probability"], "question": "X and Y are independent Exponential(1). Compute P(X > 2Y) exactly.", "answer": "\\frac{1}{3}"}
+{"id": "prob-4", "tags": ["probability"], "question": "A fair coin is flipped until two consecutive heads appear. What is the expected number of flips?", "answer": "6"}
+{"id": "prob-5", "tags": ["probability"], "question": "X ~ N(0,1). Compute E[|X|^3] exactly.", "answer": "\\frac{2 \\sqrt{2}}{\\sqrt{\\pi}}"}
+{"id": "prob-6", "tags": ["probability"], "question": "How many ways can 10 identical balls be placed into 4 distinct boxes so that every box is non-empty?", "answer": "84"}
+{"id": "stat-t-1", "tags": ["statistics"], "question": "For the sample 4.1, 5.3, 3.8, 6.0, 5.5, 4.9, 5.1, 4.4, compute the one-sample t statistic for H0: mu = 4.5. Give 4 decimal places.", "answer": "1.4743", "abs_tol": 0.0005}
+{"id": "stat-p-1", "tags": ["statistics"], "question": "For the sample 4.1, 5.3, 3.8, 6.0, 5.5, 4.9, 5.1, 4.4, compute the two-sided p-value of the one-sample t test of H0: mu = 4.5, to 4 decimal places.", "answer": "0.1839", "abs_tol": 0.0005}
+{"id": "stat-reg-1", "tags": ["statistics"], "question": "Fit ordinary least squares y = a + b x to x = 1..6 and y = 2.1, 3.9, 6.2, 7.8, 10.1, 12.2. What is the slope b, to 4 decimal places?", "answer": "2.0200", "abs_tol": 0.0005}
+{"id": "stat-reg-2", "tags": ["statistics"], "question": "Fit ordinary least squares y = a + b x to x = 1..6 and y = 2.1, 3.9, 6.2, 7.8, 10.1, 12.2. What is R^2, to 4 decimal places?", "answer": "0.9982", "abs_tol": 0.0005}
+{"id": "stat-chi-1", "tags": ["statistics"], "question": "For the 2x2 table [[20,30],[30,20]], compute Pearson's chi-squared statistic without continuity correction.", "answer": "4"}
+{"id": "stat-mle-1", "tags": ["statistics"], "question": "Observations 2, 3, 0, 1, 4 are i.i.d. Poisson(lambda). What is the maximum-likelihood estimate of lambda?", "answer": "2"}
+{"id": "opt-1", "tags": ["optimisation"], "question": "Minimise f(x,y) = x^2 + xy + y^2 - 3x subject to no constraints. What is the minimum value?", "answer": "-3"}
+{"id": "opt-2", "tags": ["optimisation"], "question": "Maximise xy subject to x + 2y = 10 with x, y >= 0. What is the maximum value?", "answer": "\\frac{25}{2}"}
+{"id": "opt-3", "tags": ["optimisation"], "question": "Find the global minimum value of f(x) = x^4 - 3x^2 + x over all real x, to 4 decimal places.", "answer": "-3.5139", "abs_tol": 0.0005}
+{"id": "opt-4", "tags": ["optimisation"], "question": "Linear programme: maximise 3x + 2y subject to x + y <= 4, x + 3y <= 6, x, y >= 0. What is the optimal value?", "answer": "12"}
+{"id": "opt-5", "tags": ["optimisation"], "question": "For ridge regression with design matrix X = [[1,0],[0,2]], y = [1, 2] and penalty lambda = 1 (objective ||y - Xb||^2 + lambda ||b||^2), what is the second coefficient b_2?", "answer": "\\frac{4}{5}"}
+{"id": "nt-1", "tags": ["number-theory"], "question": "Compute 7^{2026} mod 13.", "answer": "4"}
+{"id": "nt-2", "tags": ["number-theory"], "question": "How many positive divisors does 10! have?", "answer": "270"}
+{"id": "nt-3", "tags": ["number-theory"], "question": "What is the sum of the first 20 prime numbers?", "answer": "639"}
+{"id": "comb-1", "tags": ["number-theory"], "question": "How many derangements of 7 elements are there?", "answer": "1854"}
+{"id": "hard-int-1", "tags": ["calculus", "hard"], "question": "Compute the exact value of \\int_0^1 \\frac{\\ln(1+x)}{1+x^2}\\,dx.", "answer": "\\frac{\\pi}{8}\\ln 2"}
+{"id": "hard-series-1", "tags": ["calculus", "hard"], "question": "Find the exact value of \\sum_{n=1}^{\\infty} \\frac{1}{n^2\\binom{2n}{n}}.", "answer": "\\frac{\\pi^2}{18}"}
+{"id": "hard-prob-1", "tags": ["probability", "hard"], "question": "A fair six-sided die is rolled until every face has appeared at least once. What is the expected number of rolls? Give an exact fraction.", "answer": "\\frac{147}{10}"}
+{"id": "hard-prob-2", "tags": ["probability", "hard"], "question": "A gambler starts with 3 units and bets 1 unit per round, winning each round with probability 0.4. Play stops at 0 or 10 units. What is the exact probability of reaching 10?", "answer": "\\frac{2432}{58025}"}
+{"id": "hard-bayes-1", "tags": ["statistics", "hard"], "question": "With a Beta(2,2) prior on a coin's heads probability, 7 heads are observed in 10 independent flips. What is the posterior mean?", "answer": "\\frac{9}{14}"}
+{"id": "hard-la-1", "tags": ["linear-algebra", "hard"], "question": "What is the largest eigenvalue of the 10x10 tridiagonal matrix with 2 on the diagonal and -1 on the sub- and super-diagonals? Give an exact closed form.", "answer": "2+2\\cos\\left(\\frac{\\pi}{11}\\right)"}
+{"id": "hard-opt-1", "tags": ["optimisation", "hard"], "question": "Minimise \\sum_{i=1}^{5} (x_i - i)^2 subject to \\sum_{i=1}^{5} x_i = 0. What is the minimum value?", "answer": "45"}
+{"id": "hard-comb-1", "tags": ["number-theory", "hard"], "question": "How many spanning trees does the complete bipartite graph K_{3,4} have?", "answer": "432"}
+{"id": "hard-nt-1", "tags": ["number-theory", "hard"], "question": "Find the smallest positive integer n such that n \\equiv 2 \\pmod 3, n \\equiv 3 \\pmod 5 and n \\equiv 2 \\pmod 7.", "answer": "23"}

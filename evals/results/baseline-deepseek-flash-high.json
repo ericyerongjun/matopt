@@ -1,0 +1,603 @@
+{
+  "suite": "evals/math_core.jsonl",
+  "reasoning": "high",
+  "summary": {
+    "n": 34,
+    "pass_rate": 1.0,
+    "by_tag": {
+      "calculus": "7/7",
+      "linear-algebra": "6/6",
+      "number-theory": "4/4",
+      "optimisation": "5/5",
+      "probability": "6/6",
+      "statistics": "6/6"
+    },
+    "mean_seconds": 23.6,
+    "mean_llm_calls": 3.324,
+    "mean_tool_calls": 1.529,
+    "mean_prompt_tokens": 28591.118,
+    "mean_completion_tokens": 1055.176,
+    "mean_cache_rate": 0.915,
+    "errors": 0
+  },
+  "results": [
+    {
+      "id": "calc-int-1",
+      "tags": [
+        "calculus"
+      ],
+      "passed": true,
+      "expected": "-2 + e",
+      "boxed": "e-2",
+      "status": "complete",
+      "error": null,
+      "seconds": 17.4,
+      "llm_calls": 3,
+      "tool_calls": 1,
+      "prompt_tokens": 24762,
+      "completion_tokens": 867,
+      "cache_rate": 0.967
+    },
+    {
+      "id": "calc-int-2",
+      "tags": [
+        "calculus"
+      ],
+      "passed": true,
+      "expected": "\\frac{\\pi}{2}",
+      "boxed": "\\frac{\\pi}{2}",
+      "status": "complete",
+      "error": null,
+      "seconds": 33.3,
+      "llm_calls": 5,
+      "tool_calls": 5,
+      "prompt_tokens": 51439,
+      "completion_tokens": 4828,
+      "cache_rate": 0.948
+    },
+    {
+      "id": "calc-int-3",
+      "tags": [
+        "calculus"
+      ],
+      "passed": true,
+      "expected": "-\\frac{\\pi}{2}\\ln 2",
+      "boxed": "-\\frac{\\pi}{2}\\ln 2",
+      "status": "complete",
+      "error": null,
+      "seconds": 22.9,
+      "llm_calls": 5,
+      "tool_calls": 5,
+      "prompt_tokens": 48785,
+      "completion_tokens": 2039,
+      "cache_rate": 0.971
+    },
+    {
+      "id": "calc-lim-1",
+      "tags": [
+        "calculus"
+      ],
+      "passed": true,
+      "expected": "\\frac{1}{2}",
+      "boxed": "\\frac{1}{2}",
+      "status": "complete",
+      "error": null,
+      "seconds": 16.5,
+      "llm_calls": 3,
+      "tool_calls": 1,
+      "prompt_tokens": 24585,
+      "completion_tokens": 796,
+      "cache_rate": 0.869
+    },
+    {
+      "id": "calc-ode-1",
+      "tags": [
+        "calculus"
+      ],
+      "passed": true,
+      "expected": "\\sqrt{2}",
+      "boxed": "y\\!\\left(\\frac{\\pi}{8}\\right)=\\sqrt{2}",
+      "status": "complete",
+      "error": null,
+      "seconds": 17.9,
+      "llm_calls": 3,
+      "tool_calls": 1,
+      "prompt_tokens": 25298,
+      "completion_tokens": 1217,
+      "cache_rate": 0.926
+    },
+    {
+      "id": "calc-series-1",
+      "tags": [
+        "calculus"
+      ],
+      "passed": true,
+      "expected": "-1 + \\frac{\\pi^{2}}{6}",
+      "boxed": "\\frac{\\pi^{2}}{6}-1",
+      "status": "complete",
+      "error": null,
+      "seconds": 18.8,
+      "llm_calls": 3,
+      "tool_calls": 1,
+      "prompt_tokens": 24975,
+      "completion_tokens": 1325,
+      "cache_rate": 0.882
+    },
+    {
+      "id": "calc-taylor-1",
+      "tags": [
+        "calculus"
+      ],
+      "passed": true,
+      "expected": "0",
+      "boxed": "0",
+      "status": "complete",
+      "error": null,
+      "seconds": 17.1,
+      "llm_calls": 3,
+      "tool_calls": 2,
+      "prompt_tokens": 24907,
+      "completion_tokens": 948,
+      "cache_rate": 0.884
+    },
+    {
+      "id": "comb-1",
+      "tags": [
+        "number-theory"
+      ],
+      "passed": true,
+      "expected": "1854",
+      "boxed": "1854",
+      "status": "complete",
+      "error": null,
+      "seconds": 26.3,
+      "llm_calls": 3,
+      "tool_calls": 1,
+      "prompt_tokens": 24462,
+      "completion_tokens": 710,
+      "cache_rate": 0.874
+    },
+    {
+      "id": "la-cond-1",
+      "tags": [
+        "linear-algebra"
+      ],
+      "passed": true,
+      "expected": "2508",
+      "boxed": "2508",
+      "status": "complete",
+      "error": null,
+      "seconds": 19.5,
+      "llm_calls": 4,
+      "tool_calls": 2,
+      "prompt_tokens": 35795,
+      "completion_tokens": 1012,
+      "cache_rate": 0.973
+    },
+    {
+      "id": "la-det-1",
+      "tags": [
+        "linear-algebra"
+      ],
+      "passed": true,
+      "expected": "18",
+      "boxed": "18",
+      "status": "complete",
+      "error": null,
+      "seconds": 16.0,
+      "llm_calls": 3,
+      "tool_calls": 1,
+      "prompt_tokens": 24527,
+      "completion_tokens": 725,
+      "cache_rate": 0.965
+    },
+    {
+      "id": "la-eig-1",
+      "tags": [
+        "linear-algebra"
+      ],
+      "passed": true,
+      "expected": "5",
+      "boxed": "5",
+      "status": "complete",
+      "error": null,
+      "seconds": 15.9,
+      "llm_calls": 3,
+      "tool_calls": 1,
+      "prompt_tokens": 24651,
+      "completion_tokens": 550,
+      "cache_rate": 0.878
+    },
+    {
+      "id": "la-inv-1",
+      "tags": [
+        "linear-algebra"
+      ],
+      "passed": true,
+      "expected": "1",
+      "boxed": "1",
+      "status": "complete",
+      "error": null,
+      "seconds": 16.8,
+      "llm_calls": 3,
+      "tool_calls": 1,
+      "prompt_tokens": 24522,
+      "completion_tokens": 578,
+      "cache_rate": 0.966
+    },
+    {
+      "id": "la-norm-1",
+      "tags": [
+        "linear-algebra"
+      ],
+      "passed": true,
+      "expected": "4",
+      "boxed": "4",
+      "status": "complete",
+      "error": null,
+      "seconds": 19.8,
+      "llm_calls": 3,
+      "tool_calls": 1,
+      "prompt_tokens": 25126,
+      "completion_tokens": 1336,
+      "cache_rate": 0.927
+    },
+    {
+      "id": "la-rank-1",
+      "tags": [
+        "linear-algebra"
+      ],
+      "passed": true,
+      "expected": "2",
+      "boxed": "2",
+      "status": "complete",
+      "error": null,
+      "seconds": 15.7,
+      "llm_calls": 3,
+      "tool_calls": 1,
+      "prompt_tokens": 24586,
+      "completion_tokens": 518,
+      "cache_rate": 0.968
+    },
+    {
+      "id": "nt-1",
+      "tags": [
+        "number-theory"
+      ],
+      "passed": true,
+      "expected": "4",
+      "boxed": "4",
+      "status": "complete",
+      "error": null,
+      "seconds": 28.4,
+      "llm_calls": 3,
+      "tool_calls": 1,
+      "prompt_tokens": 24422,
+      "completion_tokens": 648,
+      "cache_rate": 0.97
+    },
+    {
+      "id": "nt-2",
+      "tags": [
+        "number-theory"
+      ],
+      "passed": true,
+      "expected": "270",
+      "boxed": "270",
+      "status": "complete",
+      "error": null,
+      "seconds": 27.5,
+      "llm_calls": 3,
+      "tool_calls": 1,
+      "prompt_tokens": 24371,
+      "completion_tokens": 444,
+      "cache_rate": 0.893
+    },
+    {
+      "id": "nt-3",
+      "tags": [
+        "number-theory"
+      ],
+      "passed": true,
+      "expected": "639",
+      "boxed": "639",
+      "status": "complete",
+      "error": null,
+      "seconds": 27.0,
+      "llm_calls": 3,
+      "tool_calls": 1,
+      "prompt_tokens": 24643,
+      "completion_tokens": 669,
+      "cache_rate": 0.893
+    },
+    {
+      "id": "opt-1",
+      "tags": [
+        "optimisation"
+      ],
+      "passed": true,
+      "expected": "-3",
+      "boxed": "-3",
+      "status": "complete",
+      "error": null,
+      "seconds": 34.6,
+      "llm_calls": 5,
+      "tool_calls": 3,
+      "prompt_tokens": 48140,
+      "completion_tokens": 1625,
+      "cache_rate": 0.917
+    },
+    {
+      "id": "opt-2",
+      "tags": [
+        "optimisation"
+      ],
+      "passed": true,
+      "expected": "\\frac{25}{2}",
+      "boxed": "\\frac{25}{2}",
+      "status": "complete",
+      "error": null,
+      "seconds": 28.0,
+      "llm_calls": 3,
+      "tool_calls": 1,
+      "prompt_tokens": 24932,
+      "completion_tokens": 756,
+      "cache_rate": 0.909
+    },
+    {
+      "id": "opt-3",
+      "tags": [
+        "optimisation"
+      ],
+      "passed": true,
+      "expected": "-3.5139",
+      "boxed": "-3.5139",
+      "status": "complete",
+      "error": null,
+      "seconds": 34.4,
+      "llm_calls": 5,
+      "tool_calls": 3,
+      "prompt_tokens": 48515,
+      "completion_tokens": 1563,
+      "cache_rate": 0.931
+    },
+    {
+      "id": "opt-4",
+      "tags": [
+        "optimisation"
+      ],
+      "passed": true,
+      "expected": "12",
+      "boxed": "12",
+      "status": "complete",
+      "error": null,
+      "seconds": 30.2,
+      "llm_calls": 3,
+      "tool_calls": 1,
+      "prompt_tokens": 25230,
+      "completion_tokens": 1177,
+      "cache_rate": 0.878
+    },
+    {
+      "id": "opt-5",
+      "tags": [
+        "optimisation"
+      ],
+      "passed": true,
+      "expected": "\\frac{4}{5}",
+      "boxed": "\\frac{4}{5}",
+      "status": "complete",
+      "error": null,
+      "seconds": 29.9,
+      "llm_calls": 3,
+      "tool_calls": 1,
+      "prompt_tokens": 24086,
+      "completion_tokens": 874,
+      "cache_rate": 0.882
+    },
+    {
+      "id": "prob-1",
+      "tags": [
+        "probability"
+      ],
+      "passed": true,
+      "expected": "\\frac{1}{6}",
+      "boxed": "\\frac{1}{6}",
+      "status": "complete",
+      "error": null,
+      "seconds": 17.7,
+      "llm_calls": 3,
+      "tool_calls": 2,
+      "prompt_tokens": 24809,
+      "completion_tokens": 618,
+      "cache_rate": 0.877
+    },
+    {
+      "id": "prob-2",
+      "tags": [
+        "probability"
+      ],
+      "passed": true,
+      "expected": "\\frac{9}{2 e^{3}}",
+      "boxed": "\\mathbb{P}(X=2)=\\frac{9e^{-3}}{2}",
+      "status": "complete",
+      "error": null,
+      "seconds": 16.6,
+      "llm_calls": 3,
+      "tool_calls": 1,
+      "prompt_tokens": 24280,
+      "completion_tokens": 459,
+      "cache_rate": 0.97
+    },
+    {
+      "id": "prob-3",
+      "tags": [
+        "probability"
+      ],
+      "passed": true,
+      "expected": "\\frac{1}{3}",
+      "boxed": "\\frac{1}{3}",
+      "status": "complete",
+      "error": null,
+      "seconds": 18.4,
+      "llm_calls": 3,
+      "tool_calls": 1,
+      "prompt_tokens": 24600,
+      "completion_tokens": 775,
+      "cache_rate": 0.874
+    },
+    {
+      "id": "prob-4",
+      "tags": [
+        "probability"
+      ],
+      "passed": true,
+      "expected": "6",
+      "boxed": "6",
+      "status": "complete",
+      "error": null,
+      "seconds": 28.1,
+      "llm_calls": 5,
+      "tool_calls": 3,
+      "prompt_tokens": 48402,
+      "completion_tokens": 1669,
+      "cache_rate": 0.976
+    },
+    {
+      "id": "prob-5",
+      "tags": [
+        "probability"
+      ],
+      "passed": true,
+      "expected": "\\frac{2 \\sqrt{2}}{\\sqrt{\\pi}}",
+      "boxed": "\\mathbb{E}\\!\\left[|X|^3\\right]=2\\sqrt{\\frac{2}{\\pi}}",
+      "status": "complete",
+      "error": null,
+      "seconds": 20.8,
+      "llm_calls": 3,
+      "tool_calls": 2,
+      "prompt_tokens": 24747,
+      "completion_tokens": 1069,
+      "cache_rate": 0.962
+    },
+    {
+      "id": "prob-6",
+      "tags": [
+        "probability"
+      ],
+      "passed": true,
+      "expected": "84",
+      "boxed": "84",
+      "status": "complete",
+      "error": null,
+      "seconds": 21.6,
+      "llm_calls": 3,
+      "tool_calls": 1,
+      "prompt_tokens": 24638,
+      "completion_tokens": 1044,
+      "cache_rate": 0.878
+    },
+    {
+      "id": "stat-chi-1",
+      "tags": [
+        "statistics"
+      ],
+      "passed": true,
+      "expected": "4",
+      "boxed": "4",
+      "status": "complete",
+      "error": null,
+      "seconds": 29.4,
+      "llm_calls": 3,
+      "tool_calls": 1,
+      "prompt_tokens": 24750,
+      "completion_tokens": 796,
+      "cache_rate": 0.869
+    },
+    {
+      "id": "stat-mle-1",
+      "tags": [
+        "statistics"
+      ],
+      "passed": true,
+      "expected": "2",
+      "boxed": "\\hat{\\lambda}_{\\mathrm{MLE}}=2",
+      "status": "complete",
+      "error": null,
+      "seconds": 28.9,
+      "llm_calls": 3,
+      "tool_calls": 1,
+      "prompt_tokens": 25036,
+      "completion_tokens": 1068,
+      "cache_rate": 0.864
+    },
+    {
+      "id": "stat-p-1",
+      "tags": [
+        "statistics"
+      ],
+      "passed": true,
+      "expected": "0.1839",
+      "boxed": "0.1839",
+      "status": "complete",
+      "error": null,
+      "seconds": 27.0,
+      "llm_calls": 3,
+      "tool_calls": 1,
+      "prompt_tokens": 24405,
+      "completion_tokens": 595,
+      "cache_rate": 0.865
+    },
+    {
+      "id": "stat-reg-1",
+      "tags": [
+        "statistics"
+      ],
+      "passed": true,
+      "expected": "2.0200",
+      "boxed": "b = 2.0200",
+      "status": "complete",
+      "error": null,
+      "seconds": 27.8,
+      "llm_calls": 3,
+      "tool_calls": 1,
+      "prompt_tokens": 24312,
+      "completion_tokens": 508,
+      "cache_rate": 0.874
+    },
+    {
+      "id": "stat-reg-2",
+      "tags": [
+        "statistics"
+      ],
+      "passed": true,
+      "expected": "0.9982",
+      "boxed": "0.9982",
+      "status": "complete",
+      "error": null,
+      "seconds": 29.3,
+      "llm_calls": 3,
+      "tool_calls": 1,
+      "prompt_tokens": 24316,
+      "completion_tokens": 739,
+      "cache_rate": 0.963
+    },
+    {
+      "id": "stat-t-1",
+      "tags": [
+        "statistics"
+      ],
+      "passed": true,
+      "expected": "1.4743",
+      "boxed": "t = 1.4743",
+      "status": "complete",
+      "error": null,
+      "seconds": 22.9,
+      "llm_calls": 3,
+      "tool_calls": 1,
+      "prompt_tokens": 25044,
+      "completion_tokens": 1331,
+      "cache_rate": 0.884
+    }
+  ]
+}
