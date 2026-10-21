@@ -1,0 +1,83 @@
+{
+  "conversation_id": "c_63c658b035f84d4b",
+  "requests": [
+    {
+      "turn": 1,
+      "step": 1,
+      "prompt": 10739,
+      "cached": 2304,
+      "rate": 0.215
+    },
+    {
+      "turn": 1,
+      "step": 2,
+      "prompt": 10983,
+      "cached": 10752,
+      "rate": 0.979
+    },
+    {
+      "turn": 1,
+      "step": 3,
+      "prompt": 11062,
+      "cached": 10880,
+      "rate": 0.984
+    },
+    {
+      "turn": 1,
+      "step": 4,
+      "prompt": 2930,
+      "cached": 2688,
+      "rate": 0.917
+    },
+    {
+      "turn": 2,
+      "step": 1,
+      "prompt": 14266,
+      "cached": 11136,
+      "rate": 0.781,
+      "system_changed": false,
+      "tools_changed": false,
+      "tool_order_changed": false
+    },
+    {
+      "turn": 2,
+      "step": 2,
+      "prompt": 14694,
+      "cached": 14464,
+      "rate": 0.984
+    },
+    {
+      "turn": 2,
+      "step": 3,
+      "prompt": 2887,
+      "cached": 2688,
+      "rate": 0.931
+    },
+    {
+      "turn": 3,
+      "step": 1,
+      "prompt": 18021,
+      "cached": 14592,
+      "rate": 0.81,
+      "system_changed": false,
+      "tools_changed": false,
+      "tool_order_changed": false
+    },
+    {
+      "turn": 3,
+      "step": 2,
+      "prompt": 18096,
+      "cached": 17920,
+      "rate": 0.99
+    },
+    {
+      "turn": 3,
+      "step": 3,
+      "prompt": 2784,
+      "cached": 2560,
+      "rate": 0.92
+    }
+  ],
+  "overall_rate": 0.845,
+  "cross_turn_first_request_rate": 0.797
+}

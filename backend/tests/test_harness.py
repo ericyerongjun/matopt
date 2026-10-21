@@ -99,12 +99,15 @@ async def test_replay_and_collapse(db):
     finally:
         await kernels.shutdown_all()
     history = provider.calls[-1]
+    # Each turn is a harness <turn-context> message followed by the user's text.
     roles = [m["role"] for m in history]
-    assert roles[0] == "system" and roles[1] == "user"
-    assert roles[2] == "assistant" and "tool_calls" in history[2]
-    assert roles[3] == "tool"
-    assert roles[4] == "assistant" and history[4]["content"] == "first answer"
-    assert roles[5] == "user" and history[5]["content"] == "again"
+    assert roles[0] == "system" and roles[1] == "user" and history[1]["content"].startswith("<turn-context>")
+    assert roles[2] == "user" and history[2]["content"] == "hi"
+    assert roles[3] == "assistant" and "tool_calls" in history[3]
+    assert roles[4] == "tool"
+    assert roles[5] == "assistant" and history[5]["content"] == "first answer"
+    assert roles[6] == "user" and history[6]["content"].startswith("<turn-context>")
+    assert roles[7] == "user" and history[7]["content"] == "again"
 
 
 @pytest.mark.asyncio

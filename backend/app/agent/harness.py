@@ -30,6 +30,7 @@ from typing import Any, AsyncIterator, Awaitable, Callable, Optional
 from app.agent.datasets import datasets_block
 from app.agent.events import Event, ToolResult, ev, keepalive
 from app.agent.execution import ToolExecutionService, restore_execution_state
+from app.agent import compaction
 from app.agent.budget import BudgetExhausted, RunBudget
 from app.agent.activity import PublicActivity
 from app.agent.results import ResultPublisher
@@ -46,6 +47,7 @@ from app.agent.prompts import (
     VERIFIER_PROMPT,
     VERIFIER_USER_TEMPLATE,
     build_system_prompt,
+    build_turn_context,
 )
 from app.agent.monitor import next_step_options
 from app.agent.loop_policy import FullReadEvidence, Operation, OperationGuard, Outcome
@@ -867,15 +869,17 @@ class AgentHarness:
             # Delegated services own their shared-budget admission/settlement;
             # the parent callback records their actual usage, without charging twice.
             ctx.state["lambda_record_call"] = record_auxiliary_call
-            system = {"role": "system", "content": self._system_prompt(workspace, route, ui=ctx.state["ui_enabled"]) + self.ui.store.context_summary(cid)}
+            system = {"role": "system", "content": self._system_prompt(workspace, route, ui=ctx.state["ui_enabled"])}
+            turn_context = self._turn_context(workspace, route, cid)
             if state.session is not None:
                 state.session.set_system(system, turn=state.turn, step=state.step)
+                state.session.append_message(turn_context, source="turn-context", turn=state.turn)
                 state.session.append_message({"role": "user", "content": _user_content(req.text, req.attachments)},
                                              source="human", turn=state.turn)
                 events = state.session.events
                 history = _provider_replay(derive_messages(events), provider, events)
             else:
-                history = [system, *self._replay(prior_messages, provider),
+                history = [system, *self._replay(prior_messages, provider), turn_context,
                            {"role": "user", "content": _user_content(req.text, req.attachments)}]
             _compact_ui_history(history)
             await self._prepare_attachments(req, provider, history, ctx, state, emit)
@@ -1167,11 +1171,7 @@ class AgentHarness:
     # ── system prompt & history ─────────────────────────────────────────
 
     def _system_prompt(self, workspace: Workspace, route: Optional[RoutePlan] = None, ui: bool = False) -> str:
-        files_block = workspace.describe_for_prompt()
-        try:
-            ds = datasets_block(workspace)
-        except Exception:  # noqa: BLE001
-            ds = ""
+        """Conversation-stable system head; per-turn facts belong in ``_turn_context``."""
         extra = []
         if self.tools.get("wolfram_alpha"):
             extra.append("`wolfram_alpha` — short factual/computational answers from Wolfram|Alpha for cross-checking.")
@@ -1193,12 +1193,21 @@ class AgentHarness:
                 "and page fetch. Available by default: use automatically for time-sensitive information. "
                 "The user does not need to select a slash command."
             )
+        return build_system_prompt(extra, interactive_ui=ui)
+
+    def _turn_context(self, workspace: Workspace, route: Optional[RoutePlan], cid: str) -> dict:
+        try:
+            ds = datasets_block(workspace)
+        except Exception:  # noqa: BLE001
+            ds = ""
         catalog, active = "", ""
         if route is not None:
             catalog, active = route.as_prompt(getattr(self.settings, "skill_catalog_limit", 16))
         elif len(self.skills):
             catalog = self.skills.catalog_lines()
-        return build_system_prompt(files_block, ds, extra, skills_catalog=catalog, skills_active=active, interactive_ui=ui)
+        content = build_turn_context(workspace.describe_for_prompt(), ds, skills_catalog=catalog,
+                                     skills_active=active, ui_state=self.ui.store.context_summary(cid))
+        return {"role": "user", "content": content}
 
     def _route_turn(self, req: RunRequest, workspace: Workspace) -> RoutePlan:
         if not len(self.skills):
@@ -1280,8 +1289,8 @@ class AgentHarness:
         ctx.state["skills"] = loaded
         if route is not None:
             route.activate = plan.activate
-        if history and history[0].get("role") == "system":
-            history[0] = {"role": "system", "content": self._system_prompt(ctx.workspace, route or plan)}
+        # The skill bodies below reach the model as a message; rewriting the
+        # system head here would invalidate the provider's cached prefix.
         bodies = []
         for skill in added:
             body = skill.body
@@ -1366,7 +1375,7 @@ class AgentHarness:
                 last_step = step == max_steps - 1 or (worker and state.work_step_limit and state.work_steps >= state.work_step_limit)
                 if last_step:
                     history.append({"role": "user", "content": FINAL_STEP_NUDGE})
-                if _trim_live_history(history, self.settings.history_char_budget):
+                if await self._compact_history(provider, options, history, state):
                     from app.agent.tools.read_state import clear_read_state
                     clear_read_state(ctx.state)
                 text, reasoning, calls = await self._stream_llm(provider, options, history, None if last_step or direct_response else schemas, emit, state, ctx.cancel)
@@ -1864,6 +1873,64 @@ class AgentHarness:
         return current
 
     # ── side tasks ──────────────────────────────────────────────────────
+
+    async def _compact_history(self, provider, options: ChatOptions, history: list[dict], state: TurnState) -> bool:
+        """Replace the oldest turns with a summary once the history passes its budget."""
+        budget = self.settings.history_char_budget
+        if sum(len(json.dumps(m, ensure_ascii=False)) for m in history) <= budget:
+            return False
+        target = int(budget * getattr(self.settings, "compaction_target_ratio", 0.5))
+        cut = compaction.plan_cut(history, target)
+        if cut is None:
+            return _trim_live_history(history, budget)
+        span = history[1:cut]
+        turns = sum(1 for i in compaction.turn_starts(history) if i < cut) + int(compaction.is_summary(history[1]))
+        text = await self._summarize_span(provider, options, span, state)
+        history[1:cut] = [compaction.summary_message(text or compaction.digest(span), turns=turns,
+                                                     model_written=bool(text))]
+        # A summary of the whole past can still exceed a small budget.
+        _trim_live_history(history, budget)
+        return True
+
+    async def _summarize_span(self, provider, options: ChatOptions, span: list[dict], state: TurnState) -> str:
+        task_id = new_id("task_")
+        opts = dataclasses.replace(options, reasoning="off", max_tokens=4_000, temperature=None)
+        messages = [{"role": "system", "content": compaction.COMPACTION_PROMPT},
+                    {"role": "user", "content": compaction.render_span(span)}]
+        data = {"task": "compaction", "task_id": task_id, "provider": provider.id, "model": options.model,
+                "started_at": time.time(), "messages": messages, "config": dataclasses.asdict(opts),
+                "turn": state.turn, "step": state.step}
+        budget = state.run_budget
+        try:
+            if budget is not None:
+                budget.admit_model(task_id, source="compaction", provider=provider.id, model=options.model)
+        except BudgetExhausted:
+            return ""
+        if state.session is not None:
+            state.session.append("llm/side-task", {**data, "status": "started"})
+        state.llm_calls += 1
+        try:
+            result = await provider.complete(messages, opts)
+            text = result.text.strip()
+            data.update(status="completed", usage=result.usage)
+        except asyncio.CancelledError:
+            data["status"] = "aborted"
+            raise
+        except Exception:  # noqa: BLE001
+            logger.warning("History compaction summary failed; using a digest", exc_info=True)
+            text, data["status"] = "", "error"
+        finally:
+            if budget is not None:
+                budget.settle_model(task_id, usage=data.get("usage"), outcome=data["status"])
+            for key, value in (data.get("usage") or {}).items():
+                if type(value) in (int, float):
+                    state.usage[key] = state.usage.get(key, 0) + value
+            if state.session is not None:
+                data["completed_at"] = time.time()
+                data["duration_ms"] = (data["completed_at"] - data["started_at"]) * 1000
+                state.session.append("llm/side-task", data)
+                await state.session.flush()
+        return text
 
     async def _auto_title(self, cid: str, provider, options: ChatOptions, text: str,
                           session: SessionLog | None = None) -> None:

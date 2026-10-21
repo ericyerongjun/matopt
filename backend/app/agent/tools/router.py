@@ -203,8 +203,10 @@ class ToolRouter:
             if tool is not None:
                 preferred_set.add(tool.name)
         order = {name: index for index, name in enumerate(CORE)}
+        # Every native tool is sent, so preference must not reorder them: the
+        # serialized tool list is part of the provider's cached prompt prefix.
         native = sorted((tool for tool in visible if not getattr(tool, "mcp_server", None)),
-                        key=lambda tool: (tool.name not in preferred_set, order.get(tool.name, 50), tool.name))
+                        key=lambda tool: (order.get(tool.name, 50), tool.name))
         remote = {tool.name: tool for tool in visible if getattr(tool, "mcp_server", None)}
         if len(visible) <= self.small_catalog_limit:
             selected = sorted(remote, key=lambda name: (name not in preferred_set, name))

@@ -157,7 +157,8 @@ async def test_negotiation_stream_commit_and_compact_replay(rig):
     assert len(rig.provider.calls) == 3 and final["content"]["stats"]["tool_calls"] == 1
     assert rig.provider.catalogs[-1] is None  # Final rendering cannot call tools.
     await run(rig, [{"text": "A follow-up."}])
-    assert "Current interactive output state" in rig.provider.calls[-2][0]["content"]
+    assert "Current interactive output state" in rig.provider.calls[-2][-2]["content"]
+    assert "Current interactive output state" not in rig.provider.calls[-2][0]["content"]
     prior = rig.provider.calls[-2]
     assert not any(m.get("tool_calls") for m in prior)
     summary = next(m["content"] for m in prior if "Earlier interactive tool results" in (m.get("content") or ""))
