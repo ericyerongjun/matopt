@@ -19,6 +19,8 @@ interface Options {
     model: string | null;
     reasoning: string | null;
     verify: boolean;
+    /** Reply language chosen in the UI; null lets the model follow the user's language. */
+    language?: string | null;
     onArtifacts?: () => void;
 }
 interface Subscription {
@@ -225,7 +227,8 @@ export function useChat(options: Options) {
             if (!opts.activeId) optionsRef.current.setActiveId(cid);
             return await monitor(session, { conversation_id: cid, client_run_id: crypto.randomUUID(), message: trimmed, attachments,
                 provider: opts.provider, model: opts.model, reasoning: opts.reasoning, verify: opts.verify,
-                skills: skills.length ? skills : undefined, tools: tools.length ? tools : undefined, ui_version: 1 }, accepted);
+                skills: skills.length ? skills : undefined, tools: tools.length ? tools : undefined, ui_version: 1,
+                language: opts.language || undefined }, accepted);
         } catch (error) {
             if (generation.current === mine) setStreamError(error instanceof Error ? error.message : "Could not start the run");
             return false;

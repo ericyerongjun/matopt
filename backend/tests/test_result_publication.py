@@ -12,6 +12,7 @@ from app.agent.results import ResultPublisher, public_result, result_parts
 from app.agent.runs import RunManager, project_public_event
 from app.agent.tools.result_tool import PublishResultTool
 from app.storage.db import Database
+from tests.fake_provider import without_transcript
 from tests.test_agent_activity import rig, Capture, REASONING, INTERNAL_TEXT, STDOUT
 from tests.test_runs import ControlledHarness, replay
 
@@ -49,7 +50,8 @@ async def test_partial_precedes_slow_work_and_final_manifest_is_authoritative(ri
         assert public_content(saved) == end["content"] == public_content(end["content"])
         assert 1 <= len(end["content"]["work"]["milestones"]) <= 12
         assert end["content"]["work"]["tool_count"] == 1
-        assert all(canary not in json.dumps(capture.events) for canary in (REASONING, INTERNAL_TEXT, STDOUT))
+        assert REASONING not in json.dumps(capture.events)
+        assert all(canary not in json.dumps(without_transcript(capture.events)) for canary in (INTERNAL_TEXT, STDOUT))
     finally:
         await capture.close()
 
@@ -82,7 +84,7 @@ async def test_stop_retains_only_explicit_provisional_answer(rig):
         assert end["status"] == "stopped"
         assert end["content"]["parts"][0]["block"]["status"] == "provisional"
         assert not any(p["type"] == "text" for p in end["content"]["parts"])
-        assert INTERNAL_TEXT not in json.dumps(end)
+        assert INTERNAL_TEXT not in json.dumps(without_transcript(end))
     finally:
         await capture.close()
 

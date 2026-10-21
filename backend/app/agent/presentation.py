@@ -6,6 +6,7 @@ import re
 import math
 from app.agent.activity import public_activity, public_progress
 from app.agent.results import result_parts
+from app.agent.transcript import public_transcript
 
 WORK_LABELS = frozenset({
     "Working", "Reading uploaded file", "Reading files", "Searching sources", "Computing",
@@ -189,6 +190,8 @@ def public_content(content: dict | None) -> dict:
         out["parts"].extend(_output_parts(output_parts))
         if content.get("status", "complete") == "complete":
             out["parts"].extend(deepcopy(p) for p in parts if p.get("type") == "options")
+    if not content.get("strict_final", False) and content.get("transcript"):
+        out["transcript"] = public_transcript(content["transcript"])
     work = content.get("work")
     if not work:
         checks = [p for p in parts if p.get("type") == "verification"]

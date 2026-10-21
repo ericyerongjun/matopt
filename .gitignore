@@ -65,7 +65,6 @@ yarn.lock
 
 # MatOpt runtime data
 backend/data/
-backend/.venv-mineru/
 backend/static/
 
 # Local extra MCP servers (may contain secrets)

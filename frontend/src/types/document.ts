@@ -1,4 +1,4 @@
-/** Result of parsing a document via MinerU. */
+/** Result of parsing a document with DeepSeek multimodal OCR. */
 export interface DocumentParseResult {
     markdown: string;
     latexBlocks: string[];

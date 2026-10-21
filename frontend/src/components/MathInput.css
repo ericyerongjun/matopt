@@ -170,3 +170,20 @@
 .matopt-composer-quote blockquote { flex: 1; min-width: 0; max-height: 88px; overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere; color: var(--color-foreground-subtle); font-size: var(--text-ui-sm); }
 .matopt-composer-quote button { flex-shrink: 0; padding: 4px; border-radius: 4px; }
 .matopt-composer-quote button:focus-visible { outline: 2px solid var(--color-ring); }
+
+/* Voice input: a quiet mic that glows with the speaker's level while recording. */
+.matopt-composer-mic { display: inline-grid; place-items: center; width: 32px; height: 32px; border: 0; border-radius: 999px; background: transparent; color: var(--color-foreground-subtle); cursor: pointer; transition: color 140ms ease, background 140ms ease, box-shadow 80ms linear; }
+.matopt-composer-mic:hover:not(:disabled) { color: var(--color-foreground); background: var(--mo-surface-2, var(--color-muted)); }
+.matopt-composer-mic:focus-visible { outline: 2px solid var(--mo-accent, var(--color-ring)); outline-offset: 2px; }
+.matopt-composer-mic:disabled { opacity: 0.5; cursor: default; }
+.matopt-composer-mic[data-voice="recording"] { color: #fff; background: var(--mo-accent, var(--color-ring));
+  box-shadow: 0 0 0 calc(2px + var(--voice-level, 0) * 9px) color-mix(in oklab, var(--mo-accent, var(--color-ring)) 28%, transparent); }
+.matopt-voice-error { margin: 6px 4px 0; font-size: var(--matopt-text-compact); color: var(--color-destructive, #d9534f); }
+.matopt-voice-error button { border: 0; background: none; color: inherit; text-decoration: underline; cursor: pointer; font: inherit; }
+@media (prefers-reduced-motion: reduce) { .matopt-composer-mic { transition: none; } }
+
+.matopt-language-picker { display: inline-flex; align-items: center; gap: 4px; height: 30px; padding: 0 6px; border-radius: 9px; color: var(--color-foreground-subtle); font-size: 12.5px; }
+.matopt-language-picker:hover { color: var(--color-foreground); background: var(--mo-surface-2, var(--color-muted)); }
+.matopt-language-picker svg { width: 15px; height: 15px; }
+.matopt-language-picker select { appearance: none; border: 0; background: transparent; color: inherit; font: inherit; cursor: pointer; padding-right: 2px; }
+.matopt-language-picker select:focus-visible { outline: 2px solid var(--mo-accent, var(--color-ring)); outline-offset: 2px; border-radius: 4px; }

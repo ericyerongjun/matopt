@@ -306,8 +306,15 @@ async def test_default_agent_streams_live_activity_checked_answer_and_reconciles
     stored = next(message for message in public if message["id"] == answer_event(capture.events)["message_id"])
     assert stored["content"] == final
     wire = json.dumps(capture.events) + json.dumps(public)
-    for canary in (REASONING, VERIFIER, STDOUT, INTERNAL_TEXT):
+    # Hidden reasoning and verifier exchanges stay private.
+    for canary in (REASONING, VERIFIER):
         assert canary not in wire
+    # Narration and tool output are the visible work transcript, never the answer.
+    transcript = final["transcript"]
+    assert any(entry["kind"] == "note" and INTERNAL_TEXT in entry["text"] for entry in transcript)
+    assert any(entry.get("tool") == "python" and STDOUT in entry.get("output", "") for entry in transcript)
+    assert INTERNAL_TEXT not in final["parts"][0]["text"] and STDOUT not in final["parts"][0]["text"]
+    assert any(event["type"] == "transcript" for event in capture.events)
     assert all(event["type"] not in {"reasoning_delta", "tool_progress", "tool_call_ready", "verification"} for event in capture.events)
     log = rig.db.list_session_events(rig.cid)
     assert any(STDOUT in json.dumps(event) for event in log), "canaries must actually exist privately"

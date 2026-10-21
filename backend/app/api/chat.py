@@ -42,6 +42,7 @@ class ChatStreamRequest(BaseModel):
     client_run_id: Optional[str] = Field(default=None, min_length=1, max_length=128,
                                          pattern=r"^[A-Za-z0-9_.:-]+$")
     strict_final: bool = False
+    language: Optional[str] = Field(default=None, max_length=8)
 
 
 @router.post("/chat/stream")
@@ -69,6 +70,7 @@ async def chat_stream(body: ChatStreamRequest, request: Request):
         web_search=body.web_search,
         ui_version=body.ui_version,
         strict_final=body.strict_final,
+        language=body.language,
     )
     try:
         run = await rt.runs.start(req, body.client_run_id)

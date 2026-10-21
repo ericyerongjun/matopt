@@ -16,6 +16,7 @@ import type {
     PlanStep,
     StreamEvent,
     ToolResult,
+    TranscriptEntry,
     Usage,
     WorkSummary,
 } from "../types/protocol";
@@ -28,6 +29,8 @@ export interface ChatStreamBody {
     client_run_id?: string;
     message: string;
     attachments?: Attachment[];
+    /** Reply language code (see /api/speech/status). */
+    language?: string;
     provider?: string | null;
     model?: string | null;
     reasoning?: string | null;
@@ -65,6 +68,7 @@ export interface StreamState {
     work?: WorkSummary;
     earlierDrafts?: string[];
     notice?: string;
+    transcript?: TranscriptEntry[];
 }
 
 export function emptyStreamState(): StreamState {
@@ -98,6 +102,7 @@ export function assistantFromStream(state: StreamState): AssistantContent {
         presentation: state.presentation,
         work: state.work,
         earlier_drafts: state.earlierDrafts,
+        transcript: state.transcript,
         notice: state.notice,
     };
 }
@@ -498,6 +503,12 @@ function reduceEvent(state: StreamState, event: StreamEvent): StreamState {
         return { ...state, usage: next };
     }
 
+    if (type === "transcript") {
+        const entry = event.entry as TranscriptEntry | undefined;
+        if (!entry || typeof entry.id !== "string" || !Array.isArray(entry.order)) return state;
+        return { ...state, transcript: upsertTranscript(state.transcript ?? [], entry) };
+    }
+
     if (type === "message_end") {
         const content = event.content as AssistantContent | undefined;
         if (content && Array.isArray(content.parts)) {
@@ -513,6 +524,7 @@ function reduceEvent(state: StreamState, event: StreamEvent): StreamState {
                 reasoning: content.reasoning || state.reasoning,
                 presentation: content.presentation,
                 work: readWork(content.work) ?? state.work,
+                transcript: Array.isArray(content.transcript) ? content.transcript : state.transcript,
                 earlierDrafts: state.runId ? undefined : content.earlier_drafts?.filter((draft) => typeof draft === "string"),
                 notice: typeof content.notice === "string" ? content.notice : undefined,
                 status: content.status === "streaming" ? "complete" : content.status,
@@ -656,4 +668,11 @@ async function consumeEventStream(res: Response, onEvent: (event: StreamEvent) =
     if (!terminal) throw new Error("The connection ended before the response finished. Reload the chat to recover saved results.");
     return terminal;
     } finally { signal?.removeEventListener("abort", cancel); reader.releaseLock(); }
+}
+
+export function upsertTranscript(entries: TranscriptEntry[], entry: TranscriptEntry): TranscriptEntry[] {
+    const next = entries.some((existing) => existing.id === entry.id)
+        ? entries.map((existing) => existing.id === entry.id ? entry : existing)
+        : [...entries, entry];
+    return next.sort((a, b) => a.order[0] - b.order[0] || a.order[1] - b.order[1]);
 }

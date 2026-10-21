@@ -31,6 +31,7 @@ from app.agent.datasets import datasets_block
 from app.agent.events import Event, ToolResult, ev, keepalive
 from app.agent.execution import ToolExecutionService, restore_execution_state
 from app.agent import compaction, otel
+from app.agent.transcript import Transcript
 from app.agent.budget import BudgetExhausted, RunBudget
 from app.agent.activity import PublicActivity
 from app.agent.results import ResultPublisher
@@ -62,7 +63,7 @@ from app.agent.tools.router import ToolRouter
 from app.agent.tools.read_state import latest_read, parse_read_state_metadata
 from app.agent.workspace import Workspace
 from app.llm.base import ChatOptions, LLMProvider, ToolCallSpec
-from app.llm.catalog import canonical_reasoning
+from app.llm.catalog import CONTEXT_WINDOW, canonical_reasoning
 from app.storage.db import Database, new_id
 
 logger = logging.getLogger(__name__)
@@ -101,6 +102,7 @@ class RunRequest:
     ui_version: Optional[int] = None
     strict_final: bool = False  # verify the exact answer text before releasing it
     run_id: Optional[str] = None
+    language: Optional[str] = None  # reply language chosen in the UI (app.speech.LANGUAGES code)
 
 
 @dataclass
@@ -149,6 +151,8 @@ class TurnState:
     output_generation: int = 0
     publish_outputs: bool = True
     last_finish_reason: Optional[str] = None
+    last_prompt_tokens: Optional[int] = None
+    transcript: Transcript = field(default_factory=Transcript)
     answer_truncated: bool = False
     work: dict = field(default_factory=lambda: {"status": "running", "tool_count": 0,
         "verification": {"status": "not_requested", "rounds": 0}, "steps": []})
@@ -605,6 +609,19 @@ class AgentHarness:
                 await original_emit(ev("work", work=public_work(state.work)))
 
         async def durable_emit(event: Event) -> None:
+            if state.phase != "verify" and event.type in {"transcript_note", "tool_call_ready", "tool_result"}:
+                if event.type == "transcript_note":
+                    entry = state.transcript.note(event.data["step"], event.data["text"])
+                elif event.type == "tool_call_ready":
+                    entry = state.transcript.action(state.step, event.data["id"],
+                        event.data.get("resolved_name") or event.data.get("name", ""), event.data.get("arguments"))
+                else:
+                    entry = state.transcript.result(event.data["id"], event.data.get("ok"),
+                                                    event.data.get("output"), event.data.get("error"))
+                if entry is not None and not internal_events and not req.strict_final:
+                    await original_emit(ev("transcript", entry=dict(entry)))
+                if event.type == "transcript_note":
+                    return
             kinds = {"plan": "plan/write", "skills": "skill/activated", "phase": "phase/change",
                      "verification": "verification"}
             if state.session is not None and event.type in kinds:
@@ -870,7 +887,7 @@ class AgentHarness:
             # the parent callback records their actual usage, without charging twice.
             ctx.state["lambda_record_call"] = record_auxiliary_call
             system = {"role": "system", "content": self._system_prompt(workspace, route, ui=ctx.state["ui_enabled"])}
-            turn_context = self._turn_context(workspace, route, cid)
+            turn_context = self._turn_context(workspace, route, cid, req.language)
             if not prior_messages and conv["title"] in ("New chat", _heuristic_title(req.text)):
                 # Titles depend only on the first request; starting once setup
                 # succeeds lets the header update while the agent works. A title
@@ -993,6 +1010,7 @@ class AgentHarness:
                     state.work["status"] = status
                     state.work["tool_count"] = len(state.activity.calls)
                     await state.activity.finish(status)
+                    state.transcript.stop_running()
                     for step in state.work["steps"]:
                         if step["status"] == "running":
                             step["status"] = "complete" if status == "complete" else "error"
@@ -1003,6 +1021,7 @@ class AgentHarness:
                         "stats": {"llm_calls": state.llm_calls, "tool_calls": state.tool_calls,
                                   "verification_checks": state.verification_checks},
                         "presentation": "final", "final_text": state.final_text, "final_ready": state.final_ready,
+                        "transcript": state.transcript.snapshot(),
                         "work": public_work(state.work),
                         "output_generation": state.output_generation, "publish_outputs": state.publish_outputs,
                         "strict_final": req.strict_final,
@@ -1205,7 +1224,8 @@ class AgentHarness:
             )
         return build_system_prompt(extra, interactive_ui=ui)
 
-    def _turn_context(self, workspace: Workspace, route: Optional[RoutePlan], cid: str) -> dict:
+    def _turn_context(self, workspace: Workspace, route: Optional[RoutePlan], cid: str,
+                      language: Optional[str] = None) -> dict:
         try:
             ds = datasets_block(workspace)
         except Exception:  # noqa: BLE001
@@ -1215,8 +1235,11 @@ class AgentHarness:
             catalog, active = route.as_prompt(getattr(self.settings, "skill_catalog_limit", 16))
         elif len(self.skills):
             catalog = self.skills.catalog_lines()
+        from app.speech import LANGUAGES
+        reply = LANGUAGES.get(language or "")
         content = build_turn_context(workspace.describe_for_prompt(), ds, skills_catalog=catalog,
-                                     skills_active=active, ui_state=self.ui.store.context_summary(cid))
+                                     skills_active=active, ui_state=self.ui.store.context_summary(cid),
+                                     reply_language=reply.label if reply else "")
         return {"role": "user", "content": content}
 
     def _route_turn(self, req: RunRequest, workspace: Workspace) -> RoutePlan:
@@ -1336,7 +1359,7 @@ class AgentHarness:
                     reasoning = "".join(part.get("text", "") for part in parts if part.get("type") == "reasoning")
                     out.append(provider.assistant_message(_collapse_parts(parts), reasoning, []))
         # Trim very long histories from the front (keep the last turns).
-        budget = self.settings.history_char_budget
+        budget = self._context_limits()[0]
         while len(out) > 4 and sum(len(json.dumps(m, ensure_ascii=False)) for m in out) > budget:
             out.pop(0)
             while out and out[0]["role"] != "user":
@@ -1410,6 +1433,8 @@ class AgentHarness:
                         if not state.answer_truncated and state.end_reason == "max-tokens":
                             state.end_reason = None
                     return text
+                if worker and text.strip():
+                    await emit(ev("transcript_note", step=state.step, text=text))
                 results = await self._execute_calls(calls, tools, ctx, emit, state)
                 for call, res in zip(calls, results):
                     history.append(provider.tool_message(call.id, call.name, _tool_message_text(res)))
@@ -1590,6 +1615,8 @@ class AgentHarness:
                     for key, value in usage.items():
                         if type(value) in (int, float):
                             state.usage[key] = state.usage.get(key, 0) + value
+                    if type(usage.get("prompt_tokens")) is int:
+                        state.last_prompt_tokens = usage["prompt_tokens"]
                 if attempts > 1 and state.activity is not None:
                     await state.activity.item(f"{state.activity.id}:retry:{state.step}", status="completed",
                                               summary="The model connection recovered.")
@@ -1886,10 +1913,15 @@ class AgentHarness:
 
     async def _compact_history(self, provider, options: ChatOptions, history: list[dict], state: TurnState) -> bool:
         """Replace the oldest turns with a summary once the history passes its budget."""
-        budget = self.settings.history_char_budget
-        if sum(len(json.dumps(m, ensure_ascii=False)) for m in history) <= budget:
+        budget, token_limit = self._context_limits()
+        size = sum(len(json.dumps(m, ensure_ascii=False)) for m in history)
+        # The provider's own count of the last request is exact; the margin
+        # covers what the loop appended since (each tool output is capped).
+        near_window = state.last_prompt_tokens is not None and state.last_prompt_tokens > token_limit * 0.95
+        if size <= budget and not near_window:
             return False
-        target = int(budget * getattr(self.settings, "compaction_target_ratio", 0.5))
+        state.last_prompt_tokens = None
+        target = int(min(budget, size) * getattr(self.settings, "compaction_target_ratio", 0.5))
         cut = compaction.plan_cut(history, target)
         if cut is None:
             return _trim_live_history(history, budget)
@@ -1901,6 +1933,12 @@ class AgentHarness:
         # A summary of the whole past can still exceed a small budget.
         _trim_live_history(history, budget)
         return True
+
+    def _context_limits(self) -> tuple[int, int]:
+        """(history character budget, prompt token limit) for the model's context window."""
+        reserve = max(self.settings.context_reserve_tokens, self.settings.max_output_tokens or 0)
+        tokens = CONTEXT_WINDOW - reserve
+        return self.settings.history_char_budget or tokens * 3, tokens
 
     async def _summarize_span(self, provider, options: ChatOptions, span: list[dict], state: TurnState) -> str:
         task_id = new_id("task_")

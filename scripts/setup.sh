@@ -30,5 +30,4 @@ Done. Next steps:
   2. Backend:  cd backend && .venv/bin/python main.py        (http://localhost:8000)
   3. Frontend: cd frontend && npm run dev                    (http://localhost:5173)
      The isolated interactive UI runtime also starts on port 5174.
-  Optional OCR: scripts/setup_mineru.sh
 MSG

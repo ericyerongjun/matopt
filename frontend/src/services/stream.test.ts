@@ -290,3 +290,12 @@ test("stopping retains explicitly provisional results and progress history is bo
     assert.equal(JSON.stringify(state).includes("PRIVATE_"), false);
     assert.equal(state.status, "stopped");
 });
+
+test("live transcript events upsert by id, stay in step order and persist into the message", () => {
+  let state = { ...emptyStreamState(), runId: "run_1" } as ReturnType<typeof emptyStreamState>;
+  state = applyEvent(state, { type: "transcript", entry: { id: "action:c1", kind: "action", order: [1, 1], title: "Ran Python", status: "running" } });
+  state = applyEvent(state, { type: "transcript", entry: { id: "note:1", kind: "note", order: [1, 0], text: "Computing first." } });
+  state = applyEvent(state, { type: "transcript", entry: { id: "action:c1", kind: "action", order: [1, 1], title: "Ran Python", status: "done", output: "42" } });
+  assert.deepEqual(state.transcript?.map((entry) => [entry.id, entry.status]), [["note:1", undefined], ["action:c1", "done"]]);
+  assert.equal(assistantFromStream(state).transcript?.[1].output, "42");
+});

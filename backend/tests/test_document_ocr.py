@@ -333,3 +333,37 @@ async def test_uploaded_pdf_and_screenshot_are_automatically_understood_without_
         await harness.shutdown()
         await kernels.shutdown_all()
         db.close()
+
+
+@pytest.mark.asyncio
+async def test_whole_document_is_read_concurrently_in_page_order(context, monkeypatch):
+    ctx, _ = context
+    monkeypatch.setattr(settings, "document_ocr_max_pages", 500)
+    monkeypatch.setattr(settings, "document_ocr_concurrency", 4)
+
+    class Tracking(OCRProvider):
+        def __init__(self):
+            super().__init__(delay=0.02)
+            self.active = self.peak = 0
+
+        async def complete(self, messages, options):
+            if not isinstance(messages[-1].get("content"), list):
+                return await super().complete(messages, options)
+            self.active += 1
+            self.peak = max(self.peak, self.active)
+            try:
+                page = messages[-1]["content"][0]["text"].split()[4]
+                await asyncio.sleep(0.02 * (int(page) % 3))  # finish out of order
+                return CompletionResult(f"Text of page {page}", {"prompt_tokens": 1, "completion_tokens": 1, "total_tokens": 2}, "stop")
+            finally:
+                self.active -= 1
+
+    provider = Tracking()
+    ctx.state["document_provider"] = provider
+    src = ctx.workspace.save_upload("lecture.pdf", pdf_bytes(*[f"Slide {n}" for n in range(1, 21)]))
+    result = await ParseDocumentTool().run(ctx, path=ctx.workspace.relpath(src))
+    assert result.ok and result.meta["pages_read"] == list(range(1, 21)) and not result.meta["notes"]
+    assert 1 < provider.peak <= 4
+    md = ctx.workspace.resolve(result.meta["markdown_path"]).read_text()
+    positions = [md.index(f"## Page {n}\n\nText of page {n}") for n in range(1, 21)]
+    assert positions == sorted(positions)

@@ -652,3 +652,14 @@ async def test_auto_title_replaces_placeholders_but_keeps_a_chosen_title(tmp_pat
     assert db.get_conversation(chosen)["title"] == "My derivation notes"
     assert db.get_conversation(placeholder)["title"] == "Fake title"
     db.close()
+
+
+@pytest.mark.asyncio
+async def test_chosen_reply_language_is_stated_in_the_turn_context(tmp_path):
+    db = Database(tmp_path / "test.sqlite")
+    provider = FakeProvider([{"text": "答案"}])
+    harness = make_harness(db, provider, tmp_path)
+    await collect(harness, conversation_id=None, text="What is 2+2?", language="zh")
+    context = provider.calls[0][-2]["content"]
+    assert context.startswith("<turn-context>") and "# Reply language" in context and "中文" in context
+    db.close()

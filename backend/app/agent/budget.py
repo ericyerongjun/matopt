@@ -20,6 +20,12 @@ from typing import Callable, Literal
 from app.agent.session.telemetry import aggregate_attempts, is_count, normalize_usage
 
 
+# Admitted, settled and reported like every model request, but not counted
+# toward the model-attempt limit: a document's page count, not the agent's
+# reasoning, sets how many there are, and a long PDF must not starve the turn.
+UNCAPPED_SOURCES = frozenset({"document_ocr"})
+
+
 class BudgetExhausted(Exception):
     """A control outcome: stop admission rather than ask an agent to repair it."""
 
@@ -122,8 +128,9 @@ class RunBudget:
             now = self._now()
             self._check_deadline(now)
             held = int(self._reserve_final and not self._final_admitted and not final)
-            if self._model_limit is not None and len(self._models) >= self._model_limit - held:
-                raise BudgetExhausted("model_attempts", limit=self._model_limit, used=len(self._models),
+            capped = self._capped_attempts()
+            if source not in UNCAPPED_SOURCES and self._model_limit is not None and capped >= self._model_limit - held:
+                raise BudgetExhausted("model_attempts", limit=self._model_limit, used=capped,
                                       detail="The work model allowance was reached; one attempt remains reserved for the final response."
                                       if held else "The run's model attempt limit was reached.")
             admission = BudgetAdmission(attempt_id, "model", source, now, provider, model, final)
@@ -187,6 +194,9 @@ class RunBudget:
             remaining = None if self._deadline is None else self._deadline - now
             return remaining if local is None else local if remaining is None else min(local, remaining)
 
+    def _capped_attempts(self) -> int:
+        return sum(record.admission.source not in UNCAPPED_SOURCES for record in self._models.values())
+
     def snapshot(self) -> dict:
         """Detached accounting snapshot; known subtotals are not exact run totals."""
         with self._lock:
@@ -195,10 +205,12 @@ class RunBudget:
             reported = [record.usage for record in records if record.usage is not None]
             subtotal = aggregate_attempts(reported)
             complete = len(reported) == len(records) and (subtotal is not None or not records)
-            remaining = None if self._model_limit is None else max(0, self._model_limit - len(records))
+            capped = self._capped_attempts()
+            remaining = None if self._model_limit is None else max(0, self._model_limit - capped)
             held = int(self._reserve_final and not self._final_admitted)
             return {
                 "model_attempts": len(records), "model_attempt_limit": self._model_limit,
+                "capped_model_attempts": capped, "uncapped_model_attempts": len(records) - capped,
                 "tool_starts": len(self._tools), "tool_start_limit": self._tool_limit,
                 "remaining_model_attempts": remaining,
                 "remaining_work_model_attempts": None if remaining is None else max(0, remaining - held),

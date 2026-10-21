@@ -138,22 +138,12 @@ def build_child_env(
     *,
     workspace_root: Path | None = None,
     extra: dict[str, str] | None = None,
-    allow_sensitive_extra: bool = False,
 ) -> dict[str, str]:
     """Environment for a child process that runs an agent action.
 
     ``workspace_root`` redirects ``HOME`` into the conversation workspace (see
     the module docstring for why). ``extra`` is merged last and therefore wins,
     which is how the kernel asks for its inline matplotlib backend.
-
-    ``allow_sensitive_extra`` exists for exactly one situation: a caller that
-    deliberately forwards a credential-shaped variable it read from the
-    operator's own environment, because the child tool cannot work without it.
-    The only current user is the MinerU subprocess, which needs ``HF_TOKEN`` to
-    fetch gated model weights. Use it *only* for values the operator set —
-    never for anything derived from the model or the conversation. It exists to
-    make that decision explicit and greppable, not to make the self-audit
-    optional.
     """
     if settings.child_env_allowlist:
         env = _from_ambient()
@@ -186,6 +176,6 @@ def build_child_env(
     # python unable to find its own stdlib.
     env.pop("PYTHONHOME", None)
 
-    if settings.child_env_allowlist and not allow_sensitive_extra:
+    if settings.child_env_allowlist:
         assert_no_sensitive_env(env)
     return env

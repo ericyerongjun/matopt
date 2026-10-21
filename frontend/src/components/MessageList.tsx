@@ -1,6 +1,7 @@
 /** MatOpt protocol binding for complete native ZCode messages and task elements. */
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
-import { ArrowDown, Check, ChevronDown, Copy } from "lucide-react";
+import { ArrowDown, Check, ChevronDown, Copy, Square, Volume2 } from "lucide-react";
+import { speak, stopSpeaking } from "../features/voice/playback.ts";
 import type { ActivityItem, ChatMessage, ResultBlock } from "../types/protocol.ts";
 import { isAssistantContent, isUserContent } from "../types/protocol.ts";
 import { parseSlashCommands } from "../services/slash.ts";
@@ -40,6 +41,12 @@ function TaskHeader({ title, children, live = false }: { title: string; children
 
 function AssistantFooter({ answer }: { answer: string }) {
     const [copied, setCopied] = useState(false);
+    const [reading, setReading] = useState(false);
+    const readAloud = async () => {
+        if (reading) { stopSpeaking(); setReading(false); return; }
+        setReading(true);
+        try { await speak(answer); } catch { /* The speech service reports its own errors. */ } finally { setReading(false); }
+    };
     const copy = async () => {
         try {
             await navigator.clipboard.writeText(answer);
@@ -49,6 +56,9 @@ function AssistantFooter({ answer }: { answer: string }) {
     return <MessageActions className="matopt-answer-actions">
         <MessageAction tooltip={copied ? "Copied" : "Copy answer"} label={copied ? "Copied" : "Copy answer"} disabled={!answer} onClick={() => void copy()}>
             {copied ? <Check className="size-4" /> : <Copy className="size-4" />}
+        </MessageAction>
+        <MessageAction tooltip={reading ? "Stop reading" : "Read aloud"} label={reading ? "Stop reading" : "Read aloud"} disabled={!answer} onClick={() => void readAloud()}>
+            {reading ? <Square className="size-4" /> : <Volume2 className="size-4" />}
         </MessageAction>
     </MessageActions>;
 }

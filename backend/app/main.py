@@ -30,6 +30,9 @@ async def lifespan(app: FastAPI):
         "MatOpt backend ready (data_dir=%s, providers=%s, skills=%d, tools=%s)",
         settings.data_dir, rt.providers.configured_ids(), len(rt.skills), rt.tools.names(),
     )
+    if settings.speech_enabled and settings.speech_prefetch:
+        from app.speech import speech
+        speech.prefetch()
     try:
         yield
     finally:

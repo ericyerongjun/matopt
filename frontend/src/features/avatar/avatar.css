@@ -1,0 +1,32 @@
+/* Docked voice tutor: sits at the canvas edge above the composer, never over the reading column on wide screens. */
+.matopt-avatar-panel {
+  position: absolute; right: 20px; top: 16px; z-index: 30; width: 232px;
+  display: grid; grid-template-rows: auto auto auto; gap: 6px; padding: 10px 10px 8px;
+  border: 1px solid var(--mo-border, var(--color-border)); border-radius: 18px;
+  background: var(--mo-surface, var(--color-background)); box-shadow: 0 10px 30px rgb(0 0 0 / 0.16);
+}
+.matopt-avatar-stage { position: relative; height: 270px; border-radius: 12px; overflow: hidden;
+  background: radial-gradient(120% 90% at 50% 25%, var(--mo-surface-2, var(--color-muted)), transparent 70%); }
+.matopt-avatar-stage canvas { display: block; width: 100%; height: 100%; }
+.matopt-avatar-note { position: absolute; inset: 0; display: grid; place-items: center; font-size: var(--matopt-text-compact); color: var(--color-foreground-subtle); }
+.matopt-avatar-tutors { display: flex; justify-content: center; gap: 4px; }
+.matopt-avatar-tutors button { height: 24px; padding: 0 10px; border: 1px solid var(--mo-border, var(--color-border)); border-radius: 999px; background: transparent;
+  color: var(--color-foreground-subtle); font: inherit; font-size: 12px; cursor: pointer; }
+.matopt-avatar-tutors button[aria-checked="true"] { color: var(--color-foreground); border-color: var(--mo-accent, var(--color-ring)); background: color-mix(in oklab, var(--mo-accent, var(--color-ring)) 10%, transparent); }
+.matopt-avatar-tutors button:focus-visible { outline: 2px solid var(--mo-accent, var(--color-ring)); outline-offset: 1px; }
+.matopt-avatar-caption { min-height: 1.4em; margin: 0; text-align: center; font-size: var(--matopt-text-compact); color: var(--color-foreground-subtle); }
+.matopt-avatar-controls { display: flex; align-items: center; gap: 4px; }
+.matopt-avatar-controls button { display: inline-flex; align-items: center; gap: 5px; height: 30px; padding: 0 9px; border: 1px solid transparent; border-radius: 9px;
+  background: transparent; color: var(--color-foreground-subtle); font: inherit; font-size: 12.5px; cursor: pointer; }
+.matopt-avatar-controls button svg { width: 15px; height: 15px; flex: none; }
+.matopt-avatar-controls button:hover { color: var(--color-foreground); background: var(--mo-surface-2, var(--color-muted)); }
+.matopt-avatar-controls button[aria-pressed="true"] { color: var(--mo-accent, var(--color-ring)); border-color: color-mix(in oklab, var(--mo-accent, var(--color-ring)) 35%, transparent); }
+.matopt-avatar-controls button:focus-visible { outline: 2px solid var(--mo-accent, var(--color-ring)); outline-offset: 1px; }
+.matopt-avatar-controls .matopt-avatar-icon { margin-left: auto; padding: 0 7px; }
+.matopt-avatar-controls .matopt-avatar-icon + .matopt-avatar-icon { margin-left: 0; }
+/* Narrow canvases: a compact card that leaves the reading column and composer clear. */
+@media (max-width: 1280px) {
+  .matopt-avatar-panel { right: 12px; top: 12px; width: 150px; padding: 6px 6px 4px; border-radius: 14px; }
+  .matopt-avatar-stage { height: 168px; }
+  .matopt-avatar-controls span { display: none; }
+}

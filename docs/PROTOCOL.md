@@ -225,7 +225,7 @@ Attached PDFs and raster images are automatically processed by `parse_document`
 before the main answer when document reading is enabled. The configured DeepSeek
 vision model receives bounded page images; the assistant receives page-labelled
 Markdown and coverage/error notes. Originals stay in `uploads/`, readings in
-`parsed/`. Explicit `backend` values are `auto`, `multimodal`, `fast` and `mineru`.
+`parsed/`. Explicit `backend` values are `auto`, `multimodal` and `fast`.
 OCR emits controlled public reading progress and internal accounted `llm/side-task` events;
 automatic tool calls are marked so recovery does not treat them as missing model
 dispatches. See [document reading](../backend/README.md#pdfs-screenshots-and-scanned-documents)

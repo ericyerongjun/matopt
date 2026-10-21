@@ -1,7 +1,7 @@
 /** Thin MatOpt command/upload binding around the copied ZCode PromptInput. */
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
 import { createPortal } from "react-dom";
-import { ArrowUp, Check, Plus, Square, X } from "lucide-react";
+import { ArrowUp, Check, Loader2, Mic, Plus, Square, X } from "lucide-react";
 import { activeSlashToken, commandToken, parseSlashCommands } from "../services/slash.ts";
 import { composeQuotedMessage, MAX_QUOTES, prepareQuote, type QuoteRequest } from "../services/quote.ts";
 import type { CommandInfo, SkillInfo } from "../services/skills";
@@ -21,6 +21,7 @@ import {
 import { filterPromptCommands, promptFilesForUpload, resolvePromptSubmission } from "../zcode/adapters/matopt-prompt.ts";
 import { shouldIgnoreEscapeForStopGeneration } from "../zcode/v4/composer/escapeStop.ts";
 import { commandPresentation } from "./commandPresentation.ts";
+import { useVoiceInput } from "../hooks/useVoiceInput.ts";
 import "./MathInput.css";
 
 interface Props {
@@ -42,6 +43,10 @@ interface Props {
   externalSkill?: SkillInfo | null;
   externalKey?: number;
   onExternalSkillConsumed?: () => void;
+  /** Language hint for voice transcription (null = detect). */
+  voiceLanguage?: string | null;
+  /** Return true to consume a voice transcript (e.g. voice conversation sends it); otherwise it is inserted. */
+  onVoiceTranscript?: (text: string, via: "hotkey" | "button") => boolean;
 }
 
 const keyFor = (command: CommandInfo) => `${command.kind}:${command.name}`;
@@ -76,10 +81,16 @@ function PromptAttachments({ pinned, removePinned, disabled }: {
 function MatOptPrompt({ onSubmit, onStop, stopControl = "inline", disabled = false, loading = false,
   placeholder = "Ask anything, or type /", toolbar, draftPreset, quoteRequest, showDisclaimer = true,
   commands, skills = [], externalSkill = null, externalKey = 0, onExternalSkillConsumed,
+  voiceLanguage = null, onVoiceTranscript,
 }: Props) {
   const controller = usePromptInputController();
   const value = controller.textInput.value;
   const setValue = controller.textInput.setInput;
+  const voice = useVoiceInput({ language: voiceLanguage, disabled, onTranscript: (text, via) => {
+    if (onVoiceTranscript?.(text, via)) return;
+    setValue(value.trim() ? `${value.replace(/\s*$/, "")} ${text}` : text);
+    requestAnimationFrame(() => textareaRef.current?.focus());
+  } });
   const [pinned, setPinned] = useState<PinnedCommand[]>([]);
   const [quotes, setQuotes] = useState<QuoteRequest[]>([]);
   const [quoteError, setQuoteError] = useState(false);
@@ -341,7 +352,7 @@ function MatOptPrompt({ onSubmit, onStop, stopControl = "inline", disabled = fal
       }} />
       <PromptInputBody className="matopt-composer-body">
         <PromptInputTextarea ref={textareaRef} rows={1} aria-label="Task instructions" disabled={disabled}
-          placeholder={loading ? "Steer this turn…" : quotes.length ? "Ask about the quoted passage…" : placeholder} onKeyDown={onKeyDown}
+          placeholder={voice.state === "recording" ? "Listening… release to finish" : voice.state === "transcribing" ? "Transcribing…" : loading ? "Steer this turn…" : quotes.length ? "Ask about the quoted passage…" : placeholder} onKeyDown={onKeyDown}
           role="combobox" aria-autocomplete="list" aria-expanded={slashOpen} aria-controls={slashOpen ? menuIds.list : undefined}
           aria-activedescendant={slashOpen ? menuIds.option : undefined}
           onChange={(event) => { setCaret(event.currentTarget.selectionStart); setDismissedToken(null); }}
@@ -359,6 +370,12 @@ function MatOptPrompt({ onSubmit, onStop, stopControl = "inline", disabled = fal
         </PromptInputTools>
         <PromptInputTools className="matopt-composer-actions">
           <span className="matopt-composer-command-hint" aria-hidden="true"><kbd>/</kbd> for tools</span>
+          <button type="button" className="matopt-composer-mic" data-voice={voice.state} aria-pressed={voice.state === "recording"}
+            aria-label={voice.state === "recording" ? "Stop recording" : "Voice input (hold Right Option)"} title="Voice input: click, or hold Right ⌥ Option"
+            disabled={disabled || voice.state === "transcribing"} onClick={voice.toggle}
+            style={{ "--voice-level": voice.level } as React.CSSProperties}>
+            {voice.state === "transcribing" ? <Loader2 size={17} className="matopt-work-spinning" aria-hidden="true" /> : <Mic size={17} strokeWidth={1.8} aria-hidden="true" />}
+          </button>
           <PromptInputSubmit className="matopt-composer-send" status={showStop ? "streaming" : "ready"} onStop={onStop}
             disabled={showStop ? !onStop : !canSend} aria-label={showStop ? "Stop" : loading ? "Steer" : "Send"}>
             {showStop ? <Square size={16} strokeWidth={1.8} fill="currentColor" aria-hidden="true" /> : <ArrowUp size={20} strokeWidth={1.8} aria-hidden="true" />}
@@ -366,6 +383,7 @@ function MatOptPrompt({ onSubmit, onStop, stopControl = "inline", disabled = fal
         </PromptInputTools>
       </div>
     </PromptInput>
+    {voice.error && <p className="matopt-voice-error" role="alert">{voice.error} <button type="button" onClick={voice.clearError}>Dismiss</button></p>}
     {showDisclaimer && <p className="matopt-composer-disclaimer">MatOpt can make mistakes. Check important info.</p>}
   </div>;
 }

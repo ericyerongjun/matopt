@@ -20,6 +20,9 @@ COPY backend/requirements.txt backend/constraints.txt ./
 RUN pip install --no-cache-dir --upgrade pip \
     && pip install --no-cache-dir -r requirements.txt -c constraints.txt
 
+# Japanese speech readings: fetch OpenJTalk's dictionary while site-packages is writable.
+RUN python -c "import pyopenjtalk; pyopenjtalk.g2p('テスト')"
+
 COPY backend/ ./
 COPY skills ./skills
 

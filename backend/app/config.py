@@ -110,7 +110,12 @@ class Settings(BaseSettings):
     run_max_tool_starts: int = Field(default=160, ge=1)
     run_timeout_seconds: float = Field(default=1800, gt=0, allow_inf_nan=False)
     recent_turns_full_replay: int = 3
-    history_char_budget: int = 240_000
+    # History may use the model's whole context window less a reply reserve.
+    # Unset, the character budget is derived from that window (about 3
+    # characters per token); compaction also triggers from the provider's
+    # reported prompt tokens, so token-dense text cannot overflow the window.
+    history_char_budget: Optional[int] = None
+    context_reserve_tokens: int = 65_536
     compaction_target_ratio: float = 0.5  # compact to this share of the budget so it fires rarely
     keepalive_seconds: float = 10.0
     session_log_enabled: bool = True             # disable to use the legacy message replay path
@@ -122,7 +127,7 @@ class Settings(BaseSettings):
     # ── Tools ───────────────────────────────────────────────────────────
     tool_timeout: int = 120
     tool_max_timeout: int = 900
-    tool_max_output_chars: int = 12_000
+    tool_max_output_chars: int = 100_000  # per call; one runaway print cannot fill the window
     kernel_idle_seconds: int = 1800
     # Children spawned for agent actions (bash, the Jupyter kernel) get the
     # explicit allowlist in app/agent/child_env.py instead of the backend's
@@ -164,26 +169,25 @@ class Settings(BaseSettings):
     align_monitor: bool = True
     align_monitor_llm: bool = False
 
+    # ── Voice: local Whisper transcription and Kokoro speech (models in DATA_DIR/models) ──
+    speech_enabled: bool = True
+    speech_prefetch: bool = True                   # download/load models at startup, in the background
+    whisper_model: str = "small"                   # tiny | base | small | medium | large-v3 | turbo
+
     # ── Document understanding (the configured DeepSeek vision model) ──
     document_ocr_enabled: bool = True
     document_auto_parse: bool = True
-    document_ocr_max_pages: int = Field(default=12, ge=1, le=100)
-    document_ocr_max_files: int = Field(default=6, ge=1, le=20)
-    document_ocr_max_file_mb: int = Field(default=25, ge=1, le=200)
+    document_ocr_max_pages: int = Field(default=500, ge=1, le=2000)  # per call; whole documents by default
+    document_ocr_concurrency: int = Field(default=8, ge=1, le=32)    # pages read in parallel
+    document_ocr_max_files: int = Field(default=20, ge=1, le=50)
+    document_ocr_max_file_mb: int = Field(default=200, ge=1, le=1000)
     document_ocr_max_dimension: int = Field(default=2048, ge=512, le=4096)
     document_ocr_max_pixels: int = Field(default=32_000_000, ge=1_000_000, le=64_000_000)
     document_ocr_page_timeout: float = Field(default=90.0, gt=0, le=600)
-    document_ocr_timeout: float = Field(default=300.0, gt=0, le=1800)
+    document_ocr_timeout: float = Field(default=1800.0, gt=0, le=7200)
     document_ocr_max_tokens: int = Field(default=6000, ge=256, le=16384)
 
-    # ── Optional local document parsing fallback (MinerU) ───────────────
-    mineru_command: Optional[str] = None           # path to the mineru CLI; auto-detected if empty
-    mineru_backend: str = "pipeline"               # pipeline | vlm-transformers | vlm-http-client ...
-    mineru_device: str = "auto"                    # auto | cpu | mps | cuda
-    mineru_lang: str = "en"
-    mineru_timeout: int = 900
-    mineru_model_source: str = "huggingface"       # huggingface | modelscope | local
-    document_preview_chars: int = 6000
+    document_preview_chars: int = 100_000
 
     # ── Derived paths ───────────────────────────────────────────────────
     @property

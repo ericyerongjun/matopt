@@ -67,12 +67,6 @@ For remote catalogs, execution accepts exact tool IDs and explicit native aliase
 next model request. See the [tool discovery experiment](../docs/TOOL-DISCOVERY-EXPERIMENT.md)
 for measured recall, schema-size tradeoffs and remaining limitations.
 
-## Optional local PDF OCR alternative
-
-```bash
-./scripts/setup_mineru.sh
-```
-
 ## PDFs, screenshots and scanned documents
 
 Newly attached PDFs and raster images are read automatically before the first
@@ -105,7 +99,7 @@ images return errors rather than invented readings. OCR is still model output,
 so uncertain mathematical symbols should be checked against the original.
 
 `parse_document` remains available explicitly with `auto` (default),
-`multimodal`, `fast` (local extraction) or `mineru`. Set
+`multimodal` or `fast` (local extraction). Set
 `DOCUMENT_AUTO_PARSE=false` to make reading manual; `DOCUMENT_OCR_ENABLED=false`
 disables multimodal OCR. Existing CSV/Excel handling is unchanged. OCR calls
 appear as accounted side tasks in the session ledger; page-image payloads are

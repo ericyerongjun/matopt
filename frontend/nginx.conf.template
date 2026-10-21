@@ -13,6 +13,10 @@ server {
     add_header Content-Security-Policy "frame-src $ui_sandbox_origin blob:; object-src 'none'; base-uri 'self'" always;
     add_header X-Content-Type-Options nosniff always;
     location /api/ {
+        # The backend enforces MAX_UPLOAD_SIZE_MB itself; nginx's 1 MB default
+        # rejected ordinary PDF and dataset uploads with 413.
+        client_max_body_size 0;
+        proxy_request_buffering off;
         proxy_pass http://backend:8000;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;

@@ -224,6 +224,21 @@ export interface WorkSummary {
     finished_at?: number;
 }
 
+/** One row of the visible work transcript: the agent's narration or an action it took. */
+export interface TranscriptEntry {
+    id: string;
+    kind: "note" | "action";
+    order: [number, number];
+    text?: string;
+    tool?: string;
+    title?: string;
+    subject?: string;
+    language?: string;
+    input?: string;
+    output?: string;
+    status?: "running" | "done" | "error" | "stopped";
+}
+
 export interface AssistantContent {
     parts: Part[];
     model: string;
@@ -239,6 +254,7 @@ export interface AssistantContent {
     earlier_drafts?: string[];
     /** Controlled explanation when an older result cannot be safely consolidated. */
     notice?: string;
+    transcript?: TranscriptEntry[];
 }
 
 export interface ChatMessage {
