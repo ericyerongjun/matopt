@@ -61,17 +61,19 @@ export default function AvatarStage({ url = AVATAR_URL }: { url?: string }) {
             VRMUtils.rotateVRM0(vrm);
             // Relaxed rest pose instead of the T-pose the model is authored in.
             const bone = (name: Parameters<VRM["humanoid"]["getNormalizedBoneNode"]>[0]) => vrm?.humanoid.getNormalizedBoneNode(name);
-            bone("leftUpperArm")?.rotation.set(0, 0, 1.22);
-            bone("rightUpperArm")?.rotation.set(0, 0, -1.22);
-            bone("leftLowerArm")?.rotation.set(0, 0, 0.18);
-            bone("rightLowerArm")?.rotation.set(0, 0, -0.18);
+            // VRM 0.x models are turned 180° by rotateVRM0, which mirrors the arm axis.
+            const side = vrm.meta?.metaVersion === "0" ? 1 : -1;
+            bone("leftUpperArm")?.rotation.set(0, 0, 1.22 * side);
+            bone("rightUpperArm")?.rotation.set(0, 0, -1.22 * side);
+            bone("leftLowerArm")?.rotation.set(0, 0, 0.18 * side);
+            bone("rightLowerArm")?.rotation.set(0, 0, -0.18 * side);
             if (vrm.lookAt) vrm.lookAt.target = target;
             scene.add(vrm.scene);
             const head = bone("head");
             if (head) {
                 const position = head.getWorldPosition(new THREE.Vector3());
-                camera.position.set(0, position.y - 0.08, 1.7);
-                camera.lookAt(0, position.y - 0.16, 0);
+                camera.position.set(0, position.y - 0.1, 1.9);
+                camera.lookAt(0, position.y - 0.2, 0);
             }
             setStatus("ready");
         }, undefined, () => setStatus("error"));
