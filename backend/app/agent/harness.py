@@ -30,7 +30,7 @@ from typing import Any, AsyncIterator, Awaitable, Callable, Optional
 from app.agent.datasets import datasets_block
 from app.agent.events import Event, ToolResult, ev, keepalive
 from app.agent.execution import ToolExecutionService, restore_execution_state
-from app.agent import compaction
+from app.agent import compaction, otel
 from app.agent.budget import BudgetExhausted, RunBudget
 from app.agent.activity import PublicActivity
 from app.agent.results import ResultPublisher
@@ -1012,6 +1012,10 @@ class AgentHarness:
                         reason = state.end_reason or ("completed" if status == "complete" else "aborted" if status == "stopped" else "error")
                         state.session.append("turn/end", {"turn": state.turn, "reason": {"kind": reason}})
                         await state.session.flush()
+                        try:
+                            otel.export_turn(cid, state.session.events, state.turn)
+                        except Exception:  # noqa: BLE001 - telemetry must never fail a turn
+                            logger.warning("OpenTelemetry export failed", exc_info=True)
                     elif state.session is None:
                         self.db.add_message(cid, "assistant", content, message_id=message_id)
                         self._persist_steers(cid, state)
