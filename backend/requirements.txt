@@ -59,6 +59,13 @@ email-validator>=2.1.0
 requests>=2.32.3
 # weasyprint is optional (LAMBDA PDF export falls back to fpdf2)
 
+# ── Voice: local speech recognition and synthesis (models download on first use) ──
+faster-whisper>=1.2
+av>=11,<19                 # faster-whisper 1.2 passes metadata_errors=, removed in PyAV 19
+kokoro-onnx>=0.6
+misaki-fork[zh]>=0.9      # Mandarin pronunciation for Kokoro v1.1-zh
+pyopenjtalk-plus>=0.3     # Japanese readings (prebuilt wheels; provides pyopenjtalk)
+
 # ── Web search (open metasearch; DuckDuckGo / Brave / Wikipedia backends) ──
 ddgs>=9.0.0
 

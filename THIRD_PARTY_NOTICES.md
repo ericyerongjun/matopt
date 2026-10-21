@@ -328,3 +328,28 @@ MatOpt HTTP/service adapters and special chart slots are marked in source.
 AI Elements source retains Vercel copyright and Apache-2.0 notices.
 Material Icon Theme assets are copied from ZCode public/material-icons.
 Their original MIT license is retained in frontend/public/material-icons/LICENSE.txt.
+
+---
+
+## Runtime voice and avatar components (installed or downloaded, not vendored)
+
+These are pip dependencies or model files fetched at first use into
+`DATA_DIR/models`. They are listed because a built Docker image or data volume
+contains them.
+
+| Component | Source | Licence | Use |
+|---|---|---|---|
+| faster-whisper / CTranslate2 | PyPI | MIT | Speech recognition |
+| Whisper `small` weights (Systran/faster-whisper-small) | Hugging Face | MIT | Speech recognition model |
+| kokoro-onnx | PyPI | MIT | Speech synthesis runtime |
+| Kokoro-82M v1.0 and v1.1-zh weights and voices | GitHub releases of kokoro-onnx; hexgrad on Hugging Face | Apache-2.0 | Speech synthesis models |
+| misaki-fork (with jieba, pypinyin, cn2an) | PyPI | Apache-2.0 (dependencies MIT) | Mandarin and Japanese pronunciation |
+| pyopenjtalk-plus and the OpenJTalk dictionary | PyPI | MIT / Modified BSD | Japanese readings |
+| espeakng-loader (bundles libespeak-ng and its data) | PyPI | MIT wrapper; **espeak-ng is GPL-3.0-or-later** | Pronunciation for English and other languages |
+| phonemizer | PyPI | GPL-3.0 | espeak-ng interface used by kokoro-onnx |
+
+espeak-ng and phonemizer are GPL-3.0. Running MatOpt, or using it privately
+or for coursework, is unaffected. Distributing a build that contains them
+(for example a published Docker image) carries GPL obligations for those
+components; set `SPEECH_ENABLED=false` and omit the voice packages to ship
+without them.

@@ -11,6 +11,7 @@ from .tools import router as tools_router
 from .suggestions import router as suggestions_router
 from .followups import router as followups_router
 from .ui import router as ui_router
+from .speech import router as speech_router
 
 api_router = APIRouter()
 api_router.include_router(chat_router)
@@ -22,5 +23,6 @@ api_router.include_router(tools_router)
 api_router.include_router(suggestions_router)
 api_router.include_router(followups_router)
 api_router.include_router(ui_router)
+api_router.include_router(speech_router)
 
 __all__ = ["api_router"]

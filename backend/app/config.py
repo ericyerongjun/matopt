@@ -169,6 +169,11 @@ class Settings(BaseSettings):
     align_monitor: bool = True
     align_monitor_llm: bool = False
 
+    # ── Voice: local Whisper transcription and Kokoro speech (models in DATA_DIR/models) ──
+    speech_enabled: bool = True
+    speech_prefetch: bool = True                   # download/load models at startup, in the background
+    whisper_model: str = "small"                   # tiny | base | small | medium | large-v3 | turbo
+
     # ── Document understanding (the configured DeepSeek vision model) ──
     document_ocr_enabled: bool = True
     document_auto_parse: bool = True

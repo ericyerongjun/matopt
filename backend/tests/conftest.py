@@ -5,6 +5,7 @@ import tempfile
 _TMP = tempfile.mkdtemp(prefix="matopt-test-")
 os.environ["DATA_DIR"] = _TMP
 os.environ["MCP_ENABLED"] = "false"
+os.environ["SPEECH_PREFETCH"] = "false"  # never download speech models from tests
 os.environ.setdefault("DEEPSEEK_API_KEY", "")
 os.environ.setdefault("OPENAI_API_KEY", "")
 os.environ.setdefault("QWEN_API_KEY", "")

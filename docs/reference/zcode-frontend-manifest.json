@@ -13835,9 +13835,9 @@
     {
       "path": "frontend/src/components/MathInput.tsx",
       "mode": "host-adapter",
-      "expected_sha256": "a477c0c3783f5cc6755a8a915f809045020834c8f9e2bea1162eaf591876d9d2",
+      "expected_sha256": "2c32b11964d6eaa652b9cac5cb80f8b7d10149edffcc2eee9d43e3d1becbfe6e",
       "sources": [],
-      "notes": "MatOpt slash-only composer adapter with viewport-aware command portal, draft presets, bounded literal quotes, acceptance-aware submit/steer, attachments and Stop. Preserves pending user edits, new quote IDs, and IME behavior."
+      "notes": "MatOpt slash-only composer adapter with viewport-aware command portal, draft presets, bounded literal quotes, acceptance-aware submit/steer, attachments and Stop. Preserves pending user edits, new quote IDs, and IME behavior. Voice input: mic button and hold-Right-Option push-to-talk with local transcription."
     },
     {
       "path": "frontend/src/components/MessageList.tsx",
