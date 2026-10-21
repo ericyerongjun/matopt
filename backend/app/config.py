@@ -106,6 +106,7 @@ class Settings(BaseSettings):
     run_timeout_seconds: float = Field(default=1800, gt=0, allow_inf_nan=False)
     recent_turns_full_replay: int = 3
     history_char_budget: int = 240_000
+    compaction_target_ratio: float = 0.5  # compact to this share of the budget so it fires rarely
     keepalive_seconds: float = 10.0
     session_log_enabled: bool = True             # disable to use the legacy message replay path
     verify_rounds: int = 2
