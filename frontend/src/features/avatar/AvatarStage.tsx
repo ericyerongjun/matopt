@@ -8,6 +8,7 @@ import * as THREE from "three";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import { VRMLoaderPlugin, VRMUtils, type VRM } from "@pixiv/three-vrm";
 import { useVoiceStore, type Viseme } from "../voice/voiceStore.ts";
+import { dressTutor, TUTOR_STYLE } from "./tutorStyle.ts";
 
 /** Default tutor: a fan-made Jensen Huang tribute built by scripts/build_tutor_avatar.py. */
 export const AVATAR_URL = "/avatars/tutor.vrm";
@@ -15,7 +16,8 @@ const MOUTH: Array<keyof Viseme> = ["aa", "ih", "ou", "ee", "oh"];
 
 export default function AvatarStage({ url = AVATAR_URL }: { url?: string }) {
     // The default tutor rests with a slight smile; custom avatars keep their own neutral face.
-    const restingSmile = url === AVATAR_URL ? 0.18 : 0;
+    const isTutor = url === AVATAR_URL;
+    const restingSmile = isTutor ? TUTOR_STYLE.restingSmile : 0;
     const host = useRef<HTMLDivElement>(null);
     const [status, setStatus] = useState<"loading" | "ready" | "error">("loading");
 
@@ -32,7 +34,7 @@ export default function AvatarStage({ url = AVATAR_URL }: { url?: string }) {
         camera.position.set(0, 1.32, 1.65);
         const key = new THREE.DirectionalLight(0xffffff, 2.2);
         key.position.set(0.6, 1.8, 1.4);
-        scene.add(key, new THREE.HemisphereLight(0xffffff, 0x8890a0, 1.4));
+        scene.add(key, new THREE.HemisphereLight(0xfff6ee, 0xa08878, 1.4));
         const target = new THREE.Object3D();
         scene.add(target);
 
@@ -71,6 +73,9 @@ export default function AvatarStage({ url = AVATAR_URL }: { url?: string }) {
             bone("leftLowerArm")?.rotation.set(0, 0, 0.18 * side);
             bone("rightLowerArm")?.rotation.set(0, 0, -0.18 * side);
             if (vrm.lookAt) vrm.lookAt.target = target;
+            if (isTutor) dressTutor(vrm);
+            // Inspection hook for development: ?avatar-debug exposes the loaded model.
+            if (new URLSearchParams(window.location.search).has("avatar-debug")) Object.assign(window, { __matoptAvatar: { vrm, camera, THREE } });
             scene.add(vrm.scene);
             const head = bone("head");
             if (head) {
@@ -131,7 +136,7 @@ export default function AvatarStage({ url = AVATAR_URL }: { url?: string }) {
             renderer.dispose();
             renderer.domElement.remove();
         };
-    }, [url, restingSmile]);
+    }, [url, restingSmile, isTutor]);
 
     return <div ref={host} className="matopt-avatar-stage" data-status={status} role="img"
         aria-label={status === "error" ? "The avatar could not be loaded" : "MatOpt tutor avatar"}>

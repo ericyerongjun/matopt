@@ -27,14 +27,14 @@ BASE_SHA256 = None  # informational: verify the source with the OpenGameArt down
 # MToon colours (linear RGBA). Hair is a greyscale texture tinted by _Color, so
 # silver with a darker shade reads as salt-and-pepper.
 STYLE = {
-    "HAIR": {"_Color": [0.80, 0.80, 0.82, 1], "_ShadeColor": [0.36, 0.36, 0.40, 1]},
+    "HAIR": {"_Color": [0.88, 0.88, 0.90, 1], "_ShadeColor": [0.30, 0.30, 0.34, 1]},
     # Black leather jacket over a black T-shirt: dark base, deep shade and a cool
     # rim highlight for the leather sheen. The texture keeps its fold shading.
     "Tops": {"_Color": [1, 1, 1, 1], "_ShadeColor": [0.42, 0.42, 0.46, 1], "_RimColor": [0.55, 0.56, 0.62, 1],
              "float": {"_RimFresnelPower": 3.5, "_RimLift": 0.04, "_RimLightingMix": 0.7}},
     "Bottoms": {"_Color": [0.12, 0.12, 0.14, 1], "_ShadeColor": [0.05, 0.05, 0.06, 1]},
     "Shoes": {"_Color": [0.10, 0.10, 0.11, 1], "_ShadeColor": [0.04, 0.04, 0.05, 1]},
-    "SKIN": {"_Color": [1.00, 0.93, 0.86, 1], "_ShadeColor": [0.86, 0.69, 0.62, 1]},
+    "SKIN": {"_Color": [1.00, 0.84, 0.70, 1], "_ShadeColor": [0.93, 0.66, 0.52, 1]},
     "FaceBrow": {"_Color": [0.35, 0.33, 0.33, 1]},
 }
 REMOVE_MATERIALS = ("Accessory_Tie",)
@@ -114,8 +114,8 @@ def leather_jacket(png: bytes) -> bytes:
             elif front_strip:
                 base, shade = tee, 0.85 + 0.3 * lum              # matte T-shirt
             else:
-                gloss = 0.25 * max(0.0, lum - 0.55)              # leather catches light on highlights
-                base, shade = leather, 0.6 + 0.7 * lum + gloss
+                gloss = 0.18 * max(0.0, lum - 0.6)               # leather catches light on highlights
+                base, shade = leather, 0.62 + 0.38 * lum + gloss  # bright source areas (shirt) stay dark
             pixels[x, y] = tuple(min(255, int(c * shade)) for c in base) + (a,)
     out = io.BytesIO()
     image.save(out, "PNG", optimize=True)

@@ -1,0 +1,63 @@
+/**
+ * Finishing touches for the default tutor (the Jensen Huang tribute):
+ * caricature head proportions and half-rim glasses built as real geometry,
+ * attached to the head so they move, blink-frame and lip-sync with it.
+ */
+import * as THREE from "three";
+import type { VRM } from "@pixiv/three-vrm";
+
+export const TUTOR_STYLE = {
+    headScale: 1.26,
+    restingSmile: 0.26,
+    // Glasses in the raw head bone's frame (VRoid heads face -Z before rotateVRM0).
+    glasses: { eyeY: 0.057, eyeX: 0.036, depth: -0.12, width: 0.064, height: 0.04 },
+};
+
+function rimMaterial() {
+    return new THREE.MeshStandardMaterial({ color: 0x2a2c31, metalness: 0.75, roughness: 0.35 });
+}
+
+/** One half-rim lens: a solid upper bar, a hairline lower rim and a faint lens. */
+function lens(width: number, height: number): THREE.Group {
+    const group = new THREE.Group();
+    const half = width / 2;
+    const upper = new THREE.CatmullRomCurve3([
+        new THREE.Vector3(-half, height * 0.3, 0), new THREE.Vector3(-half * 0.6, height * 0.47, 0),
+        new THREE.Vector3(0, height * 0.5, 0), new THREE.Vector3(half * 0.6, height * 0.47, 0), new THREE.Vector3(half, height * 0.3, 0),
+    ]);
+    group.add(new THREE.Mesh(new THREE.TubeGeometry(upper, 24, 0.0027, 8), rimMaterial()));
+    const lower = new THREE.EllipseCurve(0, height * 0.02, half, height * 0.48, Math.PI, Math.PI * 2);
+    const lowerPoints = lower.getPoints(24).map((p) => new THREE.Vector3(p.x, p.y, 0));
+    group.add(new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(lowerPoints), 24, 0.0008, 6),
+        new THREE.MeshStandardMaterial({ color: 0x8a8d94, metalness: 0.8, roughness: 0.3 })));
+    const glass = new THREE.Mesh(new THREE.CircleGeometry(1, 32), new THREE.MeshPhysicalMaterial({
+        color: 0xffffff, transparent: true, opacity: 0.12, roughness: 0.05, metalness: 0, depthWrite: false }));
+    glass.scale.set(half, height * 0.5, 1);
+    group.add(glass);
+    return group;
+}
+
+export function dressTutor(vrm: VRM): void {
+    const head = vrm.humanoid.getRawBoneNode("head");
+    if (!head) return;
+    head.scale.setScalar(TUTOR_STYLE.headScale);
+    const { eyeY, eyeX, depth, width, height } = TUTOR_STYLE.glasses;
+    const glasses = new THREE.Group();
+    glasses.name = "TutorGlasses";
+    for (const side of [-1, 1]) {
+        const piece = lens(width, height);
+        piece.position.set(side * eyeX, 0, 0);
+        glasses.add(piece);
+        // Temple arm running back to the ear.
+        const temple = new THREE.Mesh(new THREE.BoxGeometry(0.0024, 0.0032, 0.095), rimMaterial());
+        temple.position.set(side * (eyeX + width / 2), height * 0.18, 0.047);
+        glasses.add(temple);
+    }
+    const bridge = new THREE.Mesh(new THREE.TorusGeometry(0.0075, 0.0018, 6, 16, Math.PI), rimMaterial());
+    bridge.position.set(0, height * 0.12, 0);
+    glasses.add(bridge);
+    // Lenses face the camera: the head's front is -Z, so turn the group around.
+    glasses.rotation.y = Math.PI;
+    glasses.position.set(0, eyeY, depth);
+    head.add(glasses);
+}
