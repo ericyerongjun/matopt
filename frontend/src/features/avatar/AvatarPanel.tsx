@@ -40,7 +40,7 @@ export function AvatarPanel() {
         <Suspense fallback={<div className="matopt-avatar-stage" data-status="loading"><span className="matopt-avatar-note">Loading avatar…</span></div>}>
             <AvatarStage key={customUrl ?? tutor} url={customUrl ?? undefined} tutor={TUTORS[tutor]} />
         </Suspense>
-        {!customUrl && <div className="matopt-avatar-tutors" role="radiogroup" aria-label="Tutor">
+        {!customUrl && Object.keys(TUTORS).length > 1 && <div className="matopt-avatar-tutors" role="radiogroup" aria-label="Tutor">
             {Object.values(TUTORS).map((preset) => <button key={preset.id} type="button" role="radio" aria-checked={tutor === preset.id}
                 onClick={() => setPreference("tutor", preset.id)}>{preset.label}</button>)}
         </div>}

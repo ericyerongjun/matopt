@@ -348,7 +348,7 @@ contains them.
 | espeakng-loader (bundles libespeak-ng and its data) | PyPI | MIT wrapper; **espeak-ng is GPL-3.0-or-later** | Pronunciation for English and other languages |
 | phonemizer | PyPI | GPL-3.0 | espeak-ng interface used by kokoro-onnx |
 | three.js, @pixiv/three-vrm | npm | MIT | 3D avatar rendering |
-| VRoid Base_Male, restyled as `frontend/public/avatars/tutor-*.vrm` by `scripts/build_tutor_avatar.py` | <https://opengameart.org/content/vroid-studio-cc0-models> (VRoid Project) | CC0 1.0 | Built-in tutors: fan-made tribute caricatures styled after Andrej Karpathy and Jensen Huang, not affiliated with or endorsed by them or their employers; no logos, trademarks or cloned voices |
+| VRoid HairSample_Male, restyled as `frontend/public/avatars/tutor-andrej.vrm` by `scripts/build_tutor_avatar.py` | <https://opengameart.org/content/vroid-studio-cc0-models> (VRoid Project) | CC0 1.0 | Built-in tutor: a fan-made tribute caricature styled after Andrej Karpathy, not affiliated with or endorsed by him; no logos, trademarks or cloned voice |
 
 espeak-ng and phonemizer are GPL-3.0. Running MatOpt, or using it privately
 or for coursework, is unaffected. Distributing a build that contains them
