@@ -14,7 +14,7 @@ from app.llm.catalog import LEVELS, MAX_OUTPUT_TOKENS, MODEL_ID, PROVIDER_ID, ca
 
 BACKEND_DIR = Path(__file__).resolve().parent.parent
 REPO_ROOT = BACKEND_DIR.parent
-SKILL_GROUPS = ("matopt", "lambda", "anthropic")
+SKILL_GROUPS = ("matopt", "data", "anthropic")
 
 
 def default_skill_group_dirs(*roots: Path) -> list[Path]:
@@ -103,7 +103,7 @@ class Settings(BaseSettings):
     agent_max_steps: int = 40
     agent_max_consecutive_failures: int = 4
     loop_policy: Literal["operation", "legacy"] = "operation"
-    # One allowance across worker, checks, OCR and delegated LAMBDA work.
+    # One allowance across worker, checks, OCR and delegated data-agent work.
     # Engineering defaults; per-operation limits can be stricter. The absolute
     # deadline includes paused time, and missing token usage remains unknown.
     run_max_model_attempts: int = Field(default=80, ge=1)
@@ -163,8 +163,8 @@ class Settings(BaseSettings):
     mcp_oauth_scopes: str = ""                 # comma-separated required scopes
     mcp_public_url: Optional[str] = None       # e.g. https://matopt.example.com
 
-    # ── LAMBDA data agent (vendored AMA-CMFAI/LAMBDA backend) ───────────
-    lambda_enabled: bool = True
+    # ── Data agent (backend/data_agent_app) ───────────
+    data_agent_enabled: bool = True
 
     # ── Web search (ddgs by default; optional SearXNG / Tavily / Brave) ─
     web_search_enabled: bool = True

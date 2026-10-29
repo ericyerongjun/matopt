@@ -59,7 +59,7 @@ class FakePython:
 @pytest.fixture
 def rig(tmp_path):
     db = Database(tmp_path / "apps.sqlite")
-    config = settings.model_copy(update={"data_dir": tmp_path, "skill_auto_activate": False, "lambda_enabled": False})
+    config = settings.model_copy(update={"data_dir": tmp_path, "skill_auto_activate": False, "data_agent_enabled": False})
     harness = AgentHarness(db, NoKernels(), config, FakeRegistry(FakeProvider([])), ToolRegistry([]))
     cid = db.create_conversation()["id"]
     ctx = ToolContext(cid, Workspace(cid, config.workspace_dir), lambda _: None, asyncio.Event(), state={})

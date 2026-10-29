@@ -43,7 +43,7 @@ def tool_label(name: str) -> str:
         return "Searching sources"
     if name in {"render_ui", "create_ui_app", "register_ui_action"}:
         return "Creating interactive view"
-    if name in {"python", "check_equivalence", "wolfram_alpha", "lambda_data_agent", "bash"}:
+    if name in {"python", "check_equivalence", "wolfram_alpha", "data_agent", "bash"}:
         return "Computing"
     return "Working"
 

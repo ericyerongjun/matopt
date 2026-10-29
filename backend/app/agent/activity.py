@@ -34,7 +34,7 @@ TOOLS = {
     "bash": ("Running command", "Carry out the requested workspace operation"),
     "check_equivalence": ("Checking expressions", "Compare mathematical expressions"),
     "wolfram_alpha": ("Computing", "Evaluate the requested calculation"),
-    "lambda_data_agent": ("Data analysis agent", "Analyze the workspace data and produce results"),
+    "data_agent": ("Data analysis agent", "Analyze the workspace data and produce results"),
     "render_ui": ("Creating view", "Build an interactive result"),
     "create_ui_app": ("Creating app", "Build and validate an interactive app"),
     "register_ui_action": ("Connecting interaction", "Connect a result to a workspace action"),
@@ -190,7 +190,7 @@ class PublicActivity:
         attempt = previous[1] + 1 if previous and self.items.get(previous[0], {}).get("status") == "failed" else 1
         self.attempts[fingerprint] = (item_id, attempt)
         await self.item(item_id, parent_id=self.plan_parent if self.phase == "work" and self.plan_parent else f"{self.id}:phase:{self.phase}",
-                        kind="agent" if name == "lambda_data_agent" else "tool", tool=name,
+                        kind="agent" if name == "data_agent" else "tool", tool=name,
                         label=label, purpose=purpose, status="queued", attempt=attempt)
         self.work["tool_count"] = len(self.calls)
 

@@ -3,7 +3,7 @@
 
 --live is the only mode that dispatches configured paid provider calls. This
 runner changes no application files and keeps all databases/workspaces in a
-fresh temporary directory. It is a sequential LAMBDA comparison, not a parallel
+fresh temporary directory. It is a sequential data-agent comparison, not a parallel
 multi-agent benchmark. See docs/DELEGATION-EXPERIMENT.md for the inference limit.
 """
 from __future__ import annotations
@@ -101,7 +101,7 @@ class Journal:
 def source_hashes():
     paths = [ROOT / "scripts/benchmark_delegation.py",
              ROOT / "docs/reference/delegation-result.schema.json"]
-    for package in ("backend/app", "backend/lambda_app"):
+    for package in ("backend/app", "backend/data_agent_app"):
         paths.extend((ROOT / package).rglob("*.py"))
     return {str(path.relative_to(ROOT)): digest(path.read_bytes()) for path in sorted(paths)}
 
@@ -149,14 +149,14 @@ class FakeCreate:
         self.calls += 1
         tool = None
         if self.calls == 1:
-            if self.source == "lambda":
+            if self.source == "data":
                 tool = ("execute_python", {"code": smoke_code(self.name, self.fixture), "session_id": "overwritten"})
             elif self.path == "delegated":
-                tool = ("lambda_data_agent", {"message": fixture_prompt(self.name, self.fixture), "language": "en"})
+                tool = ("data_agent", {"message": fixture_prompt(self.name, self.fixture), "language": "en"})
             else:
                 tool = ("python", {"code": smoke_code(self.name, self.fixture)})
         usage = {"prompt_tokens": 11, "completion_tokens": 7, "total_tokens": 18}
-        if self.missing_usage and self.source == "lambda" and self.calls == 2:
+        if self.missing_usage and self.source == "data" and self.calls == 2:
             usage = None
         return FakeStream(text="" if tool else json.dumps(self.fixture["expected"], sort_keys=True), tool=tool, usage=usage)
 
@@ -188,7 +188,7 @@ class WireStream:
         except Exception:
             self.finish("error")
             raise
-        from app.agent.lambda_bridge import reported_model_usage
+        from app.agent.data_agent_bridge import reported_model_usage
         if getattr(chunk, "usage", None) is not None:
             self.row["usage"] = reported_model_usage(chunk.usage)
             self.journal.append({"type": "provider_usage", "run": self.run_id,
@@ -305,15 +305,15 @@ async def experiment(args, state_dir, receipts, trials):
     from app.agent.tools.base import ToolRegistry
     from app.agent.tools.file_tools import ReadFileTool, WriteFileTool, ListFilesTool
     from app.agent.tools.python_tool import PythonTool
-    from app.agent.tools.lambda_tool import LambdaDataAgentTool
+    from app.agent.tools.data_agent_tool import DataAgentTool
     from app.agent.tools.router import ToolRouter
     from app.config import settings
     from app.llm.catalog import MODEL_ID, PROVIDER_ID, PROVIDERS
     from app.llm.openai_compat import OpenAICompatProvider
     import app.runtime as runtime_module
-    from lambda_app.core import database as lambda_database
-    from lambda_app.api.v1 import chat as lambda_chat
-    import lambda_app.models.models  # register schema before creating isolated tables
+    from data_agent_app.core import database as data_agent_database
+    from data_agent_app.api.v1 import chat as data_agent_chat
+    import data_agent_app.models.models  # register schema before creating isolated tables
 
     class BenchmarkHarness(AgentHarness):
         def _start_title(self, *args, **kwargs):
@@ -346,11 +346,11 @@ async def experiment(args, state_dir, receipts, trials):
 
     if args.live and not settings.deepseek_api_key:
         raise RuntimeError("Live mode requires the existing configured DeepSeek API key.")
-    lambda_database.Base.metadata.create_all(lambda_database.engine)
+    data_agent_database.Base.metadata.create_all(data_agent_database.engine)
     rt = runtime_module.Runtime()
     runtime_module.get_runtime = lambda: rt  # Process-local glue uses the benchmark DB, never the live app DB.
-    original_child_create = lambda_chat.llm_service.client.chat.completions.create
-    original_child_execute = lambda_chat.agent_service.execute_tool
+    original_child_create = data_agent_chat.llm_service.client.chat.completions.create
+    original_child_execute = data_agent_chat.agent_service.execute_tool
     runs = []
     try:
         for repetition in range(args.repeats):
@@ -372,8 +372,8 @@ async def experiment(args, state_dir, receipts, trials):
 
                     async def observe_child_tool(tool_name, tool_input, *extra, **kwargs):
                         from app.agent.budget import BudgetExhausted
-                        from app.agent.lambda_bridge import get_lambda_exec_context
-                        bridge = get_lambda_exec_context()
+                        from app.agent.data_agent_bridge import get_data_agent_exec_context
+                        bridge = get_data_agent_exec_context()
                         previous_count = bridge.run_budget.snapshot()["tool_starts"]
                         tool_row = {"name": tool_name, "call_id": kwargs.get("call_id"), "outcome": "pending",
                                     "admitted": False, "elapsed_ms": None}
@@ -398,14 +398,14 @@ async def experiment(args, state_dir, receipts, trials):
                             tool_row["elapsed_ms"] = round((time.perf_counter() - tool_clock) * 1000, 3)
                             receipts.append({"type": "child_tool_end", "run": row_id, "tool": tool_row})
 
-                    lambda_chat.agent_service.execute_tool = observe_child_tool
+                    data_agent_chat.agent_service.execute_tool = observe_child_tool
                     provider = OpenAICompatProvider(PROVIDERS[PROVIDER_ID], settings.deepseek_api_key or "offline",
                                                     settings.deepseek_base_url, timeout=args.timeout)
                     outer_create = provider.client.chat.completions.create if args.live else FakeCreate(path, "native", name, fixture)
-                    child_create = original_child_create if args.live else FakeCreate(path, "lambda", name, fixture, args.smoke_missing_usage)
+                    child_create = original_child_create if args.live else FakeCreate(path, "data", name, fixture, args.smoke_missing_usage)
                     provider.client.chat.completions.create = WireRecorder(outer_create, "native", wire_rows, args, receipts, row_id)
-                    lambda_chat.llm_service.client.chat.completions.create = WireRecorder(child_create, "lambda", wire_rows, args, receipts, row_id)
-                    tools = ToolRegistry([LambdaDataAgentTool()] if path == "delegated" else [
+                    data_agent_chat.llm_service.client.chat.completions.create = WireRecorder(child_create, "data", wire_rows, args, receipts, row_id)
+                    tools = ToolRegistry([DataAgentTool()] if path == "delegated" else [
                         PythonTool(default_timeout=30, max_timeout=60), ReadFileTool(), WriteFileTool(), ListFilesTool(),
                     ])
                     harness = BenchmarkHarness(rt.db, rt.kernels, settings, Registry(provider), tools,
@@ -447,8 +447,8 @@ async def experiment(args, state_dir, receipts, trials):
                         await provider.client.close()
     finally:
         await rt.stop()
-        await lambda_chat.llm_service.client.close()
-        lambda_database.engine.dispose()
+        await data_agent_chat.llm_service.client.close()
+        data_agent_database.engine.dispose()
     return runs
 
 
@@ -462,7 +462,7 @@ def summarize(runs):
                         "median_elapsed_ms": statistics.median(r["elapsed_ms"] for r in rows),
                         "actual_requests": sum(r["accounting"]["actual_requests"] for r in rows),
                         "native_requests": sum(c["dispatched"] for r in rows for c in r["provider_calls"] if c["source"] == "native"),
-                        "child_requests": sum(c["dispatched"] for r in rows for c in r["provider_calls"] if c["source"] == "lambda"),
+                        "child_requests": sum(c["dispatched"] for r in rows for c in r["provider_calls"] if c["source"] == "data"),
                         "child_tool_failures": sum(t["outcome"] != "success" for r in rows for t in r["child_tools"]),
                         "unknown_usage_attempts": sum(r["accounting"]["unknown_attempts"] for r in rows)}
     paired = []
@@ -511,8 +511,8 @@ def main():
     state_dir = Path(tempfile.mkdtemp(prefix="matopt-delegation-"))
     # Override only this fresh process before application imports. Never use a
     # configured production DATABASE_URL, uploads directory or MCP connection.
-    os.environ.update(DATA_DIR=str(state_dir), DATABASE_URL=f"sqlite:///{state_dir}/lambda/lambda.sqlite3",
-                      LOCAL_WORKSPACE_ROOT=str(state_dir / "lambda/workspaces"), LOCAL_MODE="true",
+    os.environ.update(DATA_DIR=str(state_dir), DATABASE_URL=f"sqlite:///{state_dir}/data_agent/data_agent.sqlite3",
+                      LOCAL_WORKSPACE_ROOT=str(state_dir / "data_agent/workspaces"), LOCAL_MODE="true",
                       FILE_STORAGE_MODE="local", CODE_EXECUTION_MODE="local", MCP_ENABLED="false",
                       SKILL_AUTO_ACTIVATE="false", WEB_SEARCH_ENABLED="false", DOCUMENT_AUTO_PARSE="false",
                       AGENT_MAX_STEPS=str(args.model_attempts), RUN_MAX_MODEL_ATTEMPTS=str(args.model_attempts),

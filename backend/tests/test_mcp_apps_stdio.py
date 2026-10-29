@@ -26,7 +26,7 @@ async def test_stdio_server_serves_view_and_saves_state(tmp_path):
     UIStore(db).commit(cid, {"id": "sine-wave", "kind": "mini_app", "title": "Sine wave explorer", "fallback": "Frequency 2.",
                              "app": {"html": "<p>sine</p>"}, "state": {"frequency": 2}})
     db.close()
-    env = {**os.environ, "DATA_DIR": str(tmp_path), "MCP_ENABLED": "false", "LAMBDA_ENABLED": "false",
+    env = {**os.environ, "DATA_DIR": str(tmp_path), "MCP_ENABLED": "false", "DATA_AGENT_ENABLED": "false",
            # HTTP auth settings never block the local stdio transport.
            "MCP_AUTH_TOKEN": "correct-horse-battery-staple"}
     transport = StdioTransport(command=sys.executable, args=["-m", "app.agent.mcp"], env=env, cwd=str(BACKEND))

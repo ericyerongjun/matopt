@@ -16,12 +16,12 @@ from app.runtime import build_tools
 
 ANTHROPIC = REPO_ROOT / "skills" / "anthropic"
 MATOPT = REPO_ROOT / "skills" / "matopt"
-LAMBDA = REPO_ROOT / "skills" / "lambda"
+DATA = REPO_ROOT / "skills" / "data"
 FIXTURES = Path(__file__).parent / "fixtures" / "skills"
 
 
 def _registry():
-    return SkillRegistry.discover([MATOPT, LAMBDA, ANTHROPIC])
+    return SkillRegistry.discover([MATOPT, DATA, ANTHROPIC])
 
 
 def test_parse_frontmatter_multiline():
@@ -39,15 +39,15 @@ def test_discover_anthropic_and_matopt():
         "algorithmic-art", "frontend-design", "webapp-testing", "claude-api",
         "sympy-compute", "statistical-inference", "numerical-optimization",
         "ml-experiment", "math-verification",
-        "lambda-data-agent", "lambda-eda", "lambda-report", "lambda-slides", "lambda-notebook",
+        "data-agent", "data-eda", "data-report", "data-slides", "data-notebook",
     ):
         assert expected in names, expected
     assert len(reg) >= 29
     pdf = reg.get("pdf")
     assert pdf.source == "anthropic" and "pdf" in pdf.description.lower()
     assert (pdf.path / "SKILL.md").is_file()
-    eda = reg.get("lambda-eda")
-    assert eda is not None and eda.source == "lambda"
+    eda = reg.get("data-eda")
+    assert eda is not None and eda.source == "data"
 
 
 def test_router_xlsx_from_filename():
@@ -72,14 +72,14 @@ def test_router_simple_arithmetic_does_not_force_a_skill():
     assert plan.activate == []
 
 
-def test_router_csv_analysis_activates_lambda():
+def test_router_csv_analysis_activates_data_skill():
     plan = SkillRouter(_registry()).plan(
         "Analyze this dataset and write an EDA report",
         files=[{"path": "uploads/sales.csv"}],
     )
     names = [s.name for s in plan.activate]
-    assert names and names[0] in {"lambda-eda", "lambda-data-agent", "lambda-report"}
-    assert any(n.startswith("lambda-") for n in names)
+    assert names and names[0] in {"data-eda", "data-agent", "data-report"}
+    assert any(n.startswith("data-") for n in names)
 
 
 @pytest.mark.parametrize("extension", ["csv", "tsv", "parquet"])
@@ -91,32 +91,32 @@ def test_router_csv_analysis_activates_lambda():
 ])
 def test_bounded_work_does_not_autoload_full_delegation_from_a_table(extension, query):
     plan = SkillRouter(_registry()).plan(query, files=[f"uploads/sales.{extension}"])
-    assert "lambda-data-agent" not in [skill.name for skill in plan.activate]
+    assert "data-agent" not in [skill.name for skill in plan.activate]
 
 
 @pytest.mark.parametrize("query", [
-    "Run LAMBDA to compute the mean of this table",
-    "Use the LAMBDA agent to analyze these files",
+    "Run the data agent to compute the mean of this table",
+    "Use the data agent to analyze these files",
     "Run a full analysis pipeline with EDA, charts, a report, slides and a notebook",
     "Do autonomous exploration of the uploaded dataset",
 ])
 def test_delegated_workflow_request_beats_incidental_file_routing(query):
     plan = SkillRouter(_registry()).plan(query, files=["uploads/sales.csv"])
-    assert plan.activate[0].name == "lambda-data-agent"
+    assert plan.activate[0].name == "data-agent"
 
 
-def test_router_lambda_report_and_slides():
+def test_router_data_agent_report_and_slides():
     report = SkillRouter(_registry()).plan("Write a LaTeX analysis report of the EDA")
-    assert report.activate and report.activate[0].name == "lambda-report"
-    slides = SkillRouter(_registry()).plan("Turn this EDA into LAMBDA insight slides")
-    assert slides.activate and slides.activate[0].name == "lambda-slides"
+    assert report.activate and report.activate[0].name == "data-report"
+    slides = SkillRouter(_registry()).plan("Turn this EDA into insight slides")
+    assert slides.activate and slides.activate[0].name == "data-slides"
 
 
-def test_tool_router_lambda_alias():
+def test_tool_router_data_agent_alias():
     tools = build_tools(SkillRegistry())
     router = ToolRouter()
-    t, err = router.resolve(tools, "lambda")
-    assert err is None and t is not None and t.name == "lambda_data_agent"
+    t, err = router.resolve(tools, "data")
+    assert err is None and t is not None and t.name == "data_agent"
 
 
 def test_slash_skill_tokens():
@@ -174,11 +174,11 @@ def test_materialize_fixture(tmp_path):
 
 def test_docker_layout_finds_skills_next_to_backend(tmp_path):
     backend = tmp_path / "app"
-    for group in ("matopt", "lambda", "anthropic"):
+    for group in ("matopt", "data", "anthropic"):
         (backend / "skills" / group).mkdir(parents=True)
     found = [d for d in default_skill_group_dirs(Path("/"), backend) if d.is_dir()]
     assert backend / "skills" / "matopt" in found
-    assert backend / "skills" / "lambda" in found
+    assert backend / "skills" / "data" in found
     assert backend / "skills" / "anthropic" in found
 
 
@@ -186,7 +186,7 @@ def test_inference_and_optimisation_skill_reports():
     inference = (MATOPT / "statistical-inference" / "SKILL.md").read_text()
     assert "## Required report" in inference
     assert "do not invent a test" in inference
-    for playbook in ("lambda-eda", "lambda-report", "lambda-data-agent"):
+    for playbook in ("data-eda", "data-report", "data-agent"):
         assert playbook in inference
     for field in ("estimand", "Hypothesis", "Assumptions", "Effect size", "Sample size"):
         assert field in inference

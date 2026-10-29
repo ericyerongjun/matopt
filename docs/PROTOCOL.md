@@ -163,7 +163,7 @@ Tool names and their arguments: `python {code, timeout?, reset?}`, `bash {comman
 `list_files {pattern?, path?}`, `grep {pattern, path?, glob?, case_sensitive?, max_results?}`,
 `parse_document {path, backend?, pages?, lang?}`, `check_equivalence {expression_a, expression_b}`,
 `update_plan {steps: PlanStep[]}`, `wolfram_alpha {query}` (only when configured),
-`search_skills {query, limit?}`, `load_skill {name}`, `lambda_data_agent {message, autonomous?, language?}`,
+`search_skills {query, limit?}`, `load_skill {name}`, `data_agent {message, autonomous?, language?}`,
 `web_search {query, max_results?}` and `web_fetch {url}` (available by default when server web search is enabled).
 Extra MCP tools appear as `{server}_{tool}` when `mcp.json` lists servers.
 `result.meta` for `python` includes `status`, `duration_ms`, `execution_count`, `stdout`, `stderr`; for `bash` `exit_code`, `duration_ms`;
@@ -180,25 +180,25 @@ commentary through an explicit contract; it never exposes provider reasoning.
 `GET /api/skills/{name}` → full `SKILL.md` body plus metadata.
 `GET /api/tools` → `{tools: [{name, description, kind, source}]}` for the composer `/` menu (hides skill loaders and the internal UI tools).
 
-Skill folders live in `skills/matopt/`, `skills/lambda/`, and `skills/anthropic/` (Agent Skills spec). LAMBDA data work is split like Anthropic's catalog: `/lambda-eda`, `/lambda-report`, `/lambda-slides`, `/lambda-notebook`, `/lambda-data-agent`. The harness scores the user message and attachments, injects up to two matching `SKILL.md` bodies, and copies the folder into the conversation workspace at `skills/<name>/`. Docker images copy that tree to `/app/skills` (compose also bind-mounts it).
+Skill folders live in `skills/matopt/`, `skills/data/`, and `skills/anthropic/` (Agent Skills spec). Data-analysis work is split like Anthropic's catalog: `/data-eda`, `/data-report`, `/data-slides`, `/data-notebook`, `/data-agent`. The harness scores the user message and attachments, injects up to two matching `SKILL.md` bodies, and copies the folder into the conversation workspace at `skills/<name>/`. Docker images copy that tree to `/app/skills` (compose also bind-mounts it).
 
-## LAMBDA data agent
+## Data agent
 
-The original [AMA-CMFAI/LAMBDA](https://github.com/AMA-CMFAI/LAMBDA) FastAPI backend is vendored as `backend/lambda_app/` (package rename only) and mounted at `/api/v1` so LAMBDA's own URLs keep working. MatOpt's harness calls it through the `lambda_data_agent` tool.
+The data agent's FastAPI backend lives in `backend/data_agent_app/` and is mounted at `/api/v1`. MatOpt's harness calls it through the `data_agent` tool.
 
 | Method | Path | Notes |
 |---|---|---|
-| GET | `/api/v1/health` | `{status, service: "lambda-api", storage, code_execution}` |
+| GET | `/api/v1/health` | `{status, service: "data-api", storage, code_execution}` |
 | GET | `/api/v1/public/config` | `{local_mode, turnstile_enabled, turnstile_site_key}` |
-| GET/POST | `/api/v1/conversations` | LAMBDA's conversation store (SQLite under `DATA_DIR/lambda/`) |
-| POST | `/api/v1/chat/stream` | LAMBDA's original SSE data-agent loop |
-| POST | `/api/v1/files/upload` | LAMBDA uploads |
-| POST | `/api/v1/code/execute` | LAMBDA local code execution |
+| GET/POST | `/api/v1/conversations` | Data-agent conversation store (SQLite under `DATA_DIR/data_agent/`) |
+| POST | `/api/v1/chat/stream` | SSE data-agent loop |
+| POST | `/api/v1/files/upload` | Data-agent uploads |
+| POST | `/api/v1/code/execute` | Data-agent local code execution |
 | POST | `/api/v1/export/...` | notebooks, Markdown/PDF reports, slides |
 
-Local data lives in `DATA_DIR/lambda/` (not MatOpt `DATA_DIR/workspaces/`). Disable with `LAMBDA_ENABLED=false`.
+Local data lives in `DATA_DIR/data_agent/` (not MatOpt `DATA_DIR/workspaces/`). Disable with `DATA_AGENT_ENABLED=false`.
 
-`lambda_data_agent {message, autonomous?, language?}` forwards workspace `uploads/` into LAMBDA and copies generated files back to `lambda_output/`.
+`data_agent {message, autonomous?, language?}` forwards workspace `uploads/` into the data agent and copies generated files back to `data_agent_output/`.
 
 ## MCP sandbox
 

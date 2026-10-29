@@ -26,14 +26,14 @@ serves it on port 3001. Both the frontend and backend must be restarted after
 updating. [Interactive UI setup and architecture](docs/INTELLIGENT-UI.md).
 
 The only live model is **DeepSeek V4.1 Flash**, using API ID `deepseek-flash`
-for the harness, verification, auxiliary requests and LAMBDA. Thinking effort
+for the harness, verification, auxiliary requests and the data agent. Thinking effort
 is Off, Low, High or Max. [Official model documentation](https://api-docs.deepseek.com/quick_start/pricing/).
 ZCode source mappings and UI checks: [ADE migration](docs/ZCODE-ADE-MIGRATION.md).
 See [docs/PROTOCOL.md](docs/PROTOCOL.md) and [backend/README.md](backend/README.md).
 
 Shared [academic response guidance](backend/app/academic_guidance.md) governs
 mathematical notation, derivations, research rigor, and adaptive explanation depth.
-It applies to the main assistant, final answer writer, verifier, and LAMBDA data
+It applies to the main assistant, final answer writer, verifier, and the data
 agent. Role-specific evidence limits and output formats still apply. Edit this
 document and restart the backend to update the guidance; no new API setting is needed.
 
@@ -64,8 +64,8 @@ configuration and supported formats.
 
 ## Skills and MCP
 
-- Catalog: [`skills/`](skills/README.md) — MatOpt playbooks, split [LAMBDA](https://github.com/AMA-CMFAI/LAMBDA) data skills (`/lambda-eda`, `/lambda-report`, `/lambda-slides`, `/lambda-notebook`, `/lambda-data-agent`), plus the full [anthropics/skills](https://github.com/anthropics/skills) tree.
-- Data agent: the original [LAMBDA](https://github.com/AMA-CMFAI/LAMBDA) backend is vendored as `backend/lambda_app/` and mounted at `/api/v1`. The harness tool is `lambda_data_agent`.
+- Catalog: [`skills/`](skills/README.md) — MatOpt playbooks, data-analysis skills (`/data-eda`, `/data-report`, `/data-slides`, `/data-notebook`, `/data-agent`), plus the full [anthropics/skills](https://github.com/anthropics/skills) tree.
+- Data agent: the data-analysis backend lives in `backend/data_agent_app/` and is mounted at `/api/v1`. The harness tool is `data_agent`.
 - Type `/` in the composer for a Cursor/Claude-style list of skills and tools. `/frontend-design` (or `/python`) loads that playbook or prefers that tool — including mid-turn steering, not only the first prompt.
 - Select `/web-search` or `/web-fetch` to enable web tools for the current turn (open-source `ddgs`, or SearXNG / Tavily / Brave). Skills and tools share the slash menu; selecting one never sends the message.
 - Interactive results appear in the conversation. **Open in canvas** expands a selected result and shares its parameters with the inline view. **Files** opens document previews; **Activity** contains safe work labels, the bounded verification outcome and usage. Internal reasoning, agent exchanges and raw tool traces stay private. While the agent is running, type to steer the current turn.

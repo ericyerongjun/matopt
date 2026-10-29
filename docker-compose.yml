@@ -24,7 +24,7 @@ services:
       - HOST=0.0.0.0
       - PORT=8000
       - DATA_DIR=/app/data
-      - SKILLS_DIRS=/app/skills/matopt,/app/skills/lambda,/app/skills/anthropic
+      - SKILLS_DIRS=/app/skills/matopt,/app/skills/data,/app/skills/anthropic
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
       interval: 30s

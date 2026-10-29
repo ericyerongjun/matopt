@@ -885,7 +885,7 @@ class AgentHarness:
             ctx.state["document_record_call"] = record_document_call
             # Delegated services own their shared-budget admission/settlement;
             # the parent callback records their actual usage, without charging twice.
-            ctx.state["lambda_record_call"] = record_auxiliary_call
+            ctx.state["data_agent_record_call"] = record_auxiliary_call
             system = {"role": "system", "content": self._system_prompt(workspace, route, ui=ctx.state["ui_enabled"])}
             turn_context = self._turn_context(workspace, route, cid, req.language)
             if not prior_messages and conv["title"] in ("New chat", _heuristic_title(req.text)):
@@ -1205,12 +1205,12 @@ class AgentHarness:
             extra.append("`lean_check` — compile a Lean 4 proof; it passes only without sorry, admit or new axioms. "
                          "Use it when the user asks for a formal or machine-checked proof, or a key lemma warrants one.")
         extra.append("`search_skills` / `load_skill` — find and activate a specialised playbook from the skill space.")
-        if self.tools.get("lambda_data_agent"):
+        if self.tools.get("data_agent"):
             extra.append(
                 "Use native `python` and file tools by default for short, bounded calculations, "
                 "single statistics, table inspections, and file edits. "
-                "`lambda_data_agent` supports substantial specialized EDA, chart/report, notebook, "
-                "and PowerPoint workflows, or an explicit request to use LAMBDA. "
+                "`data_agent` supports substantial specialized EDA, chart/report, notebook, "
+                "and PowerPoint workflows, or an explicit request to use the data agent. "
                 "When delegating, specify the inputs, question, expected deliverable and output paths, "
                 "and what evidence establishes completion. Delegation shares this run's model/tool "
                 "limits and deadline; it does not reset them. Inspect the returned results and "

@@ -9,7 +9,7 @@ description: >
   derivative, integral, antiderivative, limit, Taylor, Laurent, ODE, PDE,
   closed form, algebraic identity. Prefer this over mental algebra or numeric
   guessing. Do not use for pure statistics, ML training, or spreadsheet editing.
-license: MIT
+license: Apache-2.0
 metadata:
   author: matopt
   version: "1.0"

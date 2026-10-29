@@ -156,7 +156,7 @@ def rig(tmp_path):
     db = Database(tmp_path / "activity.sqlite")
     provider = LiveProvider()
     compute = ComputeTool()
-    config = settings.model_copy(update={"data_dir": tmp_path, "skill_auto_activate": False, "lambda_enabled": False,
+    config = settings.model_copy(update={"data_dir": tmp_path, "skill_auto_activate": False, "data_agent_enabled": False,
         "align_monitor": False, "document_auto_parse": True, "document_ocr_enabled": True,
         "document_ocr_max_pages": 2, "verify_rounds": 8, "agent_max_steps": 18})
     tools = ToolRegistry([ParseDocumentTool(), SearchTool(), compute, RenderUITool(), ReportProgressTool()])
@@ -466,7 +466,7 @@ async def test_stop_during_final_stream_does_not_commit_an_unfinished_answer(rig
 @pytest.mark.asyncio
 async def test_delegated_agent_has_public_assignment_and_outcome_without_private_messages(rig):
     class DelegatedAgent(Tool):
-        name = "lambda_data_agent"
+        name = "data_agent"
         read_only = True
         parameters = {"type": "object", "properties": {"task": {"type": "string"}}, "required": ["task"]}
 
@@ -476,13 +476,13 @@ async def test_delegated_agent_has_public_assignment_and_outcome_without_private
                               meta={"agent_messages": [AGENT_MESSAGE], "internal_task": task})
 
     rig.harness.tools.register(DelegatedAgent())
-    rig.provider.script = [{"tool": "lambda_data_agent", "args": {"task": "Check the product using the dataset"}}, {"text": FINAL}]
+    rig.provider.script = [{"tool": "data_agent", "args": {"task": "Check the product using the dataset"}}, {"text": FINAL}]
     capture = Capture(rig.harness, RunRequest(conversation_id=rig.cid, text="Delegate checking this calculation and report the result")).start()
     try:
         await capture.finish()
     finally:
         await capture.close()
-    agents = activity_events(capture.events, "lambda_data_agent")
+    agents = activity_events(capture.events, "data_agent")
     assert [item["status"] for item in agents] == ["queued", "running", "completed"]
     assert all(item["kind"] == "agent" and item["purpose"] for item in agents)
     assert agents[-1]["summary"] == "Completed."

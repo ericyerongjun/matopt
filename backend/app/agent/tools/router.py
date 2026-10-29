@@ -24,8 +24,8 @@ ALIASES = {
     "repl": "python", "search": "grep", "find": "grep", "plan": "update_plan",
     "todo": "update_plan", "skill": "load_skill", "skills": "search_skills",
     "wolfram": "wolfram_alpha", "equivalent": "check_equivalence",
-    "ocr": "parse_document", "parse": "parse_document", "lambda": "lambda_data_agent",
-    "data_agent": "lambda_data_agent", "eda": "lambda_data_agent", "web": "web_search",
+    "ocr": "parse_document", "parse": "parse_document", "data": "data_agent",
+    "eda": "data_agent", "web": "web_search",
     "websearch": "web_search", "search_web": "web_search", "fetch": "web_fetch",
     "browse": "web_fetch",
 }
@@ -33,7 +33,7 @@ ALIASES = {
 CORE = (
     "python", "bash", "read_file", "write_file", "edit_file", "list_files", "grep",
     "load_skill", "search_skills", "search_tools", "load_tool_schemas", "update_plan",
-    "parse_document", "check_equivalence", "lambda_data_agent", "web_search", "web_fetch",
+    "parse_document", "check_equivalence", "data_agent", "web_search", "web_fetch",
 )
 
 # Deliberately small, auditable vocabulary expansion. It improves recall but is

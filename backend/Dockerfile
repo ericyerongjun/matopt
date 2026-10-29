@@ -26,12 +26,12 @@ RUN python -c "import pyopenjtalk; pyopenjtalk.g2p('テスト')"
 COPY backend/ ./
 COPY skills ./skills
 
-RUN mkdir -p /app/data/workspaces /app/data/lambda \
+RUN mkdir -p /app/data/workspaces /app/data/data_agent \
     && useradd -m matopt && chown -R matopt:matopt /app
 USER matopt
 
 ENV DATA_DIR=/app/data \
-    SKILLS_DIRS=/app/skills/matopt,/app/skills/lambda,/app/skills/anthropic
+    SKILLS_DIRS=/app/skills/matopt,/app/skills/data,/app/skills/anthropic
 
 EXPOSE 8000
 

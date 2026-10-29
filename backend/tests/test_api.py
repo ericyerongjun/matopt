@@ -85,7 +85,7 @@ async def test_conversation_and_files_roundtrip():
         assert r.status_code == 200
         names = {s["name"] for s in r.json()["skills"]}
         assert "pdf" in names and "sympy-compute" in names
-        assert "lambda-eda" in names and "lambda-report" in names and "lambda-slides" in names
+        assert "data-eda" in names and "data-report" in names and "data-slides" in names
         r = await client.get("/api/skills/sympy-compute")
         assert r.status_code == 200 and "symbolic" in r.json()["body"].lower()
 

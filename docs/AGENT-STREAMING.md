@@ -367,7 +367,7 @@ actual local Jupyter and stateless HTTP MCP integration; model responses are
 controlled unless a separate live record explicitly says otherwise.
 
 One run allowance now covers native work, final writing, checks, OCR and
-delegated LAMBDA. Defaults are 80 model admissions, 160 tool admissions and an
+the delegated data agent. Defaults are 80 model admissions, 160 tool admissions and an
 absolute 1,800-second deadline, including pauses. Each retry consumes an
 admission. These are engineering defaults, not measured optimal limits.
 Tests cover logging enabled/disabled, parallel sibling settlement, shared
@@ -389,9 +389,9 @@ Independent review reproduced and fixed three additional edge cases:
   in that workspace until settlement. This does not claim that Python threads
   can be forcibly terminated.
 
-Bound LAMBDA output registration also applies the existing native visibility
+Bound data-agent output registration also applies the existing native visibility
 policy, excluding internal runtime files and traces from deliverables. The
-standalone LAMBDA path retains its existing visibility behavior.
+standalone data-agent path retains its existing visibility behavior.
 
 Comparisons remain separately scoped:
 
@@ -414,7 +414,7 @@ retains before/after geometry, screenshots and the native-zoom limitation.
 ## Selected build deployment and live acceptance — 2026-10-10
 
 After the native-first prompt/skill-routing adjustment, **63 focused routing and
-LAMBDA tests passed**. The backend image was rebuilt and applied locally only
+data-agent tests passed**. The backend image was rebuilt and applied locally only
 after confirming no active runs. The existing data volume remained attached;
 all 15 pre-existing conversations remained after restart. `/health` returned
 healthy with the configured provider and 22 tools. No credentials or existing
@@ -456,7 +456,7 @@ browser observation of every token as it originally arrived.
 The [delegation experiment](DELEGATION-EXPERIMENT.md) separately records the
 original pilot's tool-menu defect and a corrected eight-run comparison. Under
 the same six-request allowance, native execution completed 4/4 bounded tasks
-and delegated LAMBDA completed 1/4; both produced correct files in 4/4. This
+and the delegated data agent completed 1/4; both produced correct files in 4/4. This
 supports native-first routing for small arithmetic/file work while retaining
-LAMBDA for substantial specialized workflows or explicit requests. No extra
+the data agent for substantial specialized workflows or explicit requests. No extra
 request allowance was granted to hide failed handoffs.

@@ -42,7 +42,7 @@ export function safeWorkLabel(name: string): string {
     if (/^(ocr|parse_document|read_attachment|document_ocr)$/.test(name)) return "Reading uploaded file";
     if (/^(read_file|list_files|glob|grep|search_files|search_skills|load_skill|read_skill)$/.test(name)) return "Reading files";
     if (/^(web_search|web_fetch|search_web|fetch_url)$/.test(name)) return "Searching sources";
-    if (/^(python|bash|shell|execute_python|run_python|run_code|check_equivalence|wolfram_alpha|lambda_data_agent)$/.test(name)) return "Computing";
+    if (/^(python|bash|shell|execute_python|run_python|run_code|check_equivalence|wolfram_alpha|data_agent)$/.test(name)) return "Computing";
     if (/^(render_ui|create_ui|update_ui|create_ui_app|register_ui_action)$/.test(name)) return "Creating interactive view";
     return "Working";
 }

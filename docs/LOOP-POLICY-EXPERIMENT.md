@@ -228,8 +228,8 @@ and capability/policy guards run first. The callback precedes shared run-budget
 admission, so denied operations spend no tool-start allowance and emit no
 `tool_running` event. Each requested call still gets a durable result. The frozen
 legacy helpers remain unchanged and are used only under `LOOP_POLICY=legacy`.
-The operation policy is currently attached by the native harness; MCP and delegated
-LAMBDA do not acquire a new operation guard through this change.
+The operation policy is currently attached by the native harness; MCP and the delegated
+data agent do not acquire a new operation guard through this change.
 
 Task generation is the count of actually applied user steers. For native file
 operations, existing typed file-read records supply known content revisions.

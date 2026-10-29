@@ -9,7 +9,7 @@ description: >
   ANOVA, bootstrap, confidence interval, p-value, effect size, power analysis,
   A/B test. Do not use for symbolic algebra, neural nets, or creating .xlsx
   files as the primary deliverable (use xlsx for spreadsheet authoring).
-license: MIT
+license: Apache-2.0
 metadata:
   author: matopt
   version: "1.0"
@@ -48,6 +48,6 @@ Lead with this report before extra commentary:
 7. **Effect size.** A magnitude the reader can interpret, together with the p-value.
 8. **Sample size.** n for the analysis, not only the raw table.
 
-If the request is to explore, profile, or plot a whole table and no estimand is specified, do not invent a test. Hand that task to the `lambda-eda`, `lambda-report`, or `lambda-data-agent` playbook.
+If the request is to explore, profile, or plot a whole table and no estimand is specified, do not invent a test. Hand that task to the `data-eda`, `data-report`, or `data-agent` playbook.
 
 See [references/tests.md](references/tests.md) for a compact test chooser.

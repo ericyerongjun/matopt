@@ -53,7 +53,7 @@ class SpyProvider(FakeProvider):
 def rig(tmp_path):
     db = Database(tmp_path / "ui.sqlite")
     provider = SpyProvider([])
-    config = settings.model_copy(update={"data_dir": tmp_path, "skill_auto_activate": False, "lambda_enabled": False})
+    config = settings.model_copy(update={"data_dir": tmp_path, "skill_auto_activate": False, "data_agent_enabled": False})
     harness = AgentHarness(db, NoKernels(), config, FakeRegistry(provider), ToolRegistry([RenderUITool(), CreateUIAppTool(), RegisterUIActionTool()]))
     conv = db.create_conversation()
     async def emit(_):

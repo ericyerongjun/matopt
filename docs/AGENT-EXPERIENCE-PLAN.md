@@ -97,14 +97,14 @@ The [tool discovery experiment](TOOL-DISCOVERY-EXPERIMENT.md) improved initial e
 | Typed MCP annotations failed; per-call state lost read receipts | Normalize typed/dict metadata and persist workspace-bound state | Real local stateless-HTTP read/edit, progress and media tests passed |
 | MCP and native execution followed different paths | Shared validation, timeout, cancellation and receipt service | Remote service-specific behavior still depends on its implementation |
 | Fuzzy tool names could silently select a handler | Exact dispatch, searchable metadata and explicit schema loading | Retrieval improved on synthetic catalogs; prompt bytes increased |
-| Child work bypassed parent limits | One admission ledger and absolute deadline across native work, checks, OCR and delegated LAMBDA | Limits are engineering defaults; token usage can remain unknown |
+| Child work bypassed parent limits | One admission ledger and absolute deadline across native work, checks, OCR and the delegated data agent | Limits are engineering defaults; token usage can remain unknown |
 | Repeated errors blocked the whole tool | Operation-specific failure identity with a legacy fallback | Two actual-harness fake-provider comparisons permit corrected work; no broad quality claim |
 | Checking and final rewriting had different evidence | Check receipts and strict exact-wording mode; measure normal final-writer drift separately | A checker can still miss an error; normal rewriting remains a model operation |
 | Results, Files and Activity displaced one another | Persistent results/files, activity inspector, resizable workspace | Desktop/mobile inspection preserves the draft and selected view; user study unrun |
 | Mobile scrolling displaced the header/composer; short panels hid file contents | Corrected viewport containment and document-focused view at short heights | 320/390px and labeled 200% viewport/device-scale emulations passed; native browser zoom was not exercised |
 | A live final repeated its checking notice | Final-writing prompt requests one brief notice, only where useful | Prompt guidance is not a deterministic duplicate-content guarantee |
 
-There is currently no general native recursive agent tree to “fix.” The first budget integration target is existing delegated work, including LAMBDA. Any later general delegation API must inherit the same controls from inception.
+There is currently no general native recursive agent tree to “fix.” The first budget integration target is existing delegated work, including the data agent. Any later general delegation API must inherit the same controls from inception.
 
 The initial reviewer reproduced the typed-annotation exception, silent fuzzy-name dispatch and loss of read-before-write state. Subsequent focused regressions and the integrated suites above cover the fixes. Experimental reports distinguish controller simulation, actual-harness fake-provider tests, local Jupyter/MCP execution, and actual-provider acceptance.
 
@@ -192,7 +192,7 @@ Use a small-catalog fast path. For larger catalogs compare metadata/BM25 discove
 
 ### Bounded work and termination
 
-The integrated run-scoped budget is inherited by the worker, final writer, checker, OCR calls and delegated LAMBDA: defaults are 80 model-attempt admissions, 160 tool admissions and an absolute 1,800-second deadline. Each retry is a new admission. Paused time counts. Local limits can be stricter. Title/follow-up UI side tasks are outside this execution allowance. Missing provider token receipts remain unknown; token estimates do not masquerade as exact usage.
+The integrated run-scoped budget is inherited by the worker, final writer, checker, OCR calls and the delegated data agent: defaults are 80 model-attempt admissions, 160 tool admissions and an absolute 1,800-second deadline. Each retry is a new admission. Paused time counts. Local limits can be stricter. Title/follow-up UI side tasks are outside this execution allowance. Missing provider token receipts remain unknown; token estimates do not masquerade as exact usage.
 
 On exhaustion, save available partial results and a deterministic incomplete-status notice. Do not exceed the limit to ask a model for another handoff. The budget primitive supports reserving a final slot, but the current harness does not enable it: a last model call is not necessary to preserve results honestly. Existing observed-spend checks remain separate, depend on configured prices/actual receipts and are not hard reservation accounting.
 
@@ -274,8 +274,8 @@ The release selects conservative, inspectable behavior from the experiments actu
 | Tool selection | Exact dispatch, small-catalog availability, searchable metadata and explicit schema loading | Better expected-tool recall on synthetic catalogs, with larger prompts than the old shortlist |
 | Repeated failures | `LOOP_POLICY=operation`, retaining `legacy` fallback | Corrected operations survive failures that previously banned their whole tool; opaque output is never treated as proof of progress |
 | Checking | Bounded result checks, ordinary final streaming; strict exact-wording API option | Scripted drift cases expose the normal writer's remaining risk; strict mode avoids that writer but does not fix checker mistakes |
-| Delegation | Native tools first for bounded arithmetic/files; LAMBDA for substantial specialized workflows or explicit requests | Corrected eight-run comparison: native completed 4/4, delegated 1/4 under the same six-request allowance; both created correct files in 4/4 |
-| Limits | One shared admission ledger and absolute deadline across native work, checks, OCR and LAMBDA | Cancellation, unknown usage, nested limits and incomplete exits tested; defaults are not empirically optimal |
+| Delegation | Native tools first for bounded arithmetic/files; the data agent for substantial specialized workflows or explicit requests | Corrected eight-run comparison: native completed 4/4, delegated 1/4 under the same six-request allowance; both created correct files in 4/4 |
+| Limits | One shared admission ledger and absolute deadline across native work, checks, OCR and the data agent | Cancellation, unknown usage, nested limits and incomplete exits tested; defaults are not empirically optimal |
 
 The [live delegation report](DELEGATION-EXPERIMENT.md) retains all attempted trials. In the initial pilot, direct execution used 16 requests and 44,066 reported tokens across four runs; delegated execution used 24 requests and 97,810 reported tokens. Median elapsed time was 13.584 versus 19.241 seconds. Parent accounting matched independently observed provider receipts in all eight runs, and source hashes remained unchanged during the experiment. The delegated registry omitted tools still advertised by the generic prompt, causing avoidable failed calls. This is evidence of a benchmark setup defect, not a clean estimate of delegation overhead. Prices were not configured, so no dollar-cost claim is made.
 

@@ -21,9 +21,9 @@ def test_bookkeeping_hidden_progress_as_note_and_delegated_output_private():
     assert t.action(1, "a", "update_plan", {"steps": []}) is None
     assert t.action(1, "b", "publish_result", {}) is None
     assert t.action(1, "c", "report_progress", {"text": "Data loaded."})["kind"] == "note"
-    t.action(1, "d", "lambda_data_agent", {"task": "EDA"})
+    t.action(1, "d", "data_agent", {"task": "EDA"})
     t.result("d", True, "internal agent exchange", None)
-    delegated = [e for e in t.snapshot() if e.get("tool") == "lambda_data_agent"][0]
+    delegated = [e for e in t.snapshot() if e.get("tool") == "data_agent"][0]
     assert delegated["input"] == "EDA" and "output" not in delegated
 
 

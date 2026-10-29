@@ -47,7 +47,7 @@ class ReadSource(Tool):
 def rig(tmp_path, monkeypatch):
     db = Database(tmp_path / "public.sqlite")
     config = settings.model_copy(update={"data_dir": tmp_path, "skill_auto_activate": False,
-        "lambda_enabled": False, "diagnostics_enabled": False, "verify_rounds": 2})
+        "data_agent_enabled": False, "diagnostics_enabled": False, "verify_rounds": 2})
     provider = FakeProvider([])
     harness = AgentHarness(db, SimpleNamespace(peek=lambda cid: None), config, FakeRegistry(provider),
                            ToolRegistry([OutputTool(), ReadSource(), RenderUITool()]))

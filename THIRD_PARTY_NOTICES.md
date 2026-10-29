@@ -288,9 +288,8 @@ one is not mistaken for exhaustive.
 - `skills/anthropic/` — Anthropic Agent Skills, with its own
   [`THIRD_PARTY_NOTICES.md`](skills/anthropic/THIRD_PARTY_NOTICES.md) and
   [`UPSTREAM.md`](skills/anthropic/UPSTREAM.md). Four document skills are
-  source-available, not Apache-2.0.
-- `backend/lambda_app/` — AMA-CMFAI/LAMBDA, which ships no upstream licence
-  file; see [`backend/lambda/UPSTREAM.md`](backend/lambda/UPSTREAM.md).
+  source-available, not Apache-2.0. Pin and refresh command are also recorded
+  in [`vendor/UPSTREAM.md`](vendor/UPSTREAM.md).
 
 
 ## 3. Tailwind CSS — MIT

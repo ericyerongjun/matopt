@@ -22,7 +22,7 @@ from app.agent.tools.result_tool import PublishResultTool
 from app.agent.tools.python_tool import PythonTool
 from app.agent.tools.router import ToolRouter
 from app.agent.tools.shell_tool import ShellTool
-from app.agent.tools.lambda_tool import LambdaDataAgentTool
+from app.agent.tools.data_agent_tool import DataAgentTool
 from app.agent.tools.skill_tools import LoadSkillTool, SearchSkillsTool
 from app.agent.tools.web_search import WebFetchTool, WebSearchTool
 from app.agent.tools.ui_tools import CreateUIAppTool, RegisterUIActionTool, RenderUITool
@@ -95,8 +95,8 @@ def build_tools(skills: SkillRegistry | None = None) -> ToolRegistry:
     ]
     if settings.web_search_enabled:
         tools.extend([WebSearchTool(), WebFetchTool()])
-    if settings.lambda_enabled:
-        tools.append(LambdaDataAgentTool())
+    if settings.data_agent_enabled:
+        tools.append(DataAgentTool())
     if settings.wolfram_app_id:
         tools.append(WolframAlphaTool(settings.wolfram_app_id))
     if lean := LeanCheckTool.detect():

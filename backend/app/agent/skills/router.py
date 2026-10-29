@@ -26,7 +26,7 @@ TOKEN_RE = re.compile(r"[a-z0-9]+(?:\.[a-z0-9]+)?", re.I)
 EXT_RE = re.compile(r"\.(pdf|docx?|dotx|pptx?|potx|xlsx?|xlsm|csv|tsv|gif|png|jpe?g|html?)\b", re.I)
 NEGATIVE_RE = re.compile(r"do not (?:trigger|use)\b.*", re.I | re.S)
 DELEGATION_RE = re.compile(
-    r"\b(?:(?:run|use|call|ask|invoke)\s+(?:the\s+)?lambda(?![-\w])|run the data agent|"
+    r"\b(?:(?:run|use|call|ask|invoke)\s+the\s+data\s+agent|"
     r"autonomous exploration|full analysis pipeline)\b", re.I,
 )
 STOP = {
@@ -46,11 +46,11 @@ SYNONYMS: dict[str, tuple[str, ...]] = {
     "numerical-optimization": ("minimize", "minimise", "maximize", "optimise", "optimize", "l-bfgs", "bfgs", "least squares", "curve_fit"),
     "ml-experiment": ("sklearn", "classifier", "cross-validation", "pipeline", "roc", "random forest", "k-means"),
     "math-verification": ("verify", "equivalence", "sanity check", "boxed", "identity"),
-    "lambda-data-agent": ("lambda", "autonomous exploration", "data agent", "lambda agent"),
-    "lambda-eda": ("dataset", "dataframe", "eda", "exploratory", "csv", "parquet", "pandas profiling", "explore the table"),
-    "lambda-report": ("data report", "latex report", "analysis pdf", "eda report", "analysis report"),
-    "lambda-slides": ("analysis slides", "data deck", "insight slides", "eda slides"),
-    "lambda-notebook": ("analysis notebook", "ipynb", "jupyter notebook", "export notebook"),
+    "data-agent": ("data", "autonomous exploration", "data agent"),
+    "data-eda": ("dataset", "dataframe", "eda", "exploratory", "csv", "parquet", "pandas profiling", "explore the table"),
+    "data-report": ("data report", "latex report", "analysis pdf", "eda report", "analysis report"),
+    "data-slides": ("analysis slides", "data deck", "insight slides", "eda slides"),
+    "data-notebook": ("analysis notebook", "ipynb", "jupyter notebook", "export notebook"),
     "mcp-builder": ("mcp", "model context protocol", "fastmcp"),
     "skill-creator": ("create a skill", "author a skill", "skill.md"),
     "frontend-design": ("ui", "typography", "landing page"),
@@ -70,9 +70,9 @@ EXT_TO_SKILLS: dict[str, tuple[str, ...]] = {
     ".xlsm": ("xlsx",),
     # A table attachment can suggest an EDA playbook, but is not a request to
     # start a delegated analysis pipeline. That requires task/explicit cues.
-    ".csv": ("lambda-eda", "statistical-inference"),
-    ".tsv": ("lambda-eda", "statistical-inference"),
-    ".parquet": ("lambda-eda",),
+    ".csv": ("data-eda", "statistical-inference"),
+    ".tsv": ("data-eda", "statistical-inference"),
+    ".parquet": ("data-eda",),
     ".gif": ("slack-gif-creator",),
 }
 
@@ -148,7 +148,7 @@ class SkillRouter:
 
         if name in q_low or name.replace("-", " ") in q_low:
             return ScoredSkill(skill, 1.0, ["name-in-query"])
-        if name == "lambda-data-agent" and DELEGATION_RE.search(q):
+        if name == "data-agent" and DELEGATION_RE.search(q):
             # A requested delegated workflow should beat incidental workspace
             # extensions, while a table alone must not activate the full loop.
             return ScoredSkill(skill, 1.0, ["delegated-workflow-request"])

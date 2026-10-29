@@ -1,6 +1,6 @@
-# Direct execution versus sequential LAMBDA
+# Direct execution versus the sequential data agent
 
-This experiment compares two existing MatOpt execution paths on small file and arithmetic tasks. It tests whether invoking LAMBDA earns its additional model calls for these tasks. It does **not** test a native parallel agent tree, independent expert voting, large analysis reports, or delegation in general.
+This experiment compares two existing MatOpt execution paths on small file and arithmetic tasks. It tests whether invoking the data agent earns its additional model calls for these tasks. It does **not** test a native parallel agent tree, independent expert voting, large analysis reports, or delegation in general.
 
 The corrected live pilot supports keeping native execution as the default for these short tasks under a six-attempt run limit: both paths produced correct files, but native execution delivered all four final answers using fewer tokens and less time. The first pilot exposed a restricted-tool prompt mismatch and remains diagnostic evidence. Both full pilots, including every failure, are preserved below. The runner still defaults to fake providers; fake results validate execution and accounting plumbing, not model quality or real latency.
 
@@ -14,8 +14,8 @@ Run two fixtures twice through each path: **8 runs / 4 matched pairs**. Counterb
 | Model | Configured `deepseek-flash` | Same for outer loop and child |
 | Worker reasoning | High | High |
 | Native final writer | Existing reasoning-off policy | Same policy |
-| Tools advertised to outer model | Python, read/write/list files | `lambda_data_agent` |
-| Child loop | None | Existing sequential LAMBDA loop and tools |
+| Tools advertised to outer model | Python, read/write/list files | `data_agent` |
+| Child loop | None | Existing sequential data-agent loop and tools |
 | Corrected outer prompt | Common benchmark instructions plus exact registered menu | Same template plus this path's exact registered menu |
 | Corrected unknown-tool error | Lists only registered IDs | Same rule |
 | Model verifier | Disabled | Disabled |
@@ -24,7 +24,7 @@ Run two fixtures twice through each path: **8 runs / 4 matched pairs**. Counterb
 | Shared run allowance | 6 model attempts, 8 tool starts, 120 seconds | Same object across parent and child |
 | Completion cap | 2,048 tokens per request | Same cap, including actual child requests |
 
-The script records actual stage reasoning; it does not force the final writer to think. Model verification is disabled to avoid substituting a model verdict for an independent oracle; ordinary worker checks remain possible. The two paths intentionally retain their different full tool schemas and child prompt. LAMBDA's full description still prefers native tools for bounded tasks, but the corrected outer prompt explicitly makes absent tools unavailable. The child retains its specialized instructions and tool set. Results therefore compare these concrete platform paths, not the isolated causal effect of “having another agent.”
+The script records actual stage reasoning; it does not force the final writer to think. Model verification is disabled to avoid substituting a model verdict for an independent oracle; ordinary worker checks remain possible. The two paths intentionally retain their different full tool schemas and child prompt. The data agent's full description still prefers native tools for bounded tasks, but the corrected outer prompt explicitly makes absent tools unavailable. The child retains its specialized instructions and tool set. Results therefore compare these concrete platform paths, not the isolated causal effect of “having another agent.”
 
 `--tool-menu inherited` retains the first pilot's application prompt/router behavior. `--tool-menu registry` changes only the script's outer prompt and unknown-tool hints: both paths use one common instruction template, followed by their actual tool names and the first sentence of each description. Actual handlers, full provider tool schemas, child instructions, model settings, budgets, final writer, and oracles are unchanged by this switch. No forced tool call, added discovery handler, relaxed allowance, or automatic retry was introduced. Each report records the mode, common prompt hash, and full source hashes. Production changes between pilot snapshots mean the two pilots are not an isolated before/after ablation of the menu change.
 
@@ -87,7 +87,7 @@ For every path, report all attempted runs, file/answer pass counts, status count
 
 ## First live pilot: restricted-menu confound
 
-The first pilot started on **2026-10-10 at 12:02:28 +08:00** and retained all eight trials. Its delegated registry contained only `lambda_data_agent`, but the inherited system prompt also advertised native, skill, and discovery tools. The unknown-tool response recommended `search_tools` even though it was absent. Every delegated trial initially requested the unavailable `python` tool. This setup mismatch materially consumed the shared allowance; the results cannot establish delegation's intrinsic cost or answer quality.
+The first pilot started on **2026-10-10 at 12:02:28 +08:00** and retained all eight trials. Its delegated registry contained only `data_agent`, but the inherited system prompt also advertised native, skill, and discovery tools. The unknown-tool response recommended `search_tools` even though it was absent. Every delegated trial initially requested the unavailable `python` tool. This setup mismatch materially consumed the shared allowance; the results cannot establish delegation's intrinsic cost or answer quality.
 
 | Observed metric, all attempted trials | Direct | Delegated |
 |---|---:|---:|
@@ -107,7 +107,7 @@ Three delegated trials exhausted the **same six model attempts** before a final 
 
 - **Invoice, repetition 1:** four outer requests included repeated unavailable-tool attempts; two child requests successfully produced the file. The next outer worker admission was denied.
 - **Ledger, repetition 1:** the first child produced the correct file. A second delegated read-back request used one child model request and two successful file reads; its following model admission was denied.
-- **Invoice, repetition 2:** after producing the correct file, an outer request asked LAMBDA for a read-back. Its first child model admission was denied because all six attempts were already used.
+- **Invoice, repetition 2:** after producing the correct file, an outer request asked the data agent for a read-back. Its first child model admission was denied because all six attempts were already used.
 - **Ledger, repetition 2:** the sixth attempt was the final writer and returned the requested JSON successfully.
 
 All 40 observed provider starts have one matching usage receipt and terminal receipt. All eight trial journal records equal their final report entries. Required token counters match the parent shared budget exactly; there are **zero missing or unsettled usage receipts**. The 121 recorded source hashes match before and after the run. Provider outcomes were all completed, with 26 `tool_calls` and 14 `stop` finish reasons; there were no `length` finishes. Both SDK clients disable automatic retries, and no harness retry attempts occurred. No allowance was silently increased and no failed trial was rerun or omitted. The runner's exit 0 confirms a completed, source-stable and reconciled experiment; it does not mean every task succeeded.
@@ -127,7 +127,7 @@ The audit export replaces temporary absolute paths and generated conversation/ch
 
 The corrected fake smoke exited 0 on 2026-10-10: all four file/input and exact final-answer oracles passed, all request ledgers reconciled, and two injected missing child usage receipts stayed unknown. Static checks also confirm that an unknown-tool response cannot suggest absent discovery tools. Evidence is at `/private/tmp/matopt-delegation-registry-smoke.json` and its journal siblings.
 
-The corrected live pilot started on **2026-10-10 at 12:12:15 +08:00**, using a fresh result file and the same eight-run, six-attempt, eight-tool, 120-second, 2,048-output-token envelope. All eight actual outer system prompts and 18 worker request headers were checked against the registered menus. Every delegated trial immediately used `lambda_data_agent`; there were **no unknown-tool rejections**.
+The corrected live pilot started on **2026-10-10 at 12:12:15 +08:00**, using a fresh result file and the same eight-run, six-attempt, eight-tool, 120-second, 2,048-output-token envelope. All eight actual outer system prompts and 18 worker request headers were checked against the registered menus. Every delegated trial immediately used `data_agent`; there were **no unknown-tool rejections**.
 
 | Observed metric, all attempted corrected trials | Direct | Delegated |
 |---|---:|---:|
@@ -159,7 +159,7 @@ All corrected trials are retained here; **every row passed the independent file/
 
 The failure phases are different from the first pilot:
 
-- **Invoice and ledger, repetition 1:** one outer request plus five child requests completed the LAMBDA call and produced the correct file. The next outer worker admission was denied because all six attempts were used.
+- **Invoice and ledger, repetition 1:** one outer request plus five child requests completed the data-agent call and produced the correct file. The next outer worker admission was denied because all six attempts were used.
 - **Ledger, repetition 2:** one outer plus four child requests produced the correct file. The sixth request was an outer request for another delegated read-back; its first child model admission was denied.
 - **Invoice, repetition 2:** three child requests and three outer requests, including the final writer, fit within the six-attempt allowance.
 
@@ -174,15 +174,15 @@ Delegation used more reported tokens and elapsed time in all four matched pairs;
 - [Corrected incremental trial journal](reference/delegation-live-2026-10-10-registry.runs.jsonl)
 - [Corrected reconciliation audit, menu checks, and failure phases](reference/delegation-live-2026-10-10-registry.audit.json)
 
-These exports use the same sanitization as the first pilot. Original corrected evidence remains at `/private/tmp/matopt-delegation-registry-live.*` and its isolated state directory. The original pilot remains available and is not replaced by this run. Four source files changed between the two pilots—the runner, harness, skill router, and LAMBDA tool—so cross-pilot differences are not a controlled menu-only ablation.
+These exports use the same sanitization as the first pilot. Original corrected evidence remains at `/private/tmp/matopt-delegation-registry-live.*` and its isolated state directory. The original pilot remains available and is not replaced by this run. Four source files changed between the two pilots—the runner, harness, skill router, and the data agent tool—so cross-pilot differences are not a controlled menu-only ablation.
 
 ## Decision rule and limits
 
-**Keep native execution as the default for short, bounded arithmetic/file tasks; retain LAMBDA for explicit requests and substantial specialized workflows.** This decision uses the corrected pilot only: delegation supplied no file-correctness gain here, consumed more tokens/time, and failed to finish three final answers under the same six-attempt limit. Shared admission and usage accounting worked correctly, with no bypass or hidden retry. Keep those controls; the pilot does not justify automatically increasing a child's allowance. An accounting discrepancy, silent truncation, cancellation leak, or changed input would block promotion regardless of answer quality.
+**Keep native execution as the default for short, bounded arithmetic/file tasks; retain the data agent for explicit requests and substantial specialized workflows.** This decision uses the corrected pilot only: delegation supplied no file-correctness gain here, consumed more tokens/time, and failed to finish three final answers under the same six-attempt limit. Shared admission and usage accounting worked correctly, with no bypass or hidden retry. Keep those controls; the pilot does not justify automatically increasing a child's allowance. An accounting discrepancy, silent truncation, cancellation leak, or changed input would block promotion regardless of answer quality.
 
 Any future change to this default would need a broader matched fixture set and independent task-specific oracles. Keep every attempted run and separate budget-policy changes from execution-path changes; do not select the best of several runs. No further candidate rerun was performed here. Two fixtures and four pairs are a diagnostic pilot, not a statistically reliable ranking or a general “best harness” claim.
 
-Long analysis/report tasks may justify LAMBDA because it has specialized workflows; this pilot does not estimate that benefit. A later separate experiment would need report-specific artifact oracles and equal budgets. No result here establishes a benefit from parallel collaboration, because the delegated implementation tested here is sequential.
+Long analysis/report tasks may justify the data agent because it has specialized workflows; this pilot does not estimate that benefit. A later separate experiment would need report-specific artifact oracles and equal budgets. No result here establishes a benefit from parallel collaboration, because the delegated implementation tested here is sequential.
 
 ## Smoke evidence
 

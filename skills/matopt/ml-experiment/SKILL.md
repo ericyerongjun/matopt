@@ -8,7 +8,7 @@ description: >
   AUC, F1, pipeline, StandardScaler, leakage, random forest, logistic
   regression, k-means, PCA. Do not use for GLM inference p-values (use
   statistical-inference) or for writing an Excel workbook as the product (xlsx).
-license: MIT
+license: Apache-2.0
 metadata:
   author: matopt
   version: "1.0"

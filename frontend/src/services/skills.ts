@@ -83,7 +83,7 @@ export function skillIntro(description: string, max = 160): string {
 export function sourceLabel(source: string, kind?: CommandKind): string {
     if (kind === "tool") return "Tools";
     if (source === "matopt") return "MatOpt";
-    if (source === "lambda") return "LAMBDA";
+    if (source === "data") return "Data";
     if (source === "anthropic") return "Anthropic";
     return source || "Custom";
 }

@@ -18,7 +18,7 @@ docs
 scripts
 vendor
 skills
-lambda_app
+data_agent_app
 **/.venv
 **/__pycache__
 **/.pytest_cache

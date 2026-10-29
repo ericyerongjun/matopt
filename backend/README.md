@@ -2,7 +2,7 @@
 
 The agentic FastAPI service: a tool-calling harness with a persistent Python kernel,
 workspace files, Agent Skills routing, an MCP sandbox, DeepSeek multimodal document reading,
-the original LAMBDA data-analysis backend at `/api/v1`, and streaming SSE events.
+the data-analysis backend at `/api/v1`, and streaming SSE events.
 
 ## Environment
 
@@ -12,7 +12,7 @@ cp backend/.env.example backend/.env
 
 Set `DEEPSEEK_API_KEY`. The only live route is DeepSeek V4.1 Flash
 (`deepseek-flash`), including verification, title generation, follow-ups and
-LAMBDA. The docked composer exposes thinking effort: `off`, `low`, `high`,
+the data agent. The docked composer exposes thinking effort: `off`, `low`, `high`,
 `max`. Historical model labels remain in the ledger; known obsolete saved
 selections normalize to Flash for new requests.
 [Official API documentation](https://api-docs.deepseek.com/quick_start/pricing/).
@@ -40,7 +40,7 @@ Python comes from Homebrew (`python@3.12`). Dependencies are plain pip.
 - Health: http://localhost:8000/health
 - Providers: http://localhost:8000/api/providers
 - Protocol: [docs/PROTOCOL.md](../docs/PROTOCOL.md)
-- LAMBDA data agent (vendored original backend): http://localhost:8000/api/v1/health — see [backend/lambda/UPSTREAM.md](lambda/UPSTREAM.md)
+- Data agent: http://localhost:8000/api/v1/health
 
 ## MCP workspace identity
 
@@ -137,7 +137,7 @@ messages and verifier reports remain outside the public chat.
 
 ## Run limits and loop recovery
 
-Every native worker, checker, OCR request and delegated LAMBDA call shares one
+Every native worker, checker, OCR request and delegated data-agent call shares one
 run allowance, even with session logging disabled:
 
 | Setting | Default | Scope |

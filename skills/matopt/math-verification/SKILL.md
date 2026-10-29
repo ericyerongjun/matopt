@@ -7,7 +7,7 @@ description: >
   sanity check the answer, math-verify, boxed answer. Combine python, sympy,
   numeric probes, and the check_equivalence tool. Do not use for training
   models or for editing office documents.
-license: MIT
+license: Apache-2.0
 metadata:
   author: matopt
   version: "1.0"

@@ -152,7 +152,7 @@ async def run_case(case, *, strict, directory):
     db = Database(directory / "experiment.sqlite")
     provider = ContractProvider(case)
     config = settings.model_copy(update={"data_dir": directory, "skill_auto_activate": False,
-        "lambda_enabled": False, "align_monitor": False, "document_auto_parse": False,
+        "data_agent_enabled": False, "align_monitor": False, "document_auto_parse": False,
         "session_log_enabled": True, "agent_max_steps": 16, "verify_rounds": 50,
         "max_turn_cost": None, "max_conversation_cost": None,
         "run_max_model_attempts": case.model_limit, "run_max_tool_starts": 8, "run_timeout_seconds": 30})

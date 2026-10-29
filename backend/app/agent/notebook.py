@@ -1,7 +1,7 @@
 """Live ``analysis.ipynb`` for the conversation workspace.
 
 Every user cell that runs on the Jupyter kernel is appended so the notebook
-is the shared sandbox artifact for MatOpt ``python`` and LAMBDA.
+is the shared sandbox artifact for MatOpt ``python`` and the data agent.
 """
 
 from __future__ import annotations

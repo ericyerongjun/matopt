@@ -109,7 +109,7 @@ Verified on 2026-09-30:
 | Backend: `.venv/bin/python -m pytest -q` from `backend/` | **164 passed**, 75.66 s; includes local Jupyter kernels and loopback integration |
 | Frontend: `npm test` from `frontend/` | **63 passed**, 1.84 s; sequential tests, 512 MB JavaScript heap cap |
 | Frontend: `NODE_OPTIONS=--max-old-space-size=2048 npm run build` | TypeScript and Vite passed, 16.48 s; existing large Plotly/Mermaid chunk warnings |
-| Generated upstream copies: `bash scripts/vendor_check.sh` | 72 primitive files and 12 theme/assets match pins; 2 checks passed, 1 legacy LAMBDA script skipped because it has no `--check` mode |
+| Generated upstream copies: `bash scripts/vendor_check.sh` | 72 primitive files and 12 theme/assets match pins; 2 checks passed, 1 legacy data-agent script skipped because it has no `--check` mode |
 | Whitespace: `git diff --check` | Passed |
 | Rendered preview | Chat, trajectory, exact request inspector, timing and usage checked in the in-app browser using a scripted provider and isolated temporary data |
 

@@ -193,7 +193,7 @@ async def test_harness_load_refreshes_next_provider_request_after_midtask_discov
     router = ToolRouter()
     registry.register(SearchToolsTool(registry, router))
     registry.register(LoadToolSchemasTool(registry, router))
-    config = settings.model_copy(update={"data_dir": tmp_path, "skill_auto_activate": False, "lambda_enabled": False,
+    config = settings.model_copy(update={"data_dir": tmp_path, "skill_auto_activate": False, "data_agent_enabled": False,
         "align_monitor": False, "document_auto_parse": False, "agent_max_steps": 8})
     db = Database(tmp_path / "discovery.sqlite")
     kernels = SimpleNamespace(peek=lambda cid: None)

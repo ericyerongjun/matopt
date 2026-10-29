@@ -6,6 +6,7 @@ MatOpt uses these read-only source references:
 | --- | --- | --- | --- |
 | [ZCode](https://github.com/zai-org/ZCode) | `29628c9acdb81b703bbd4080c207a0e7ce5e276e` (v3.14.3) | Apache-2.0 | `/Users/eric/projects/ZCode` |
 | [DeepSeek Harness](https://github.com/ericyerongjun/deepseek-harness) | `639ed015397290b3745d163aafe02ffee4aa3f84` | MIT | `/Users/eric/projects/deepseek-harness` |
+| [Anthropic Agent Skills](https://github.com/anthropics/skills) | `41bbe19d1a1a7eaab5e7bb9050a417e5c6cffc8f` | Apache-2.0; `docx`, `pdf`, `pptx`, `xlsx` source-available | `skills/anthropic/` (verbatim; [UPSTREAM.md](../skills/anthropic/UPSTREAM.md), refresh with `scripts/sync-anthropic-skills.sh`) |
 
 The active frontend is copied from ZCode under `frontend/src/zcode`, with its
 full stylesheet and Material Icon Theme assets. MatOpt binds the native rendering

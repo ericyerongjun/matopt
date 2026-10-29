@@ -4,14 +4,14 @@ import type { CommandInfo } from "../../services/skills";
 import { filterPromptCommands, promptFilesForUpload, resolvePromptSubmission } from "./matopt-prompt.ts";
 
 const catalog: CommandInfo[] = [
-  { kind: "skill", name: "lambda-eda", description: "Analyze tabular data", source: "lambda" },
+  { kind: "skill", name: "data-eda", description: "Analyze tabular data", source: "data" },
   { kind: "tool", name: "read_file", description: "Read a workspace file", source: "matopt" },
   { kind: "skill", name: "sympy-compute", description: "Symbolic mathematics", source: "matopt" },
 ];
 
 test("native prompt binding combines pinned and typed commands without duplicate tokens", () => {
-  assert.deepEqual(resolvePromptSubmission("/lambda-eda /read-file inspect data", [catalog[0], catalog[1]], catalog), {
-    text: "/lambda-eda /read-file inspect data", skills: ["lambda-eda"], tools: ["read_file"],
+  assert.deepEqual(resolvePromptSubmission("/data-eda /read-file inspect data", [catalog[0], catalog[1]], catalog), {
+    text: "/data-eda /read-file inspect data", skills: ["data-eda"], tools: ["read_file"],
   });
   assert.equal(resolvePromptSubmission("  ", [], catalog), null);
   assert.deepEqual(resolvePromptSubmission("", [catalog[2]], catalog), {

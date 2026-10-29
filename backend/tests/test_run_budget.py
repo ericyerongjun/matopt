@@ -26,12 +26,12 @@ def usage(prompt=10, completion=4, **extra):
 
 def test_native_ocr_and_delegated_attempts_share_one_allowance():
     budget = RunBudget(model_attempt_limit=3, tool_start_limit=2)
-    for source in ("native", "ocr", "lambda"):
+    for source in ("native", "ocr", "data"):
         assert budget.admit_model(source, source=source).is_new
-    for source in ("native", "lambda"):
+    for source in ("native", "data"):
         assert budget.admit_tool(source, source=source).is_new
     with pytest.raises(BudgetExhausted) as model_error:
-        budget.admit_model("lambda-retry", source="lambda")
+        budget.admit_model("data-retry", source="data")
     assert (model_error.value.dimension, model_error.value.limit, model_error.value.used) == ("model_attempts", 3, 3)
     assert model_error.value.code == "RUN_BUDGET_EXHAUSTED"
     with pytest.raises(BudgetExhausted, match="tool starts"):
@@ -75,7 +75,7 @@ def test_tool_id_cannot_change_source():
     budget = RunBudget()
     budget.admit_tool("id", source="native")
     with pytest.raises(ValueError, match="different tool request"):
-        budget.admit_tool("id", source="lambda")
+        budget.admit_tool("id", source="data")
 
 
 @pytest.mark.parametrize("kind", ["model", "tool"])
@@ -88,7 +88,7 @@ def test_atomic_concurrent_admissions_cannot_overrun_shared_limit(kind):
     def start(index):
         gate.wait(timeout=10)
         try:
-            return admit(f"attempt-{index}", source=("native", "ocr", "lambda")[index % 3]).is_new
+            return admit(f"attempt-{index}", source=("native", "ocr", "data")[index % 3]).is_new
         except BudgetExhausted:
             return False
 
@@ -107,7 +107,7 @@ def test_concurrent_duplicate_attempt_id_grants_exactly_one_dispatch(kind):
 
     def start(_):
         gate.wait(timeout=10)
-        return admit("one-operation", source="lambda").is_new
+        return admit("one-operation", source="data").is_new
 
     with ThreadPoolExecutor(max_workers=workers) as pool:
         assert sum(pool.map(start, range(workers))) == 1
@@ -116,7 +116,7 @@ def test_concurrent_duplicate_attempt_id_grants_exactly_one_dispatch(kind):
 def test_final_slot_is_reserved_without_increasing_absolute_model_limit():
     budget = RunBudget(model_attempt_limit=3, tool_start_limit=1, reserve_final_slot=True)
     budget.admit_model("work-1", source="native")
-    budget.admit_model("work-2", source="lambda")
+    budget.admit_model("work-2", source="data")
     with pytest.raises(BudgetExhausted, match="reserved for the final response"):
         budget.admit_model("work-3", source="ocr")
     snapshot = budget.snapshot()
@@ -164,7 +164,7 @@ def test_final_request_retains_capacity_when_racing_concurrent_workers():
 def test_exact_usage_matches_telemetry_and_reasoning_is_not_double_counted():
     budget = RunBudget()
     sample = usage(10, 4, reasoning_tokens=3, cache_read_tokens=2, cache_write_tokens=1, uncached_input_tokens=7)
-    for source in ("native", "ocr", "lambda"):
+    for source in ("native", "ocr", "data"):
         budget.admit_model(source, source=source)
         assert budget.settle_model(source, usage=sample)
     snapshot = budget.snapshot()
@@ -195,7 +195,7 @@ def test_unknown_usage_stays_unknown_instead_of_zero(sample, status):
     budget = RunBudget()
     budget.admit_model("known", source="native")
     budget.settle_model("known", usage=usage())
-    budget.admit_model("unknown", source="lambda")
+    budget.admit_model("unknown", source="data")
     budget.settle_model("unknown", usage=sample, outcome="error")
     snapshot = budget.snapshot()
     assert snapshot["usage"] == {
@@ -239,7 +239,7 @@ def test_concurrent_duplicate_receipts_are_applied_once():
     workers = 12
     gate = Barrier(workers)
     budget = RunBudget()
-    budget.admit_model("id", source="lambda")
+    budget.admit_model("id", source="data")
 
     def settle(_):
         gate.wait(timeout=10)

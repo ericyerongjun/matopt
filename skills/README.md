@@ -5,7 +5,7 @@ Skills follow the [Agent Skills](https://agentskills.io/specification) format: a
 ```
 skills/
   matopt/       # native math / stats / ML / CS playbooks
-  lambda/       # LAMBDA data-analysis playbooks (eda, report, slides, notebook, agent)
+  data/         # data-analysis playbooks (eda, report, slides, notebook, agent)
   anthropic/    # full catalog from github.com/anthropics/skills
   spec/         # format notes and the upstream template
 ```
@@ -17,4 +17,4 @@ skills/
 3. **Activation** — `load_skill` (or auto-activate) injects the `SKILL.md` body and copies the folder into the conversation workspace at `skills/<name>/`.
 4. **Execution** — bundled scripts run via `python` / `bash` from that workspace copy.
 
-Add a math/stats playbook under `skills/matopt/`, a LAMBDA deliverable under `skills/lambda/`, or a user skill in `~/.matopt/skills/`. The next backend start picks it up. See `skill-creator` for the authoring workflow.
+Add a math/stats playbook under `skills/matopt/`, a data-analysis deliverable under `skills/data/`, or a user skill in `~/.matopt/skills/`. The next backend start picks it up. See `skill-creator` for the authoring workflow.

@@ -130,11 +130,11 @@ def test_temperature_only_passes_in_non_thinking_mode():
     assert provider._request_params(ChatOptions(model=MODEL_ID, reasoning="off", temperature=0.3))[0]["temperature"] == 0.3
 
 
-def test_lambda_ignores_old_provider_credentials_and_model_lists():
-    from lambda_app.core.config import Settings as LambdaSettings
-    from lambda_app.services.llm_service import LLMService
+def test_data_agent_ignores_old_provider_credentials_and_model_lists():
+    from data_agent_app.core.config import Settings as DataAgentSettings
+    from data_agent_app.services.llm_service import LLMService
 
-    config = LambdaSettings(_env_file=None, DEEPSEEK_API_KEY="deepseek-test", OPENAI_API_KEY="other-test",
+    config = DataAgentSettings(_env_file=None, DEEPSEEK_API_KEY="deepseek-test", OPENAI_API_KEY="other-test",
                             OPENAI_BASE_URL="https://other.invalid", DEFAULT_MODEL="mimo-v2.5-pro",
                             MODEL_LIST=["mimo-v2.5-pro", "deepseek-v4-pro"], MULTIMODAL_MODELS=["mimo-v2.5"])
     assert config.DEEPSEEK_API_KEY == "deepseek-test"
@@ -149,8 +149,8 @@ def test_lambda_ignores_old_provider_credentials_and_model_lists():
 
 
 @pytest.mark.asyncio
-async def test_lambda_stream_and_auxiliary_dispatch_only_flash():
-    from lambda_app.services.llm_service import LLMService
+async def test_data_agent_stream_and_auxiliary_dispatch_only_flash():
+    from data_agent_app.services.llm_service import LLMService
 
     requests = []
 
@@ -179,8 +179,8 @@ async def test_lambda_stream_and_auxiliary_dispatch_only_flash():
     assert len(requests) == 2
 
 
-def test_lambda_title_uses_same_deepseek_credentials_and_flash(monkeypatch):
-    from lambda_app.services import llm_service
+def test_data_agent_title_uses_same_deepseek_credentials_and_flash(monkeypatch):
+    from data_agent_app.services import llm_service
 
     captured = {}
 
@@ -202,9 +202,9 @@ def test_lambda_title_uses_same_deepseek_credentials_and_flash(monkeypatch):
     assert captured["request"]["reasoning_effort"] == "none"
 
 
-def test_lambda_retains_all_new_thoughts_without_rewriting_legacy_usage():
+def test_data_agent_retains_all_new_thoughts_without_rewriting_legacy_usage():
     import json
-    from lambda_app.api.v1.chat import _persisted_reasoning, _usage_with_reasoning
+    from data_agent_app.api.v1.chat import _persisted_reasoning, _usage_with_reasoning
 
     original = {"model": MODEL_ID, "metadata": {"prompt_tokens": 7}}
     first = _usage_with_reasoning(original, "first thought")

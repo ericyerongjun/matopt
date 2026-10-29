@@ -36,12 +36,12 @@ ACTIONS: dict[str, tuple[str, Optional[str], Optional[str], Optional[str]]] = {
     "render_ui": ("Built interactive view", "title", None, None),
     "create_ui_app": ("Built interactive app", "title", None, None),
     "register_ui_action": ("Registered interactive action", "action_id", None, None),
-    "lambda_data_agent": ("Ran the data agent", None, "task", None),
+    "data_agent": ("Ran the data agent", None, "task", None),
 }
 # Bookkeeping the user sees elsewhere (plan checklist, published results).
 HIDDEN = {"update_plan", "publish_result", "search_tools", "load_tool_schemas"}
 # Delegated agents return their internal exchanges; show the task, not that output.
-OUTPUT_PRIVATE = {"lambda_data_agent"}
+OUTPUT_PRIVATE = {"data_agent"}
 
 
 def _clip(text: str, limit: int) -> str:

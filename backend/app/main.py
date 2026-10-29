@@ -89,10 +89,10 @@ def create_app() -> FastAPI:
             response.headers["Content-Security-Policy"] = f"frame-src {origin} blob:; object-src 'none'; base-uri 'self'"
         return response
 
-    if settings.lambda_enabled:
-        from app.data.lambda_host import attach_lambda
+    if settings.data_agent_enabled:
+        from app.data.data_agent_host import attach_data_agent
 
-        attach_lambda(app)
+        attach_data_agent(app)
 
     @app.get("/health")
     async def health():
@@ -103,7 +103,7 @@ def create_app() -> FastAPI:
             "tools": rt.tools.names(),
             "skills": rt.skills.names(),
             "mcp": settings.mcp_enabled,
-            "lambda": settings.lambda_enabled,
+            "data": settings.data_agent_enabled,
         }
 
     if mcp_asgi is not None:

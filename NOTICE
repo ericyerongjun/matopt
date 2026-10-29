@@ -93,7 +93,12 @@ The licence does not grant permission to use the name "MatOpt" or the author's
 name to endorse or promote derived products (§6).
 
 Third-party components keep their own licences and are excluded from the grant
-above: everything under `skills/anthropic/` (each skill's `LICENSE.txt`),
-`backend/lambda_app/` and `skills/lambda/` (see `backend/lambda/UPSTREAM.md`),
-`frontend/public/material-icons/`, and the vendored files listed in
-[`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md).
+above: everything under `skills/anthropic/` (vendored Anthropic Agent Skills;
+each skill's `LICENSE.txt` applies, and `docx`, `pdf`, `pptx` and `xlsx` are
+source-available rather than open source), `frontend/public/material-icons/`,
+and the vendored files listed in [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md).
+
+The data agent (`backend/data_agent_app/`, `skills/data/`) was developed within
+the AMA-CMFAI group, of which the author is a member. Copyright in those parts
+remains with their respective contributors; the grant in `LICENSE` covers them
+to the extent of the author's rights.

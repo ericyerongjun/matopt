@@ -22,7 +22,7 @@ MAX_OUTPUT_TOKENS = 393_216
 LEVELS = ("off", "low", "high", "max")
 LEVEL_LABELS = {"off": "Off", "low": "Low", "high": "High", "max": "Max"}
 
-# IDs previously stored by this application or its embedded LAMBDA UI.
+# IDs previously stored by this application or its embedded data-agent UI.
 # This finite migration list does not admit custom/new arbitrary model names.
 LEGACY_PROVIDERS = frozenset({"openai", "qwen"})
 LEGACY_MODELS = frozenset({

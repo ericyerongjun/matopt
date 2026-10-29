@@ -28,7 +28,7 @@ const TOOLS: Record<string, CommandPresentation> = {
   update_plan: { label: "Plan a task", Icon: ListChecks, description: "Organize the steps needed to complete a task." },
   search_skills: { label: "Find a skill", Icon: Search, description: "Find a skill suited to your task." },
   load_skill: { label: "Use a skill", Icon: BookOpen, description: "Apply a skill to this task." },
-  lambda_data_agent: { label: "Analyze data", Icon: ChartNoAxesCombined, description: "Explore data and explain what it shows." },
+  data_agent: { label: "Analyze data", Icon: ChartNoAxesCombined, description: "Explore data and explain what it shows." },
 };
 
 const SKILLS: Record<string, CommandPresentation> = {
@@ -37,11 +37,11 @@ const SKILLS: Record<string, CommandPresentation> = {
   "numerical-optimization": { label: "Numerical optimization", Icon: Calculator },
   "statistical-inference": { label: "Statistical inference", Icon: ChartNoAxesCombined },
   "ml-experiment": { label: "Machine learning experiment", Icon: FlaskConical },
-  "lambda-eda": { label: "Explore data", Icon: ChartNoAxesCombined },
-  "lambda-data-agent": { label: "Analyze data", Icon: ChartNoAxesCombined },
-  "lambda-notebook": { label: "Create a notebook", Icon: Braces },
-  "lambda-report": { label: "Create a report", Icon: FileText },
-  "lambda-slides": { label: "Create a presentation", Icon: Presentation },
+  "data-eda": { label: "Explore data", Icon: ChartNoAxesCombined },
+  "data-agent": { label: "Analyze data", Icon: ChartNoAxesCombined },
+  "data-notebook": { label: "Create a notebook", Icon: Braces },
+  "data-report": { label: "Create a report", Icon: FileText },
+  "data-slides": { label: "Create a presentation", Icon: Presentation },
   "frontend-design": { label: "Frontend design", Icon: PencilRuler },
   "web-artifacts-builder": { label: "Build a web artifact", Icon: PanelsTopLeft },
   "academy-guide": { label: "Learning guide", Icon: GraduationCap },
@@ -61,7 +61,7 @@ export function commandPresentation(command: CommandIdentity): CommandPresentati
   // Saved user messages retain canonical slash text, but no command kind.
   const known = command.kind === "tool" ? tool : command.kind === "skill" ? skill : skill ?? tool;
   if (known) return known;
-  const words = command.name.replace(/^(anthropic|matopt|lambda)[:-]/i, "").split(/[-_:/\s]+/).filter(Boolean);
+  const words = command.name.replace(/^(anthropic|matopt|data)[:-]/i, "").split(/[-_:/\s]+/).filter(Boolean);
   const label = words.map((word, index) => WORDS[word.toLowerCase()] ?? (index === 0 ? word.charAt(0).toUpperCase() + word.slice(1) : word)).join(" ");
   return { label: label || (command.kind === "skill" ? "Custom skill" : "Custom tool"), Icon: command.kind === "skill" ? BookOpen : Wrench };
 }

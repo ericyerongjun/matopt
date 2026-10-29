@@ -110,17 +110,17 @@ test("external run controls keep one Stop action while the composer retains stee
 test("native command palette pins with Tab and submits canonical skill/tool bindings", async () => {
   const submissions: unknown[] = [];
   render({ commands: [
-    { kind: "skill", name: "lambda-eda", description: "Explore data", source: "lambda" },
+    { kind: "skill", name: "data-eda", description: "Explore data", source: "data" },
     { kind: "tool", name: "read_file", description: "Read a file", source: "matopt" },
   ], onSubmit: (text, files, skills, tools) => { submissions.push({ text, files, skills, tools }); } });
-  type("/lambda");
+  type("/data");
   assert.ok(document.querySelector('[cmdk-root=""]'));
   act(() => { key("Tab"); });
   assert.equal(textarea().value, "");
   assert.ok(button("Remove Explore data"));
   type("/read-file inspect data");
   await act(async () => { button("Send").click(); });
-  assert.deepEqual(submissions, [{ text: "/lambda-eda /read-file inspect data", files: [], skills: ["lambda-eda"], tools: ["read_file"] }]);
+  assert.deepEqual(submissions, [{ text: "/data-eda /read-file inspect data", files: [], skills: ["data-eda"], tools: ["read_file"] }]);
   assert.equal(document.querySelector('button[aria-label="Remove Explore data"]'), null);
 });
 
@@ -441,7 +441,7 @@ test("semantic command names are searchable and selected capsules keep canonical
   const submissions: unknown[] = [];
   render({ commands: [
     { kind: "tool", name: "python", description: "Compute with code in a persistent kernel", source: "matopt" },
-    { kind: "skill", name: "lambda-eda", description: "Explore a dataset", source: "lambda" },
+    { kind: "skill", name: "data-eda", description: "Explore a dataset", source: "data" },
   ], onSubmit: (text, _files, skills, tools) => { submissions.push({ text, skills, tools }); } });
   type("/kernel");
   assert.equal(document.querySelector('[role="option"]')?.getAttribute("data-value"), "tool:python", "original catalog descriptions remain searchable");
@@ -458,11 +458,11 @@ test("semantic command names are searchable and selected capsules keep canonical
   assert.equal(chip.querySelector(".matopt-command-chip-label")?.textContent, "Python analysis");
   assert.ok(!chip.textContent?.includes("/python"));
   assert.ok(button("Remove Python analysis"));
-  type("/lambda"); act(() => { key("Tab"); });
-  assert.equal(document.querySelector('[data-selected-command="skill:lambda-eda"] .matopt-command-chip-label')?.textContent, "Explore data");
+  type("/data"); act(() => { key("Tab"); });
+  assert.equal(document.querySelector('[data-selected-command="skill:data-eda"] .matopt-command-chip-label')?.textContent, "Explore data");
   type("Explore the uploaded data");
   await act(async () => { button("Send").click(); });
-  assert.deepEqual(submissions, [{ text: "/lambda-eda /python Explore the uploaded data", skills: ["lambda-eda"], tools: ["python"] }]);
+  assert.deepEqual(submissions, [{ text: "/data-eda /python Explore the uploaded data", skills: ["data-eda"], tools: ["python"] }]);
 });
 
 test("growing the draft and adding attachments preserve the input, controls, and keyboard focus", () => {

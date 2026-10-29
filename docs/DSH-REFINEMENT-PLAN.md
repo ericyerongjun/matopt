@@ -532,9 +532,9 @@ markdown ladder for prose. The two are not in conflict — one governs
 
 **The single most important correction to an earlier draft of this plan: most
 of this should be *moved*, not *reimplemented*.** MatOpt already has the
-pattern — `backend/lambda_app/` is a vendored upstream with an `UPSTREAM.md`
-recording the commit pin and a `scripts/vendor_lambda_backend.py` refresh
-script, and `skills/anthropic/` is vendored with `THIRD_PARTY_NOTICES.md`.
+pattern — `skills/anthropic/` is a vendored upstream with an `UPSTREAM.md`
+recording the commit pin, a `scripts/sync-anthropic-skills.sh` refresh script
+and `THIRD_PARTY_NOTICES.md`.
 Every phase below follows that convention. Rewriting working upstream code by
 hand is slower, loses the comments that explain *why* a constant is what it
 is, and silently drops the edge cases that upstream learned the hard way.
@@ -665,7 +665,7 @@ Genuinely new work, and the list is short:
 #### 3.0.2 Migration scaffold
 
 Commit `vendor/UPSTREAM.md` and a refresh script *before* the first vendored
-file, mirroring `backend/lambda/UPSTREAM.md`:
+file, mirroring `skills/anthropic/UPSTREAM.md`:
 
 ```
 vendor/
@@ -717,7 +717,7 @@ Verified by reading the code:
 | Usage | `usage` deltas summed into `state.usage`, stored on the assistant message; `cached_tokens`/`reasoning_tokens` captured by the adapter | `openai_compat.py:105` |
 | Design | OpenAI/ChatGPT palette, plain CSS, **light-only**, radius scale `6/10/24/9999px` | `frontend/src/styles/tokens.css` |
 | Stack | React 19.2 + Vite 6, `lucide-react`, KaTeX, react-markdown, plotly, chart.js | `frontend/package.json` |
-| Tests | 1031 LOC pytest over harness/tools/skills/api/lambda; 5 frontend `.test.ts` (~297 LOC, pure utils only) | `backend/tests/`, `frontend/src/**/*.test.ts` |
+| Tests | 1031 LOC pytest over harness/tools/skills/api/data_agent; 5 frontend `.test.ts` (~297 LOC, pure utils only) | `backend/tests/`, `frontend/src/**/*.test.ts` |
 
 Frontend facts that shape the plan (from a full read of `frontend/src`):
 
@@ -1487,7 +1487,7 @@ reasoning, total}, cache_hit_ratio, cost_estimate
 **UI:** a "Changed files" panel in the Work rail using `DiffBlock` from phase
 1; a `PresentedFileCard`-style card when a tool produces a deliverable, and a
 `present`-equivalent: extend the existing artifact mechanism so
-`ExportButton` outcomes and LAMBDA reports land in one deliverables list.
+`ExportButton` outcomes and data-agent reports land in one deliverables list.
 
 **Reports:**
 
@@ -1853,7 +1853,7 @@ Four execution surfaces, and none of them is a boundary:
 | `python` tool → persistent Jupyter kernel | `cwd` only (`kernel.py:145`, `STARTUP_CODE` does `os.chdir`) | The kernel runs with the **full privileges of the host user**, inherits `os.environ`, and has unrestricted filesystem and network access |
 | `bash` tool | 14-substring deny-list (`shell_tool.py:16-19`) + `cwd` | `BLOCKED_PATTERNS` is substring matching on `command.lower()` — trivially bypassed, and it is the *only* gate. Also inherits the full environment |
 | `read_file`/`write_file`/`edit_file` | `Workspace.resolve()` containment (`workspace.py:90-103`) | The one real boundary, and it holds — but it is **advisory**, because the kernel bypasses it |
-| `parse_document`, `lambda_data_agent` | none | subprocess / vendored backend with the same ambient authority |
+| `parse_document`, `data_agent` | none | subprocess / vendored backend with the same ambient authority |
 
 Two consequences that matter more than the missing sandbox:
 

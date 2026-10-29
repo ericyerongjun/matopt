@@ -9,7 +9,7 @@ description: >
   Newton, BFGS, L-BFGS, SLSQP, least squares, curve_fit, linear programming,
   constraints, feasible set. Do not use for symbolic closed forms (use
   sympy-compute) or for training sklearn/neural models (use ml-experiment).
-license: MIT
+license: Apache-2.0
 metadata:
   author: matopt
   version: "1.0"
