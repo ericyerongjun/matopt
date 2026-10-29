@@ -13800,16 +13800,16 @@
     {
       "path": "frontend/public/matopt.svg",
       "mode": "host-asset",
-      "expected_sha256": "f8278f5131717326ce0d23be2ae29b836d4977d343ed54b37e1f2957aed2df1e",
+      "expected_sha256": "8c257ebe60e919444511d897af6c40a91d32db0c5add713bd73730e8ca3eae7a",
       "sources": [],
-      "notes": "MatOpt-authored browser asset, not a ZCode source copy."
+      "notes": "MatOpt-authored browser asset, not a ZCode source copy. Folio mark: an ink seal holding a small neural network."
     },
     {
       "path": "frontend/src/MatOptApp.tsx",
       "mode": "host-adapter",
-      "expected_sha256": "f442cb7ac17b35333f7412c1ce2a7c3aeab4fae918e30c368bcdc38b39681491",
+      "expected_sha256": "c0e4f5257cdacad4731a87a585e1526ea056cd436293f2d012c4719a2fa4c8ae",
       "sources": [],
-      "notes": "MatOpt-owned workspace orchestrator with editable task starters, conversation-scoped quote requests, persistent results/files/activity panes, and actual model/effort controls. Composes licensed ZCode primitives; not a verbatim upstream application. Voice tutor: avatar panel, reply-language picker, spoken replies and hands-free conversation."
+      "notes": "MatOpt-owned workspace orchestrator with editable task starters, conversation-scoped quote requests, persistent results/files/activity panes, and actual model/effort controls. Composes licensed ZCode primitives; not a verbatim upstream application. Voice tutor: avatar panel, reply-language picker, spoken replies and hands-free conversation. Folio mark on the welcome screen and a Fonts settings dialog."
     },
     {
       "path": "frontend/src/components/ChartRenderer.css",
@@ -13842,9 +13842,9 @@
     {
       "path": "frontend/src/components/MessageList.tsx",
       "mode": "host-adapter",
-      "expected_sha256": "726554a9cdf87612f691a981895d627b53bc9901f28aab972ac831cf2d0ee9c6",
+      "expected_sha256": "6df6a24a94d786a1e5e51600077c98800da26e9879e958b4e593332ff997e690",
       "sources": [],
-      "notes": "MatOpt durable-history projection with public work, revisioned results, and native surfaces. Adds quoted follow-ups and an explicit scroll-to-bottom control while preserving reader scroll position, keyed rows, copying, disclosure and canonical output behavior. Follow-up chips render inline $...$ math with KaTeX. Answers have a Read aloud action."
+      "notes": "MatOpt durable-history projection with public work, revisioned results, and native surfaces. Adds quoted follow-ups and an explicit scroll-to-bottom control while preserving reader scroll position, keyed rows, copying, disclosure and canonical output behavior. Follow-up chips render inline $...$ math with KaTeX. Answers have a Read aloud action. Answers carry the Folio neural-net mark."
     },
     {
       "path": "frontend/src/components/ModelPicker.tsx",
@@ -14202,7 +14202,7 @@
     {
       "path": "frontend/src/zcode/components/ai-elements/message.tsx",
       "mode": "whole-file-adapted",
-      "expected_sha256": "d43d97a48e5c2322e525089be5262b56bbeacfe3a5e7889fb03b28b1fb377a39",
+      "expected_sha256": "ccc1c23670a72976dcbaea39215c31a0a75b8b2e982aae618d934209dc0692d0",
       "sources": [
         {
           "path": "packages/ui/src/components/ai-elements/message.tsx",
@@ -14210,7 +14210,7 @@
           "sha256": "6c35829ed11321e850cd59e20c1c88fdd452e8e2d9b5da45f808371021aabf99"
         }
       ],
-      "notes": "Whole native source with MatOpt math-render options and scientific-fence render slots; unused desktop store import removed. Mermaid is the host's lazy-loading plugin, keeping it out of the entry chunk."
+      "notes": "Whole native source with MatOpt math-render options and scientific-fence render slots; unused desktop store import removed. Mermaid is the host's lazy-loading plugin, keeping it out of the entry chunk. KaTeX macros are a fresh copy per render (\\tag no longer makes shared options circular), and the streaming error boundary retries on the next chunk."
     },
     {
       "path": "frontend/src/zcode/components/ai-elements/prompt-input-actions.tsx",

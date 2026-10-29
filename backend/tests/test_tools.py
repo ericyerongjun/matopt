@@ -270,6 +270,15 @@ async def test_kernel_does_not_also_capture_a_figure_saved_to_the_workspace(ws, 
                                       "plt.plot([0, 1], [1, 0])\n"
                                       "plt.savefig(os.path.join(tempfile.gettempdir(), 'matopt-outside.png'))\n")
         assert [a.kind for a in outside.artifacts if a.kind == "image"] == ["image"]
+
+        # A figure changed after saving is new content and is still captured.
+        changed = await tool_run(ctx, "import matplotlib.pyplot as plt\n"
+                                      "fig, ax = plt.subplots()\n"
+                                      "ax.plot([1, 2], [1, 2])\n"
+                                      "fig.savefig('baseline.png')\n"
+                                      "ax.plot([1, 2], [2, 1])\n" + show)
+        assert sorted(a.path for a in changed.artifacts if a.kind == "image")[0] == "baseline.png"
+        assert len([a for a in changed.artifacts if a.kind == "image"]) == 2
     finally:
         await kernels.shutdown_all()
 

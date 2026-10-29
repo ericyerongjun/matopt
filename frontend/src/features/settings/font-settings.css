@@ -1,5 +1,6 @@
 /* Font chooser. Colors and radii come from the design tokens. */
-.matopt-font-dialog { max-width: min(520px, calc(100vw - 32px)); gap: 18px; }
+/* Three sections can exceed a short screen; keep the title, close button and footer reachable. */
+.matopt-font-dialog { max-width: min(520px, calc(100vw - 32px)); max-height: calc(100dvh - 32px); overflow-y: auto; overscroll-behavior: contain; gap: 18px; }
 .matopt-font-dialog [data-slot="dialog-title"] { font-family: var(--font-serif); font-size: calc(var(--ui-font-size) + 8px); font-weight: 500; }
 .matopt-font-role { display: grid; gap: 8px; padding-bottom: 16px; border-bottom: 1px solid var(--mo-border); }
 .matopt-font-role > label { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; font-size: var(--matopt-text-compact); }
