@@ -1,6 +1,6 @@
 /** MatOpt conversation workspace, using the licensed ZCode component primitives. */
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Activity, Calculator, ChartNoAxesCombined, Download, FileCode2, Layers, Monitor, Moon, PanelLeft, RotateCcw, Settings, ShieldCheck, Sigma, Smile, SquareFunction, SquarePen, Sun, Type, X } from "lucide-react";
+import { Activity, Calculator, ChartNoAxesCombined, Download, FileCode2, Layers, Monitor, Moon, PanelLeft, RotateCcw, Settings, ShieldCheck, Smile, SquareFunction, SquarePen, Sun, Type, X } from "lucide-react";
 import { Button } from "@/components/ui/button.js";
 import { DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu.js";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs.js";
@@ -34,6 +34,7 @@ import { ActivityPanel } from "./components/WorkActivity";
 import ModelPicker from "./components/ModelPicker";
 import { TASK_STARTERS, taskStarterDraft } from "./services/taskStarters";
 import type { QuoteRef, QuoteRequest } from "./services/quote";
+import { MatOptMark } from "./components/MatOptMark.tsx";
 
 
 /** Usage is loaded only while its tab is open; normal UI never downloads raw diagnostics. */
@@ -177,7 +178,7 @@ export default function MatOptApp() {
     <div className="matopt-conversation-body">
       {convos.loadingThread ? <p className="matopt-loading" role="status">Loading chat…</p> : messages.length ? <MessageList messages={messages} conversationId={convos.activeId} streaming={attachedRun} onPickOption={handleExplain} onOpenWork={openActivity} onQuote={inputDisabled ? undefined : quotePassage} />
         : <div className="matopt-welcome"><div className="matopt-welcome-inner">
-          <div className="matopt-welcome-symbol" aria-hidden="true"><Sigma /></div>
+          <MatOptMark size={48} className="matopt-welcome-symbol" />
           <h1>What would you like to work on?</h1>
           <p className="matopt-welcome-description">Explore data, solve a problem, or build something useful.</p>
           {composer}
