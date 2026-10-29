@@ -93,7 +93,26 @@ def _terminal_texts(parts: list[dict]) -> list[dict]:
     return selected
 
 
-def _output_parts(parts: list[dict]) -> list[dict]:
+def _referenced(artifact: dict, answer: str) -> bool:
+    """A tool-produced file is a deliverable only when the answer points to it.
+
+    Figures the answer embeds as Markdown images already render inline, so they
+    are not repeated; files it never mentions are intermediates and stay in the
+    workspace (Files) instead of being appended to the answer.
+    """
+    path = (artifact.get("path") or "").removeprefix("./")
+    if not path:
+        return False
+    names = {path, path.rsplit("/", 1)[-1]}
+    if not any(name and name in answer for name in names):
+        return False
+    if artifact.get("kind") == "image":
+        embedded = r"!\[[^\]]*\]\(\s*(?:\./)?(?:" + "|".join(re.escape(n) for n in names) + r")\s*\)"
+        return re.search(embedded, answer) is None
+    return True
+
+
+def _output_parts(parts: list[dict], answer: str) -> list[dict]:
     out = []
     seen = set()
     artifacts_by_key = {}
@@ -115,7 +134,7 @@ def _output_parts(parts: list[dict]) -> list[dict]:
         if kind == "artifact":
             artifacts = [part.get("artifact") or {}]
         elif kind == "tool_call" and part.get("name") not in {"parse_document", "read_file", "list_files", "grep"}:
-            artifacts = (part.get("result") or {}).get("artifacts") or []
+            artifacts = [a for a in (part.get("result") or {}).get("artifacts") or [] if _referenced(a, answer)]
         for artifact in artifacts:
             if not artifact.get("kind"):
                 continue
@@ -187,7 +206,7 @@ def public_content(content: dict | None) -> dict:
             output_parts = [p for p in parts if p.get("phase") == "revise"]
         else:
             output_parts = parts
-        out["parts"].extend(_output_parts(output_parts))
+        out["parts"].extend(_output_parts(output_parts, text))
         if content.get("status", "complete") == "complete":
             out["parts"].extend(deepcopy(p) for p in parts if p.get("type") == "options")
     if not content.get("strict_final", False) and content.get("transcript"):

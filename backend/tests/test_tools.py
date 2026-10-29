@@ -224,6 +224,39 @@ async def test_kernel_does_not_recapture_leftover_or_identical_figures(ws):
         await kernels.shutdown_all()
 
 
+@pytest.mark.asyncio
+@pytest.mark.parametrize("show", ["", "plt.show()\n"])
+async def test_kernel_does_not_also_capture_a_figure_saved_to_the_workspace(ws, show):
+    kernels = KernelPool(lambda cid: ws)
+    ctx, _ = make_ctx(ws, kernels)
+    code = (
+        "import matplotlib.pyplot as plt\n"
+        "fig, ax = plt.subplots()\n"
+        "ax.plot([1, 2], [3, 4])\n"
+        "plt.savefig('paraboloid.png', dpi=150)\n"
+        "plt.savefig('paraboloid.pdf')\n" + show
+    )
+    try:
+        result = await tool_run(ctx, code)
+        assert result.ok
+        images = [a.path for a in result.artifacts if a.kind == "image"]
+        assert images == ["paraboloid.png"]
+        assert not list((ws.root / "figures").glob("*.png"))
+        assert (ws.root / "paraboloid.pdf").stat().st_size > 0
+
+        # A figure saved outside the workspace is still shown inline.
+        outside = await tool_run(ctx, "import matplotlib.pyplot as plt, tempfile, os\n"
+                                      "plt.plot([0, 1], [1, 0])\n"
+                                      "plt.savefig(os.path.join(tempfile.gettempdir(), 'matopt-outside.png'))\n")
+        assert [a.kind for a in outside.artifacts if a.kind == "image"] == ["image"]
+    finally:
+        await kernels.shutdown_all()
+
+
+async def tool_run(ctx, code):
+    return await PythonTool()(ctx, {"code": code})
+
+
 # ── plan §3.8a: the declared safety surface ──────────────────────────────
 
 

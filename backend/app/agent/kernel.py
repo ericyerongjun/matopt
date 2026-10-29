@@ -60,6 +60,27 @@ try:
             plt.close("all")
         plt.show = _matopt_show
         plt._matopt_show_wrapped = True
+    # A figure saved into the workspace already becomes an artifact as a file;
+    # don't capture it inline as well (that showed one plot twice).
+    import matplotlib.figure as _mfig
+    if not getattr(_mfig.Figure, "_matopt_savefig_wrapped", False):
+        _orig_savefig = _mfig.Figure.savefig
+        def _matopt_savefig(self, fname, *args, **kwargs):
+            import os
+            out = _orig_savefig(self, fname, *args, **kwargs)
+            if isinstance(fname, (str, os.PathLike)):
+                target = os.path.abspath(os.fspath(fname))
+                if target.startswith(os.getcwd() + os.sep):
+                    self._matopt_saved = True
+            return out
+        _mfig.Figure.savefig = _matopt_savefig
+        _mfig.Figure._matopt_savefig_wrapped = True
+        _orig_display = _mi.display
+        def _matopt_display(*objs, **kwargs):
+            objs = [o for o in objs if not getattr(o, "_matopt_saved", False)]
+            if objs:
+                _orig_display(*objs, **kwargs)
+        _mi.display = _matopt_display
 except Exception as _e:
     print("matplotlib setup skipped:", _e)
 try:

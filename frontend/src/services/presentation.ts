@@ -152,6 +152,19 @@ function legacyAnswer(parts: Part[]): string {
     return "";
 }
 
+const escapeRegExp = (text: string) => text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+/** Mirrors the server rule: a tool-made file is shown only when the answer
+ * points to it, and a figure the answer embeds is not shown a second time. */
+export function referencedByAnswer(artifact: Artifact, answer: string): boolean {
+    const path = (artifact.path ?? "").replace(/^\.\//, "");
+    if (!path) return false;
+    const names = [...new Set([path, path.split("/").pop()!])];
+    if (!names.some((name) => name && answer.includes(name))) return false;
+    if (artifact.kind !== "image") return true;
+    return !new RegExp(`!\\[[^\\]]*\\]\\(\\s*(?:\\./)?(?:${names.map(escapeRegExp).join("|")})\\s*\\)`).test(answer);
+}
+
 function uniqueArtifacts(artifacts: Artifact[]): Artifact[] {
     const seen = new Set<string>();
     return artifacts.slice().reverse().filter((artifact, index) => {
@@ -185,7 +198,7 @@ export function projectAssistantPresentation(content: AssistantContent, streamin
         } else if (ready && part.type === "artifact") artifacts.push(part.artifact);
         else if (ready && !isPublic && part.type === "tool_call" && part.phase !== "verify" && part.phase !== "revise"
             && !["parse_document", "read_file", "list_files", "grep"].includes(part.name)) {
-            artifacts.push(...part.result?.artifacts ?? []);
+            artifacts.push(...(part.result?.artifacts ?? []).filter((artifact) => referencedByAnswer(artifact, answer)));
         }
     }
     return {
