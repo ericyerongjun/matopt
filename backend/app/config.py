@@ -133,7 +133,7 @@ class Settings(BaseSettings):
     # explicit allowlist in app/agent/child_env.py instead of the backend's
     # ambient environment, which is how the agent could otherwise read MatOpt's
     # own API keys with one `python` cell. False restores the pre-Tier-1
-    # `dict(os.environ)` behaviour (docs/DSH-REFINEMENT-PLAN.md §3.9.3): the
+    # `dict(os.environ)` behaviour: the
     # hatch exists so a deployment whose tooling needs an inherited variable
     # (proxy, CA bundle, model-download token) can be unblocked without a code
     # change — but it re-exposes DEEPSEEK_API_KEY & co. to anything the agent

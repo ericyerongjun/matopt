@@ -184,9 +184,6 @@ existing file. Re-read after Python, bash or an external process changes it.
 This freshness guard and child environment filtering operate inside the
 existing execution environment; container isolation remains on the roadmap.
 
-The recovered implementation and remaining phases are recorded in
-[docs/DSH-RECOVERY.md](../docs/DSH-RECOVERY.md).
-
 ## Docker Compose
 
 From the repository root:

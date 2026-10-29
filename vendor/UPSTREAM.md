@@ -18,8 +18,7 @@ Git blob IDs and SHA-256 hashes; it never treats an adaptation as a verbatim cop
 
 The earlier DSH frontend primitives, token sheets, portable ZCode skin and their
 regeneration scripts were removed during the native frontend replacement.
-The historical recovery document records the earlier checkpoint; current UI
-acceptance and verification belong to
+Current UI acceptance and verification belong to
 [ZCODE-ADE-MIGRATION.md](../docs/ZCODE-ADE-MIGRATION.md).
 
 ## Source integrity check

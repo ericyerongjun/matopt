@@ -13909,32 +13909,6 @@
       "provenance_banner": "/* Vendored whole file from ZCode 29628c9acdb81b703bbd4080c207a0e7ce5e276e: packages/ui/src/ControlHintTooltip.tsx\n * Apache-2.0; original notices retained. MatOpt host adaptations are identified below. */\n"
     },
     {
-      "path": "frontend/src/zcode/DesktopTopOverlay.tsx",
-      "mode": "whole-file-adapted",
-      "expected_sha256": "f1599331b90b819b7eaef92b13448db9dd870c811b143ba695810ba9985d226b",
-      "sources": [
-        {
-          "path": "packages/ui/src/DesktopTopOverlay.tsx",
-          "git_blob": "a1860fa152ae5dad02c85f8589d0601d77fd477e",
-          "sha256": "5d7ea8687a3e2a31762685664ffcf90ec9b277594cfcb483346590972bccee40"
-        }
-      ],
-      "notes": "Whole native source adapted for browser caption area and MatOpt brand; unavailable desktop updater omitted."
-    },
-    {
-      "path": "frontend/src/zcode/DesktopTopOverlayActionButton.tsx",
-      "mode": "banner-only-copy",
-      "expected_sha256": "57b4d52da03b9023675752a974dd8a7497afb1fe89c9cf507633db96ed8b8122",
-      "sources": [
-        {
-          "path": "packages/ui/src/DesktopTopOverlayActionButton.tsx",
-          "git_blob": "2f46a7eb939e03177e3d02b5e4444937a01a725b",
-          "sha256": "c9e7fa13ba50da7d4c9ee800b5285ffb1ad0b27ccc4dfcbc7234da9f85e93cf1"
-        }
-      ],
-      "provenance_banner": "/* Vendored whole file from ZCode 29628c9acdb81b703bbd4080c207a0e7ce5e276e: packages/ui/src/DesktopTopOverlayActionButton.tsx\n * Apache-2.0; original notices retained. */\n"
-    },
-    {
       "path": "frontend/src/zcode/DesktopWindowFrame.tsx",
       "mode": "banner-only-copy",
       "expected_sha256": "b6099b9790c945434eb3a9c6320174c62cb231f92aa0589941698dba1e3a26cc",
@@ -13963,7 +13937,7 @@
     {
       "path": "frontend/src/zcode/PRIMITIVES.json",
       "mode": "provenance-map",
-      "expected_sha256": "7eb5a7330d7e1b94b1b597a52a8f8c327e6319136e2dbc8ae9efeb90bd2c78ed",
+      "expected_sha256": "8ca7a526c99a9a5da0f3ec69f151a99c18014366190a889db0ed472bc5d91526",
       "sources": [],
       "notes": "Original MatOpt mapping of copied native UI primitive source paths."
     },
@@ -13992,55 +13966,6 @@
         }
       ],
       "provenance_banner": "/* Vendored whole file from ZCode 29628c9acdb81b703bbd4080c207a0e7ce5e276e: packages/ui/src/TaskRenameDialog.tsx\n * Apache-2.0; original notices retained. */\n"
-    },
-    {
-      "path": "frontend/src/zcode/ToolCallBlocks/QueuedSummaryContent.tsx",
-      "mode": "banner-only-copy",
-      "expected_sha256": "57402f8e389aa5bdd29d2dcb3ad10987a5095638ed04c26ef9bbb6fa47e7d849",
-      "sources": [
-        {
-          "path": "packages/ui/src/ToolCallBlocks/QueuedSummaryContent.tsx",
-          "git_blob": "a7f8caf3608dea2dadb1a59683dc5683764e4319",
-          "sha256": "a4ef50ccadba57b42c5300591a0a7c3546a376794f8c0569f9f62bd09dbc0c8f"
-        }
-      ],
-      "provenance_banner": "/* Vendored whole file from ZCode 29628c9acdb81b703bbd4080c207a0e7ce5e276e: packages/ui/src/ToolCallBlocks/QueuedSummaryContent.tsx\n * Apache-2.0; original notices retained. */\n"
-    },
-    {
-      "path": "frontend/src/zcode/WorkspaceHeader.tsx",
-      "mode": "maintained-render-subtree",
-      "expected_sha256": "fd94cc6e33a2bafba539e451e742dd8bcbd6f722c402931fdaf912b4d4f838fd",
-      "sources": [
-        {
-          "path": "packages/ui/src/WorkspaceHeader.tsx",
-          "git_blob": "328733d9b5f188c4d13548027d0b4950c995cc6c",
-          "sha256": "2b3fee1655919699078f494ecb53918a39b78de95be54240a7652f6eb82b2b0d"
-        },
-        {
-          "path": "packages/ui/src/WorkspaceHeaderSections.tsx",
-          "git_blob": "138f46cb5b737a59822a4556f98a916f292e9166",
-          "sha256": "3b4b33f146538d30cb36cff68ff54b0fb4c2f6c347a2c90a925fa1c735298544"
-        },
-        {
-          "path": "packages/ui/src/WorkspaceHeaderSections/WorkspaceHeaderActionSection.tsx",
-          "git_blob": "2091716a3cf4789f19d9ade1f5b82d5bf5469f0a",
-          "sha256": "a0f1ff3a51e41a83497b6eb988da608c9220eb03467ccf9f1c1c0c2174329f92"
-        }
-      ],
-      "notes": "Native JSX/class subtrees and geometry retained, with browser HTTP task/project metadata and capability slots replacing desktop orchestration. This is not a verbatim whole file."
-    },
-    {
-      "path": "frontend/src/zcode/WorkspaceSidePaneToggleButton.tsx",
-      "mode": "banner-only-copy",
-      "expected_sha256": "d0fad59d57eb2474f02bf70dde93ccd09da36d3177bd421982dc6a5a6e7e1742",
-      "sources": [
-        {
-          "path": "packages/ui/src/WorkspaceSidePaneToggleButton.tsx",
-          "git_blob": "86b51a4db99ec755eb7ee2a752a7465012194e09",
-          "sha256": "0be2e5beb03944f306c3e7cec920346170efa1d87e8f812415cf9adc8547efb1"
-        }
-      ],
-      "provenance_banner": "/* Vendored whole file from ZCode 29628c9acdb81b703bbd4080c207a0e7ce5e276e: packages/ui/src/WorkspaceSidePaneToggleButton.tsx\n * Apache-2.0; original notices retained. */\n"
     },
     {
       "path": "frontend/src/zcode/WorkspaceSidebar.tsx",
@@ -14154,18 +14079,6 @@
           "path": "packages/ui/src/components/ai-elements/attachments.tsx",
           "git_blob": "37ea7ed41b2990e4ab3ede2eb72aea74e0414b50",
           "sha256": "7a847ce6c8ac9dc630481a82dd20a5e9e00949bf710a41fea1d32a18123011d8"
-        }
-      ]
-    },
-    {
-      "path": "frontend/src/zcode/components/ai-elements/chat-loading.tsx",
-      "mode": "exact-copy",
-      "expected_sha256": "b75d4398d778179f78209debde63547410d76e01cdaf3887f60b13ef9a35331f",
-      "sources": [
-        {
-          "path": "packages/ui/src/components/ai-elements/chat-loading.tsx",
-          "git_blob": "50e505bc673441b50403e6b64d8b6e611fc967b7",
-          "sha256": "b75d4398d778179f78209debde63547410d76e01cdaf3887f60b13ef9a35331f"
         }
       ]
     },
@@ -14362,31 +14275,6 @@
       "notes": "Whole pinned PromptInput adapted to clear only the accepted submission snapshot. Newer drafts, selected attachments and source references survive an earlier pending send."
     },
     {
-      "path": "frontend/src/zcode/components/ai-elements/reasoning.tsx",
-      "mode": "banner-only-copy",
-      "expected_sha256": "68ff91e164a5390eaa0c5cd170b68d937efd0f824e555991307a99856b4bf27a",
-      "sources": [
-        {
-          "path": "packages/ui/src/components/ai-elements/reasoning.tsx",
-          "git_blob": "e1fef60e6b6d58b5ab65f29ee7ace4e9fac34b66",
-          "sha256": "a10a38c7b3ca633e9b5480ad94f9c7a1fdd52bc5526ae0801e3e6ed141f2b604"
-        }
-      ],
-      "provenance_banner": "/* Vendored whole file from ZCode 29628c9acdb81b703bbd4080c207a0e7ce5e276e: packages/ui/src/components/ai-elements/reasoning.tsx\n * Apache-2.0; original notices retained. */\n"
-    },
-    {
-      "path": "frontend/src/zcode/components/ai-elements/shimmer.tsx",
-      "mode": "exact-copy",
-      "expected_sha256": "5d06ffdff80a13453a0b61b67f588c48d838a20d9be2cd319ca2a97d441b3127",
-      "sources": [
-        {
-          "path": "packages/ui/src/components/ai-elements/shimmer.tsx",
-          "git_blob": "9f86909cbd9edb87cc175d607144d3eee4d8f1bf",
-          "sha256": "5d06ffdff80a13453a0b61b67f588c48d838a20d9be2cd319ca2a97d441b3127"
-        }
-      ]
-    },
-    {
       "path": "frontend/src/zcode/components/ai-elements/streamdown-controls.ts",
       "mode": "banner-only-copy",
       "expected_sha256": "7d2df2d8bb707d01713b881b6a6900afbcc90d6e87af36feb903e8cacc732b2a",
@@ -14423,30 +14311,6 @@
         }
       ],
       "provenance_banner": "/* Vendored whole file from ZCode 29628c9acdb81b703bbd4080c207a0e7ce5e276e: packages/ui/src/components/lib/utils.ts\n * Apache-2.0; original notices retained. MatOpt host adaptations are identified below. */\n"
-    },
-    {
-      "path": "frontend/src/zcode/components/ui/accordion.tsx",
-      "mode": "exact-copy",
-      "expected_sha256": "4a72f846da91bdeac1dbba849572132b98c8b96f0b03e611f46d0f3e41791947",
-      "sources": [
-        {
-          "path": "packages/ui/src/components/ui/accordion.tsx",
-          "git_blob": "08ff6a59f1602950312b02de38306a26870d0abd",
-          "sha256": "4a72f846da91bdeac1dbba849572132b98c8b96f0b03e611f46d0f3e41791947"
-        }
-      ]
-    },
-    {
-      "path": "frontend/src/zcode/components/ui/alert.tsx",
-      "mode": "exact-copy",
-      "expected_sha256": "5f29338fc9b767994b39849edeac71ee91dc1fd4a875252b40c5cf9001b1c0a7",
-      "sources": [
-        {
-          "path": "packages/ui/src/components/ui/alert.tsx",
-          "git_blob": "88d2457e01f149f5289de251437a6cbaf2f5e46a",
-          "sha256": "5f29338fc9b767994b39849edeac71ee91dc1fd4a875252b40c5cf9001b1c0a7"
-        }
-      ]
     },
     {
       "path": "frontend/src/zcode/components/ui/badge.tsx",
@@ -14594,30 +14458,6 @@
       ]
     },
     {
-      "path": "frontend/src/zcode/components/ui/popover.tsx",
-      "mode": "exact-copy",
-      "expected_sha256": "e23c9238865ba7e85965ebed89e7328cfbdbbdcc2264156c775d51e9e264b484",
-      "sources": [
-        {
-          "path": "packages/ui/src/components/ui/popover.tsx",
-          "git_blob": "85c693b40523c0bb0b7e6d7f0b5ecddff47ea828",
-          "sha256": "e23c9238865ba7e85965ebed89e7328cfbdbbdcc2264156c775d51e9e264b484"
-        }
-      ]
-    },
-    {
-      "path": "frontend/src/zcode/components/ui/progress.tsx",
-      "mode": "exact-copy",
-      "expected_sha256": "ba88ffa75ad78eaa23519c7af84e11679ca2b8e4508c57759d769462811c0ec5",
-      "sources": [
-        {
-          "path": "packages/ui/src/components/ui/progress.tsx",
-          "git_blob": "0576e043ea41f3676665f6804270f9adeced53b5",
-          "sha256": "ba88ffa75ad78eaa23519c7af84e11679ca2b8e4508c57759d769462811c0ec5"
-        }
-      ]
-    },
-    {
       "path": "frontend/src/zcode/components/ui/resizable.tsx",
       "mode": "exact-copy",
       "expected_sha256": "83425c34fb76c35276e6dbf8d7ad0ee860b4536ba9d4cfd8e8a60aec3b7cabc4",
@@ -14626,18 +14466,6 @@
           "path": "packages/ui/src/components/ui/resizable.tsx",
           "git_blob": "04900c1207ecacee8c71b7148902d738d24be812",
           "sha256": "83425c34fb76c35276e6dbf8d7ad0ee860b4536ba9d4cfd8e8a60aec3b7cabc4"
-        }
-      ]
-    },
-    {
-      "path": "frontend/src/zcode/components/ui/scroll-area.tsx",
-      "mode": "exact-copy",
-      "expected_sha256": "83999d597a4a417aea402e833884826539b9aa1bd1ec966aa2f6dab9a97afb3c",
-      "sources": [
-        {
-          "path": "packages/ui/src/components/ui/scroll-area.tsx",
-          "git_blob": "97930723148ad061f3809bca3bac79d480efb938",
-          "sha256": "83999d597a4a417aea402e833884826539b9aa1bd1ec966aa2f6dab9a97afb3c"
         }
       ]
     },
@@ -15231,19 +15059,6 @@
       "provenance_banner": "/* Vendored whole file from ZCode 29628c9acdb81b703bbd4080c207a0e7ce5e276e: packages/ui/src/logger.ts\n * Apache-2.0; original notices retained. MatOpt host adaptations are identified below. */\n"
     },
     {
-      "path": "frontend/src/zcode/mentions/components/scrollMask.ts",
-      "mode": "banner-only-copy",
-      "expected_sha256": "6f406e0d88c346be379e60481d691efdece58252518f603c4836cdd7826061b5",
-      "sources": [
-        {
-          "path": "packages/ui/src/mentions/components/scrollMask.ts",
-          "git_blob": "f2fb0197125c00019c64543749be12bb87e0d833",
-          "sha256": "e542fa2718d6dfb68316a438a7feafb3b29211fcaf9b4ef5ca47dea2c8a4002f"
-        }
-      ],
-      "provenance_banner": "/* Vendored whole file from ZCode 29628c9acdb81b703bbd4080c207a0e7ce5e276e: packages/ui/src/mentions/components/scrollMask.ts\n * Apache-2.0; original notices retained. */\n"
-    },
-    {
       "path": "frontend/src/zcode/model-option-map/compiler.ts",
       "mode": "banner-only-copy",
       "expected_sha256": "60a480baa14e3ecc91a9f0bb69eeda7c94afc37a70946182c9bd229c6704230e",
@@ -15346,19 +15161,6 @@
         }
       ],
       "provenance_banner": "/* Vendored whole file from ZCode 29628c9acdb81b703bbd4080c207a0e7ce5e276e: packages/model-option-map/src/types.ts\n * Apache-2.0; original notices retained. */\n"
-    },
-    {
-      "path": "frontend/src/zcode/root/DiffsWorkerPoolProvider.tsx",
-      "mode": "whole-file-adapted",
-      "expected_sha256": "5bc8a3bf0093e58af0dd4b52fc7b9fca29eb6ee9afb1e8640de5392f7d2b4aa9",
-      "sources": [
-        {
-          "path": "packages/ui/src/root/DiffsWorkerPoolProvider.tsx",
-          "git_blob": "6d36acc6493e4ada1169f00c607899a70e1584a2",
-          "sha256": "bc6236683e8cdea2df44f0239ecaeb88e0fe17a6f939b7513cc714617089b699"
-        }
-      ],
-      "notes": "Whole native provider; DEFAULT_CODE_PREVIEW_SETTINGS replaces the absent desktop-store selector. Retained reference copy; the active browser CodeViewer uses supported File disableWorkerPool and does not mount this provider."
     },
     {
       "path": "frontend/src/zcode/shared/account-provider-state.ts",
@@ -16505,19 +16307,6 @@
       "provenance_banner": "/* Vendored whole file from ZCode 29628c9acdb81b703bbd4080c207a0e7ce5e276e: packages/ui/src/useTheme.ts\n * Apache-2.0; original notices retained. MatOpt host adaptations are identified below. */\n"
     },
     {
-      "path": "frontend/src/zcode/v4/ConversationDraftEmptyState.tsx",
-      "mode": "whole-file-adapted",
-      "expected_sha256": "6e33e216292eaeb364d7f5f7dddec1e1e89455d5e408604c2a9a5f8c54b9e94a",
-      "sources": [
-        {
-          "path": "packages/ui/src/v4/ConversationDraftEmptyState.tsx",
-          "git_blob": "1633677dd83958bde90cf5885b0a456065a17b33",
-          "sha256": "e6e351ade21bb2ef5250ebf6ceabb7c793afe9a120b20393c90c7ed092121933"
-        }
-      ],
-      "notes": "Whole native greeting/layout/motion source with MatOpt brand assets; unavailable office mode omitted."
-    },
-    {
       "path": "frontend/src/zcode/v4/composer/escapeStop.ts",
       "mode": "exact-copy",
       "expected_sha256": "c2572e432d6cb7b19ee808fdc41c32bdff6ca0702a2749fbbd5cbfb80ea04cbd",
@@ -16528,32 +16317,6 @@
           "sha256": "c2572e432d6cb7b19ee808fdc41c32bdff6ca0702a2749fbbd5cbfb80ea04cbd"
         }
       ]
-    },
-    {
-      "path": "frontend/src/zcode/windowCaptionControls.ts",
-      "mode": "banner-only-copy",
-      "expected_sha256": "df355462e33509f6d9358568a5bef16b86bfcb150521f04dba603519a32691c0",
-      "sources": [
-        {
-          "path": "packages/ui/src/windowCaptionControls.ts",
-          "git_blob": "2fb04adfc42b6fead1629c6e716f5b25a257bd80",
-          "sha256": "89fef5dd4b89cbd5bc16dfdccc6ac922ac3c89e1f906bb68230c2377147dea36"
-        }
-      ],
-      "provenance_banner": "/* Vendored whole file from ZCode 29628c9acdb81b703bbd4080c207a0e7ce5e276e: packages/ui/src/windowCaptionControls.ts\n * Apache-2.0; original notices retained. */\n"
-    },
-    {
-      "path": "frontend/src/zcode/workers/diffs.worker.ts",
-      "mode": "banner-only-copy",
-      "expected_sha256": "4076ffd7e38b9c1c11a39ec632add52a7926d99d0a258e5a1a7ee08963eacb8c",
-      "sources": [
-        {
-          "path": "packages/ui/src/workers/diffs.worker.ts",
-          "git_blob": "3cbb6a35087fbe93bc5a044f0747754410952441",
-          "sha256": "3c8da2ff06233e62bbba6e542d3f2155c037f471f31edf3041cfaa36815c4601"
-        }
-      ],
-      "provenance_banner": "/* Vendored whole file from ZCode 29628c9acdb81b703bbd4080c207a0e7ce5e276e: packages/ui/src/workers/diffs.worker.ts\n * Apache-2.0; MatOpt host settings seam marked below. */\n"
     },
     {
       "path": "frontend/src/zcode/workspace-file-tree/helpers.ts",
@@ -16580,19 +16343,6 @@
         }
       ],
       "provenance_banner": "/* Vendored whole file from ZCode 29628c9acdb81b703bbd4080c207a0e7ce5e276e: packages/ui/src/workspace-file-tree/model.ts\n * Apache-2.0; original notices retained. MatOpt host adaptations are identified below. */\n"
-    },
-    {
-      "path": "frontend/src/zcode/workspace-grouped-tasks/task-row-action-button.tsx",
-      "mode": "banner-only-copy",
-      "expected_sha256": "20294bb110e163b305d3c8f565a99165b9dd8ed5a3f6aa887edddca4bd80e8ac",
-      "sources": [
-        {
-          "path": "packages/ui/src/workspace-grouped-tasks/task-row-action-button.tsx",
-          "git_blob": "a4a2ee15a1e77759ee1cee9b6366ecf7d740b0f4",
-          "sha256": "0a48b969c7a73715bd9691078b6f46a227b5bbd6e2abc821d14c3ab84f6e8154"
-        }
-      ],
-      "provenance_banner": "/* Vendored whole file from ZCode 29628c9acdb81b703bbd4080c207a0e7ce5e276e: packages/ui/src/workspace-grouped-tasks/task-row-action-button.tsx\n * Apache-2.0; original notices retained. */\n"
     },
     {
       "path": "frontend/src/zcode/lib/lazyMermaidPlugin.ts",

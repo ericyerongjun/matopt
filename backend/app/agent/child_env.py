@@ -23,7 +23,7 @@ The design follows dsh's subprocess environment scrub
 (``packages/subprocess/subprocess/src/index.ts`` — ``SENSITIVE_ENV_PATTERN``
 is ``/KEY|PASSWORD|SECRET|TOKEN/i``, and the ambient environment is scrubbed of
 both credential-shaped names and the harness's own namespaced variables),
-with the allowlist §3.9.3 of ``docs/DSH-REFINEMENT-PLAN.md`` asks for instead
+with an allowlist instead
 of a deny-list scrub: a deny-list catches the common case, an allowlist is
 what actually stops the leak. ``SENSITIVE_ENV_PATTERN`` is kept as a
 belt-and-braces assertion over the *finished* dict, so a future allowlist

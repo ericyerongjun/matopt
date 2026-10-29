@@ -2,7 +2,7 @@
 
 import oss2
 import io
-from typing import Optional, BinaryIO
+from typing import Optional
 from pathlib import Path
 from datetime import datetime, timedelta
 from data_agent_app.core.config import settings
