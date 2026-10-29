@@ -14,6 +14,7 @@ import "./matopt.css";
 import "./styles/design-tokens.css";
 import { bootTheme } from "./utils/theme";
 import { bootUiFontSize, subscribeToUiFontSizeStorageChanges } from "./utils/uiFontSize";
+import { bootFontPreferences, subscribeToFontPreferenceStorageChanges } from "./utils/fontPreferences";
 import "katex/dist/katex.min.css";
 
 // Apply the persisted palette and interface font size before the first render,
@@ -22,9 +23,11 @@ import "katex/dist/katex.min.css";
 // this module executes.
 bootTheme();
 bootUiFontSize();
+bootFontPreferences();
 // Process-lifetime subscription: mirrors a font-size change made in another
 // tab. Nothing here unmounts, so there is nothing to unsubscribe.
 subscribeToUiFontSizeStorageChanges();
+subscribeToFontPreferenceStorageChanges();
 
 createRoot(document.getElementById("root")!).render(
     <React.StrictMode>
