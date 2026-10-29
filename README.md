@@ -74,3 +74,15 @@ configuration and supported formats.
 - The harness **routes** the user turn against skill descriptions and file types, auto-loads the best match, and resolves tool-name aliases/typos.
 - Inspect the catalog: `GET /api/skills`, `GET /api/tools`.
 - The conversation kernel is also an MCP server at `http://localhost:8000/mcp` (stdio: `cd backend && .venv/bin/python -m app.agent.mcp`). Its `open_ui_app` tool shows saved mini-apps in MCP Apps hosts ([docs/MCP-APPS-EVALUATION.md](docs/MCP-APPS-EVALUATION.md)). Set `MCP_AUTH_TOKEN` or the `MCP_OAUTH_*` settings before exposing HTTP `/mcp` beyond this machine. Extra MCP servers: copy `mcp.json.example` to `mcp.json`.
+
+## License and authorship
+
+MatOpt was created by **Rongjun (Eric) Ye**, who holds the copyright to its
+first-party code. It is released under the [Apache License 2.0](LICENSE): you
+may use, modify and redistribute it, provided you keep the copyright and
+[`NOTICE`](NOTICE) attribution and mark the files you changed. The licence does
+not let you use the MatOpt name or the author's name to promote derived work.
+To cite MatOpt, use [`CITATION.cff`](CITATION.cff).
+
+Third-party components keep their own licences; see
+[`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md) and [`NOTICE`](NOTICE).

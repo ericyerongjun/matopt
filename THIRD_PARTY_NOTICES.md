@@ -9,9 +9,9 @@ are recorded in [`vendor/UPSTREAM.md`](vendor/UPSTREAM.md). Run
 `bash scripts/vendor_check.sh` to fail a build when a vendored copy has drifted
 from the pin it was generated from.
 
-MatOpt's own source does not yet declare a first-party licence (there is no root
-`LICENSE` file). That is a separate decision and is deliberately not made here;
-this file covers third-party components only.
+MatOpt's own first-party code is licensed under Apache-2.0 (root
+[`LICENSE`](LICENSE), copyright Rongjun (Eric) Ye; attribution in
+[`NOTICE`](NOTICE)). This file covers third-party components only.
 
 | Component | Upstream | Pin | Licence | In MatOpt |
 |---|---|---|---|---|

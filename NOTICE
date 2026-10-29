@@ -1,6 +1,6 @@
 # NOTICE
 
-MatOpt — third-party attribution notice.
+MatOpt — attribution notice.
 
 This file carries forward the attribution notices from the upstream projects
 MatOpt vendors from, as Apache License 2.0 §4(d) requires, and records what was
@@ -80,7 +80,20 @@ text and the `Copyright (c) 2026 DeepSeek` line verbatim.
 
 ## MatOpt
 
-MatOpt's own first-party code does not yet declare a licence (there is no root
-`LICENSE`). Adding one is out of scope for this file, which is limited to
-upstream attribution. Third-party components vendored before this notice existed
-(`skills/anthropic/`, `backend/lambda_app/`) keep their own notice files.
+MatOpt
+Copyright 2026 Rongjun (Eric) Ye <yerongjun03@gmail.com>
+Original author and copyright holder: Rongjun (Eric) Ye
+Source: https://github.com/ericyerongjun/matopt
+
+MatOpt's first-party code is licensed under the Apache License, Version 2.0
+(see [`LICENSE`](LICENSE)). Under §4(d) of that licence, any redistribution of
+MatOpt or of a derivative work must keep this attribution, and derivative works
+must carry prominent notices stating that they changed the files (§4(b)).
+The licence does not grant permission to use the name "MatOpt" or the author's
+name to endorse or promote derived products (§6).
+
+Third-party components keep their own licences and are excluded from the grant
+above: everything under `skills/anthropic/` (each skill's `LICENSE.txt`),
+`backend/lambda_app/` and `skills/lambda/` (see `backend/lambda/UPSTREAM.md`),
+`frontend/public/material-icons/`, and the vendored files listed in
+[`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md).

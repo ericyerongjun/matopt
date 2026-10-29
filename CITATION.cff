@@ -1,0 +1,12 @@
+cff-version: 1.2.0
+message: "If you use MatOpt or build on it, please cite it as below."
+title: "MatOpt: an agent development environment for mathematics, statistics, ML and CS"
+type: software
+authors:
+  - given-names: Rongjun
+    family-names: Ye
+    alias: Eric
+    email: yerongjun03@gmail.com
+repository-code: "https://github.com/ericyerongjun/matopt"
+license: Apache-2.0
+date-released: 2026-02-23
