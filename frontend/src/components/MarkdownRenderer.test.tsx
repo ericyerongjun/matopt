@@ -169,4 +169,28 @@ describe("literal native ZCode Markdown renderer", () => {
             assert.equal(container.querySelector("h1,script"), null);
         } finally { act(() => root.unmount()); container.remove(); }
     });
+
+    it("keeps rendering Markdown while a tagged display equation streams in", () => {
+        const answer = "# Stein's method\n\n$Z\\sim N(0,1)$ if and only if\n\n$$\n\\mathbb{E}[f'(Z)] = \\mathbb{E}[Zf(Z)]\n\\tag{1}\n$$\n\nfor every absolutely continuous $f$, and again\n\n$$\nW \\overset{d}{=} Z \\tag{2}\n$$\n\n## Next\n\nDone with $\\E[W]$.";
+        const container = document.createElement("div");
+        document.body.append(container);
+        const root = createRoot(container);
+        const warn = console.warn, error = console.error;
+        const failures: unknown[] = [];
+        console.warn = (...args: unknown[]) => failures.push(args);
+        console.error = (...args: unknown[]) => failures.push(args);
+        try {
+            for (let length = 8; length <= answer.length; length += 8) {
+                act(() => root.render(<ZCodeIntlProvider initialLocale="en-US"><TooltipProvider><MarkdownRenderer content={answer.slice(0, length)} streaming /></TooltipProvider></ZCodeIntlProvider>));
+            }
+            act(() => root.render(<ZCodeIntlProvider initialLocale="en-US"><TooltipProvider><MarkdownRenderer content={answer} streaming /></TooltipProvider></ZCodeIntlProvider>));
+            assert.deepEqual(failures, []);
+            assert.equal(container.querySelector("h1")?.textContent, "Stein's method");
+            assert.equal(container.querySelectorAll(".katex-display").length, 2);
+            assert.ok(!container.textContent?.includes("$$"));
+        } finally {
+            console.warn = warn; console.error = error;
+            act(() => root.unmount()); container.remove();
+        }
+    });
 });
