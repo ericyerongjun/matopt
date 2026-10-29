@@ -48,7 +48,8 @@ workspace instead of the backend user's home directory. That is deliberate:
 - Dot-directories created under the workspace root (``.cache``, ``.ipython``,
   ``.jupyter``) are skipped by ``Workspace.iter_files`` and
   ``is_internal_output``, so caches do not show up as artifacts or pollute
-  the file listing.
+  the file listing. So are a root-level ``Library`` (macOS tools' non-dot
+  state under ``HOME``) and ``.pyc`` files.
 
 Two costs, both accepted. Caches are no longer shared between conversations,
 so the first ``pip install`` and the first matplotlib import in a fresh
@@ -163,6 +164,9 @@ def build_child_env(
     # rather than defaulted so an inherited value cannot silently defeat them.
     env["MPLBACKEND"] = DEFAULT_MPLBACKEND
     env["PYTHONUNBUFFERED"] = "1"
+    # Any interpreter the agent starts (including a system python3 that caches
+    # under ~/Library/Caches) must not litter the workspace with bytecode.
+    env["PYTHONDONTWRITEBYTECODE"] = "1"
 
     if workspace_root is not None:
         home = Path(workspace_root)

@@ -75,7 +75,7 @@ function activityItems(content: AssistantContent, workStatus: PresentedWork["sta
             kind: item.kind, phase: item.phase, label: publicText(item.label, 120) || "Working", purpose: publicText(item.purpose), status,
             started_at: timestamp(item.started_at) ?? null, updated_at: status === "paused" ? Math.max(timestamp(item.updated_at) ?? 0, timestamp(content.work?.current_progress?.created_at) ?? 0) : timestamp(item.updated_at) ?? 0, finished_at: timestamp(item.finished_at) ?? null,
             summary: publicText(item.summary), tool: publicText(item.tool, 80), attempt: Math.max(1, count(item.attempt)), progress,
-            outputs: (Array.isArray(item.outputs) ? item.outputs : []).filter((output) => output && ["file", "source", "artifact", "ui"].includes(output.kind)).map((output) => ({
+            outputs: (Array.isArray(item.outputs) ? item.outputs : []).filter((output) => output && ["file", "source", "artifact", "ui"].includes(output.kind) && !isInternalPath(output.path)).map((output) => ({
                 kind: output.kind, label: publicText(output.label, 160),
                 ...(typeof output.url === "string" ? { url: output.url } : {}), ...(typeof output.path === "string" ? { path: output.path } : {}),
                 ...(typeof output.surface_id === "string" ? { surface_id: output.surface_id } : {}),
@@ -152,9 +152,18 @@ function legacyAnswer(parts: Part[]): string {
     return "";
 }
 
+// Mirrors backend `is_internal_output`: HOME caches and bytecode recorded by
+// older runs are bookkeeping, not results.
+function isInternalPath(path: string | null | undefined): boolean {
+    const parts = (path || "").replace(/\\/g, "/").replace(/^(\.\/)+/, "").split("/").filter(Boolean);
+    if (!parts.length) return false;
+    return parts[0] === "Library" || /\.py[co]$/.test(parts[parts.length - 1])
+        || parts.some((part) => part.startsWith(".") || part === "__pycache__");
+}
+
 function uniqueArtifacts(artifacts: Artifact[]): Artifact[] {
     const seen = new Set<string>();
-    return artifacts.slice().reverse().filter((artifact, index) => {
+    return artifacts.filter((artifact) => !isInternalPath(artifact.path)).reverse().filter((artifact, index) => {
         const key = artifact.digest || artifact.path || artifact.url || `${artifact.kind}:${artifact.name}:${index}`;
         if (seen.has(key)) return false;
         seen.add(key);
