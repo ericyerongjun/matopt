@@ -113,6 +113,27 @@ def test_internal_output_hides_sandbox_notebook():
     assert not is_internal_output("figures/fig_001.png")
 
 
+def test_internal_output_hides_home_caches_and_bytecode():
+    assert is_internal_output("Library/Caches/com.apple.python/lib/python3.9/os.cpython-39.pyc")
+    assert is_internal_output("Library/Preferences/com.example.plist")
+    assert is_internal_output("src/mod.pyc")
+    assert not is_internal_output("notes/Library/catalog.csv")
+    assert not is_internal_output("src/mod.py")
+
+
+@pytest.mark.asyncio
+async def test_shell_tool_does_not_report_home_caches(ws):
+    ctx, _ = make_ctx(ws)
+    cmd = ("mkdir -p Library/Caches/com.apple.python && touch Library/Caches/com.apple.python/os.cpython-39.pyc "
+           "&& mkdir -p pkg && touch pkg/mod.pyc && echo kept > result.txt")
+    r = await ShellTool()(ctx, {"command": cmd})
+    assert r.ok
+    assert [a.path for a in r.artifacts] == ["result.txt"]
+    assert ".pyc" not in r.output
+    listed = {ws.relpath(p) for p in ws.iter_files()}
+    assert "result.txt" in listed and not any(p.endswith(".pyc") or p.startswith("Library/") for p in listed)
+
+
 def test_collect_display_skips_identical_png_bytes(ws):
     session = KernelSession("conv1", ws)
     png = (

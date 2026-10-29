@@ -12,6 +12,7 @@ from app.agent.child_env import build_child_env
 from app.agent.events import ToolResult
 from app.agent.tools.base import Tool, ToolContext, output_bound_bytes, truncate_text
 from app.agent.tools.read_state import invalidate_execution_changes
+from app.agent.workspace import is_internal_output
 
 BLOCKED_PATTERNS = (
     "rm -rf /", "rm -rf ~", "rm -rf *", "mkfs", ":(){", "shutdown", "reboot", "> /dev/sd",
@@ -121,6 +122,8 @@ class ShellTool(Tool):
         output = "".join(chunks)
         artifacts = []
         for rel in changed:
+            if is_internal_output(rel):
+                continue
             try:
                 artifacts.append(ctx.workspace.artifact_for(rel))
             except Exception:  # noqa: BLE001

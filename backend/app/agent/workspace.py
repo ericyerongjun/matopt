@@ -29,6 +29,10 @@ from app.agent.events import Artifact
 IMAGE_EXT = {".png", ".jpg", ".jpeg", ".gif", ".svg", ".webp", ".bmp"}
 TEXT_EXT = {".txt", ".md", ".csv", ".json", ".tex", ".py", ".r", ".jl", ".yaml", ".yml", ".toml", ".html", ".xml", ".log", ".ipynb", ".sql", ".sh", ".js", ".ts"}
 INTERNAL_DIRS = {".ipynb_checkpoints", "__pycache__", ".git", ".matopt"}
+# HOME is the workspace, so macOS tools write their non-dot state there
+# (~/Library/Caches/com.apple.python, pip, Preferences). Internal only at the root.
+HOME_OS_DIRS = {"Library"}
+INTERNAL_SUFFIXES = (".pyc", ".pyo")
 # Live notebook the kernel appends after every cell — not a user-facing artifact.
 SANDBOX_NOTEBOOK = "analysis.ipynb"
 
@@ -62,6 +66,8 @@ def is_internal_output(rel: str) -> bool:
     if norm == SANDBOX_NOTEBOOK:
         return True
     parts = norm.split("/")
+    if parts[0] in HOME_OS_DIRS or parts[-1].endswith(INTERNAL_SUFFIXES):
+        return True
     return any(p in INTERNAL_DIRS or p.startswith(".") for p in parts)
 
 
@@ -117,9 +123,10 @@ class Workspace:
             yield base
             return
         for dirpath, dirnames, filenames in os.walk(base):
-            dirnames[:] = [d for d in dirnames if d not in INTERNAL_DIRS and not d.startswith(".")]
+            dirnames[:] = [d for d in dirnames if d not in INTERNAL_DIRS and not d.startswith(".")
+                           and not (dirpath == str(self.root) and d in HOME_OS_DIRS)]
             for fn in filenames:
-                if fn.startswith("."):
+                if fn.startswith(".") or fn.endswith(INTERNAL_SUFFIXES):
                     continue
                 yield Path(dirpath) / fn
 

@@ -95,6 +95,6 @@ export function ArtifactView({ artifact, conversationId, inCanvas = false }: { a
         if (figure && Array.isArray(figure.data)) return frame(<PlotRenderer figure={figure as { data?: Plotly.Data[] }} />);
         return error ? <p className="ui-surface-note" role="status">{error}</p> : null;
     }
-    if (url && artifact.kind !== "json") return <a className="mt-2 inline-flex text-ui-base text-foreground underline underline-offset-4" href={url} target="_blank" rel="noreferrer">{artifact.name}</a>;
+    if (url && artifact.kind !== "json") return <a className="mt-2 flex w-fit max-w-full break-all text-ui-base text-foreground underline underline-offset-4" href={url} target="_blank" rel="noreferrer">{artifact.name}</a>;
     return null;
 }

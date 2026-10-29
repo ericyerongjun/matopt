@@ -65,6 +65,17 @@ test("only committed surfaces and intended artifacts reach the final presentatio
     assert.deepEqual(result.artifacts, [artifact]);
 });
 
+test("stored HOME caches and bytecode never surface as results", () => {
+    const kept = { kind: "file", name: "result.txt", path: "result.txt" };
+    const result = projectAssistantPresentation(content([
+        { type: "artifact", artifact: { kind: "file", name: "os.cpython-39.pyc", path: "Library/Caches/com.apple.python/lib/os.cpython-39.pyc" } },
+        { type: "artifact", artifact: { kind: "file", name: "mod.pyc", path: "pkg/mod.pyc" } },
+        { type: "artifact", artifact: { kind: "file", name: "x.json", path: ".cache/x.json" } },
+        { type: "artifact", artifact: kept },
+    ], { presentation: "final" }));
+    assert.deepEqual(result.artifacts, [kept]);
+});
+
 test("earlier drafts require explicit public approval and never replace the final answer", () => {
     const saved = content([{ type: "text", phase: "revise", text: "Q4 correction" }], { earlier_drafts: ["Full Q1–Q4 draft"] });
     assert.deepEqual(projectAssistantPresentation(saved).earlierDrafts, []);

@@ -101,6 +101,12 @@ def test_planted_credentials_do_not_reach_the_child(planted_env, tmp_path):
         assert name not in env, f"{name} leaked into the child environment"
 
 
+def test_bytecode_writes_are_disabled_even_when_not_inherited(monkeypatch, tmp_path):
+    monkeypatch.delenv("PYTHONDONTWRITEBYTECODE", raising=False)
+    env = build_child_env(workspace_root=tmp_path / "ws")
+    assert env["PYTHONDONTWRITEBYTECODE"] == "1"
+
+
 def test_only_allowlisted_names_are_forwarded(planted_env, tmp_path):
     env = build_child_env(workspace_root=tmp_path / "ws")
     # Every surviving name is either on the allowlist or MatOpt's own namespace.
