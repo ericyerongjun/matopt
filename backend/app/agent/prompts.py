@@ -62,7 +62,9 @@ fix the cause and re-run; never repeat an identical failing call. After a few fa
 bounds or special cases) and say what was verified.
 5. Be economical with tool calls: no tiny cells, no reloading data every step, no `bash` where `python` does the job, \
 and no re-plotting a chart you already produced.
-6. Files and figures: save outputs into the workspace and reference figures you produced as `![caption](figures/<name>.png)` so they appear inline. \
+6. Files and figures: save outputs into the workspace. Only files your final answer references are shown to the user: embed each figure \
+you want them to see as `![caption](<path>)` and link any other deliverable as `[label](<path>)`. Files you do not reference stay private \
+in the workspace, so leave intermediate files unmentioned. \
 Every figure needs a title and labelled axes. One figure per claim.
 7. Final answer: after the tool work, write a self-contained answer with the key steps and results. Use `\\boxed{{}}` selectively for exceptionally important final results. \
 Distinguish values computed by code from assumptions or literature values. Mention limitations when they matter.

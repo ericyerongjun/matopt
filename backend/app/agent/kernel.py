@@ -60,6 +60,37 @@ try:
             plt.close("all")
         plt.show = _matopt_show
         plt._matopt_show_wrapped = True
+    # A figure saved into the workspace already becomes an artifact as a file;
+    # don't capture it inline as well (that showed one plot twice). The saved
+    # state is a fingerprint of the rendered pixels, so a figure changed after
+    # saving (another series, a new title) is still captured.
+    import matplotlib.figure as _mfig
+    def _matopt_figure_state(fig):
+        try:
+            import hashlib
+            fig.canvas.draw()
+            return hashlib.sha256(bytes(fig.canvas.buffer_rgba())).hexdigest()
+        except Exception:
+            return None
+    if not getattr(_mfig.Figure, "_matopt_savefig_wrapped", False):
+        _orig_savefig = _mfig.Figure.savefig
+        def _matopt_savefig(self, fname, *args, **kwargs):
+            import os
+            out = _orig_savefig(self, fname, *args, **kwargs)
+            if isinstance(fname, (str, os.PathLike)):
+                target = os.path.abspath(os.fspath(fname))
+                if target.startswith(os.getcwd() + os.sep):
+                    self._matopt_saved_state = _matopt_figure_state(self)
+            return out
+        _mfig.Figure.savefig = _matopt_savefig
+        _mfig.Figure._matopt_savefig_wrapped = True
+        _orig_display = _mi.display
+        def _matopt_display(*objs, **kwargs):
+            objs = [o for o in objs if getattr(o, "_matopt_saved_state", None) is None
+                    or _matopt_figure_state(o) != o._matopt_saved_state]
+            if objs:
+                _orig_display(*objs, **kwargs)
+        _mi.display = _matopt_display
 except Exception as _e:
     print("matplotlib setup skipped:", _e)
 try:

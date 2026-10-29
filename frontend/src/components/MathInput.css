@@ -23,7 +23,7 @@
   border: 1px solid var(--composer-border);
   border-radius: var(--mo-radius-composer, 18px);
   background: var(--composer-surface);
-  box-shadow: var(--mo-shadow-subtle, none);
+  box-shadow: var(--mo-shadow-paper, var(--mo-shadow-subtle, none));
   transition: border-color 150ms ease, box-shadow 150ms ease;
 }
 .matopt-composer-modern [data-slot="input-group"]:focus-within {
@@ -41,10 +41,10 @@
   border: 0;
   border-radius: 0;
   resize: none;
-  font-family: inherit;
-  font-size: var(--matopt-text-composer, 16px);
+  font-family: var(--font-serif, inherit);
+  font-size: calc(var(--matopt-text-composer, 16px) + 2px);
   font-weight: 400;
-  line-height: 1.6;
+  line-height: 1.5;
   color: var(--composer-text);
   background: transparent;
   box-shadow: none;
@@ -76,9 +76,9 @@
   min-width: 36px;
   min-height: 36px;
   padding: 0;
-  border-radius: 11px;
-  color: var(--composer-surface);
-  background: var(--composer-text);
+  border-radius: 50%;
+  color: var(--mo-on-accent, var(--composer-surface));
+  background: var(--composer-focus);
   border: 0;
   transition: opacity 150ms ease, background-color 150ms ease;
 }

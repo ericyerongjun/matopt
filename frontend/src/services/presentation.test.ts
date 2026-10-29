@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import type { ActivityItem, AssistantContent, Part } from "../types/protocol.ts";
 import type { UISurface } from "../types/ui.ts";
-import { projectAssistantPresentation } from "./presentation.ts";
+import { projectAssistantPresentation, referencedByAnswer } from "./presentation.ts";
 
 function content(parts: Part[], extra: Partial<AssistantContent> = {}): AssistantContent {
     return { parts, model: "test", provider: "test", reasoning: "high", usage: {}, status: "complete", plan: [], stats: { llm_calls: 1, tool_calls: 0 }, ...extra };
@@ -170,4 +170,13 @@ test("stopped partial results remain visibly provisional and malformed saved blo
     }
     const malformed = { ...block, kind: "reasoning", content: "PRIVATE_INVALID" } as unknown as typeof block;
     assert.equal(projectAssistantPresentation(content([{ type: "result_block", block: malformed }])).resultBlocks.length, 0);
+});
+
+test("only files the answer points to are delivered, and an embedded figure is not repeated", () => {
+    const answer = "![Surface](paraboloid.png)\n\nThe report is [here](outputs/report.pdf).";
+    assert.equal(referencedByAnswer({ kind: "image", name: "fig_001.png", path: "figures/fig_001.png" } as never, answer), false);
+    assert.equal(referencedByAnswer({ kind: "image", name: "paraboloid.png", path: "paraboloid.png" } as never, answer), false);
+    assert.equal(referencedByAnswer({ kind: "file", name: "report.pdf", path: "outputs/report.pdf" } as never, answer), true);
+    assert.equal(referencedByAnswer({ kind: "image", name: "a.png", path: "figures/a.png" } as never, "Saved to `figures/a.png`."), true);
+    assert.equal(referencedByAnswer({ kind: "html", name: "table" } as never, answer), false);
 });

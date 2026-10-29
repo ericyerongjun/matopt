@@ -20,6 +20,7 @@ import { Message, MessageContent, MessageActions, MessageAction } from "../zcode
 import { Task, TaskContent, TaskTrigger } from "../zcode/components/ai-elements/task.js";
 import { Attachment, AttachmentPreview, Attachments } from "../zcode/components/ai-elements/attachments.js";
 import "./conversation.css";
+import { MatOptMark } from "./MatOptMark.tsx";
 
 interface Props {
     messages: ChatMessage[];
@@ -208,7 +209,7 @@ function MessageRow({ message, conversationId, streaming, onPickOption, onOpenWo
     const presentation = projectAssistantPresentation(content, streaming);
     const answerForCopy = presentation.answer || [...presentation.resultBlocks.map((block) => block.content), ...presentation.surfaces.map((surface) => surface.fallback)].join("\n\n");
     return <Message from="assistant" className="matopt-assistant-message" data-message-id={message.id}><MessageContent className="matopt-assistant-content w-full">
-        <div className="matopt-answer-author"><span className="matopt-answer-mark" aria-hidden="true">Σ</span><span>MatOpt</span></div>
+        <div className="matopt-answer-author"><MatOptMark size={22} className="matopt-answer-mark" /><span>MatOpt</span></div>
         {presentation.work && <WorkDisclosure work={presentation.work} conversationId={conversationId} onOpenWork={onOpenWork} />}
         <div data-testid="assistant-answer" data-quote-source="assistant" className="matopt-answer-document min-w-0">
             {presentation.resultBlocks.map((block) => <PublicResult key={block.id} block={block} conversationId={conversationId} items={presentation.work?.items ?? []} onOpenWork={onOpenWork} />)}

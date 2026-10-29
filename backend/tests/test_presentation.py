@@ -74,9 +74,21 @@ def final(events):
     return next(e["content"] for e in events if e["type"] == "message_end")
 
 
+def test_answer_shows_only_the_files_it_references():
+    def call(*paths):
+        return {"type": "tool_call", "name": "python", "result": {"artifacts": [
+            {"kind": "image" if p.endswith(".png") else "file", "name": p.rsplit("/", 1)[-1], "path": p} for p in paths]}}
+    parts = [call("figures/fig_001.png", "paraboloid.png", "scratch.csv", "report.pdf")]
+    text = "Here is the surface.\n\n![Paraboloid](paraboloid.png)\n\nThe write-up is in [report.pdf](report.pdf)."
+    shown = [p["artifact"]["path"] for p in public_content({"parts": parts, "final_text": text, "final_ready": True})["parts"]
+             if p["type"] == "artifact"]
+    # The embedded figure renders inline once; the intermediate capture and CSV stay in Files.
+    assert shown == ["report.pdf"]
+
+
 @pytest.mark.asyncio
 async def test_one_final_delivery_full_revision_and_safe_reload_exports(rig):
-    answer = "# Question 1\nThe result is 2.\n\n# Question 2\nThe corrected result is 4."
+    answer = "# Question 1\nThe result is 2.\n\n# Question 2\nThe corrected result is 4 ([data](outputs/result.json))."
     events = await run(rig, [
         {"text": "INTERNAL TOOL NARRATION", "reasoning": "PRIVATE THOUGHT", "tool": "output", "args": {"value": 1, "filename": "incorrect-draft.json"}},
         {"text": "# Question 1\nThe result is 2.\n\n# Question 2\nThe result is 3."},

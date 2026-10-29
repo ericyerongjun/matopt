@@ -15,7 +15,7 @@ import { cjk } from "@streamdown/cjk";
 import { code } from "@streamdown/code";
 import { createMathPlugin } from "@streamdown/math";
 // MatOpt host: retain existing accessible KaTeX output and mathematical macros.
-import { KATEX_OPTIONS } from "../../../utils/mathRenderOptions.ts";
+import { withKatexOptions } from "../../../utils/mathRenderOptions.ts";
 // MatOpt host: Mermaid loads on first diagram instead of in the entry chunk.
 import { lazyMermaid as mermaid } from "@/lib/lazyMermaidPlugin.js";
 import type { EditorInfo, FileStat, OpenInEditorOptions } from "@zcode/shared";
@@ -409,10 +409,9 @@ export interface MessageFileLinkTarget {
 const messageMathPlugin = createMathPlugin({ singleDollarTextMath: true });
 // The native plugin exposes its rehype tuple; only host math options are added.
 if (Array.isArray(messageMathPlugin.rehypePlugin)) {
-  messageMathPlugin.rehypePlugin = [messageMathPlugin.rehypePlugin[0], {
+  messageMathPlugin.rehypePlugin = [messageMathPlugin.rehypePlugin[0], withKatexOptions({
     ...messageMathPlugin.rehypePlugin[1],
-    ...KATEX_OPTIONS,
-  }];
+  })];
 }
 
 function disableSingleTilde(plugin: Pluggable): Pluggable {
@@ -1395,7 +1394,9 @@ export const MessageResponse = memo(
     const boundaryResetKey = useMemo(
       () =>
         renderStreaming
-          ? `streaming:${streamdownMode}`
+          // Include the length so a parse error on one partial chunk is retried
+          // on the next one instead of leaving the rest of the stream as raw text.
+          ? `streaming:${streamdownMode}:${targetMarkdown.length}`
           : `${streamdownMode}:${renderZCodeFileCitations ? "citations" : "plain"}:${hashMarkdownCacheKey(targetMarkdown)}`,
       [renderStreaming, renderZCodeFileCitations, streamdownMode, targetMarkdown],
     );

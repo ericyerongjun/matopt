@@ -79,7 +79,7 @@ export function ArtifactView({ artifact, conversationId, inCanvas = false }: { a
     }, [artifact.kind, artifact.data, url, conversationId, richKind, sourceKey]);
 
     const frame = (content: ReactNode) => <div className="my-3 min-w-0 max-w-full">
-        {!inCanvas && workspace && <div className="ui-artifact-header"><span>{artifact.name}</span><button type="button" className="ui-icon-button" title="Open in canvas" aria-label={`Open ${artifact.name} in canvas`}
+        {!inCanvas && workspace && <div className="ui-artifact-header"><button type="button" className="ui-icon-button" title="Open in canvas" aria-label="Open in canvas"
             onClick={() => workspace.openArtifact(artifact, conversationId)}><Expand size={20} strokeWidth={1.8} /></button></div>}{content}
     </div>;
     if (richKind) {
@@ -89,7 +89,7 @@ export function ArtifactView({ artifact, conversationId, inCanvas = false }: { a
         return frame(<><p className="ui-surface-note" role="status">{error || "Loading preview…"}</p>
             {error && url && <a className="text-ui-sm text-foreground underline underline-offset-4" href={url} download={artifact.name}>Download {artifact.name}</a>}</>);
     }
-    if (artifact.kind === "image") return frame(<figure><img src={url} alt={artifact.name} className="block h-auto max-w-full rounded-xl" /></figure>);
+    if (artifact.kind === "image") return frame(<figure><img src={url} alt="Figure" className="block h-auto max-w-full rounded-xl" /></figure>);
     if (artifact.kind === "plotly") {
         const figure = (artifact.data || fetched) as { data?: unknown[] } | null;
         if (figure && Array.isArray(figure.data)) return frame(<PlotRenderer figure={figure as { data?: Plotly.Data[] }} />);

@@ -1,6 +1,6 @@
 /** MatOpt conversation workspace, using the licensed ZCode component primitives. */
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Activity, Calculator, ChartNoAxesCombined, Download, FileCode2, Layers, Monitor, Moon, PanelLeft, RotateCcw, Settings, ShieldCheck, Sigma, Smile, SquareFunction, SquarePen, Sun, Type, X } from "lucide-react";
+import { Activity, Calculator, ChartNoAxesCombined, Download, FileCode2, Layers, Monitor, Moon, PanelLeft, RotateCcw, Settings, ShieldCheck, Smile, SquareFunction, SquarePen, Sun, Type, X, CaseSensitive } from "lucide-react";
 import { Button } from "@/components/ui/button.js";
 import { DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu.js";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs.js";
@@ -13,6 +13,8 @@ import { exportConversation, restartKernel } from "./services/conversations";
 import { uploadFiles } from "./services/files";
 import { loadTheme, setTheme as persistTheme, watchSystemTheme, type Theme } from "./utils/theme";
 import { DEFAULT_UI_FONT_SIZE_PX, loadUiFontSizePx, MAX_UI_FONT_SIZE_PX, MIN_UI_FONT_SIZE_PX, setUiFontSizePx } from "./utils/uiFontSize";
+import { loadFontPreferences, setFontPreferences } from "./utils/fontPreferences";
+import { FontSettingsDialog } from "./features/settings/FontSettingsDialog";
 import { telemetryService } from "./services/telemetry.ts";
 import { projectAssistantPresentation } from "./services/presentation.ts";
 import type { UsageProjection } from "./features/trajectory/types.ts";
@@ -34,6 +36,7 @@ import { ActivityPanel } from "./components/WorkActivity";
 import ModelPicker from "./components/ModelPicker";
 import { TASK_STARTERS, taskStarterDraft } from "./services/taskStarters";
 import type { QuoteRef, QuoteRequest } from "./services/quote";
+import { MatOptMark } from "./components/MatOptMark.tsx";
 
 
 /** Usage is loaded only while its tab is open; normal UI never downloads raw diagnostics. */
@@ -75,6 +78,8 @@ export default function MatOptApp() {
   const [activityVisible, setActivityVisible] = useState(false);
   const [activityView, setActivityView] = useState("timeline");
   const [uiFontSize, setUiFontSize] = useState(loadUiFontSizePx);
+  const [fonts, setFonts] = useState(loadFontPreferences);
+  const [fontsOpen, setFontsOpen] = useState(false);
   const [theme, setTheme] = useState<Theme>(loadTheme);
   const [draftPreset, setDraftPreset] = useState<{ id: number; text: string; skills?: string[] } | undefined>();
   const [quoteRequest, setQuoteRequest] = useState<(QuoteRequest & { conversationId: string | null }) | undefined>();
@@ -162,6 +167,7 @@ export default function MatOptApp() {
       <DropdownMenuItem disabled={uiFontSize <= MIN_UI_FONT_SIZE_PX} onSelect={() => setUiFontSize(setUiFontSizePx(uiFontSize - 1))}><Type className="size-4" />Smaller text</DropdownMenuItem>
       <DropdownMenuItem disabled={uiFontSize >= MAX_UI_FONT_SIZE_PX} onSelect={() => setUiFontSize(setUiFontSizePx(uiFontSize + 1))}><Type className="size-5" />Larger text</DropdownMenuItem>
       <DropdownMenuItem onSelect={() => setUiFontSize(setUiFontSizePx(DEFAULT_UI_FONT_SIZE_PX))}><RotateCcw className="size-5" />Default text size</DropdownMenuItem>
+      <DropdownMenuItem onSelect={() => setFontsOpen(true)}><CaseSensitive className="size-5" />Fonts…</DropdownMenuItem>
       <DropdownMenuSeparator /><DropdownMenuLabel>Appearance</DropdownMenuLabel>
       <DropdownMenuRadioGroup value={theme} onValueChange={(value) => { persistTheme(value as Theme); setTheme(value as Theme); }}>
         <DropdownMenuRadioItem value="light"><Sun className="size-4" />Light</DropdownMenuRadioItem><DropdownMenuRadioItem value="dark"><Moon className="size-4" />Dark</DropdownMenuRadioItem><DropdownMenuRadioItem value="system"><Monitor className="size-4" />Match system</DropdownMenuRadioItem>
@@ -177,7 +183,7 @@ export default function MatOptApp() {
     <div className="matopt-conversation-body">
       {convos.loadingThread ? <p className="matopt-loading" role="status">Loading chat…</p> : messages.length ? <MessageList messages={messages} conversationId={convos.activeId} streaming={attachedRun} onPickOption={handleExplain} onOpenWork={openActivity} onQuote={inputDisabled ? undefined : quotePassage} />
         : <div className="matopt-welcome"><div className="matopt-welcome-inner">
-          <div className="matopt-welcome-symbol" aria-hidden="true"><Sigma /></div>
+          <MatOptMark size={48} className="matopt-welcome-symbol" />
           <h1>What would you like to work on?</h1>
           <p className="matopt-welcome-description">Explore data, solve a problem, or build something useful.</p>
           {composer}
@@ -223,6 +229,6 @@ export default function MatOptApp() {
     <MatOptShell sidebarOpen={sidebarVisible} paneOpen={paneVisible} onCloseSidebar={dismissSidebar} onClosePane={closePane} conversation={conversation} sidePane={sidePane} inspector={inspector} inspectorOpen={activityVisible} onCloseInspector={closeActivity}
       sidebar={<ChatSidebar conversations={convos.conversations} activeId={convos.activeId} pausedConversationId={attachedRun && chat.paused ? convos.activeId : undefined} loading={convos.loadingList} onNewChat={newChat} onSelect={selectChat} onRename={convos.rename} onDelete={convos.remove} onFiles={openFiles} onClose={dismissSidebar} />}
       header={<><div className="matopt-header-title">{!sidebarVisible && <><Button variant="ghost" size="icon-md" aria-label="Open sidebar" title="Open sidebar" onClick={() => setSidebarVisible(true)}><PanelLeft className="size-5" /></Button><Button variant="ghost" size="icon-md" aria-label="New chat" title="New chat" onClick={newChat}><SquarePen className="size-5" /></Button></>}<div className="matopt-task-identity"><h1 title={taskTitle}>{taskTitle}</h1>{taskContext && <span><i className="is-active" aria-hidden="true" />{taskContext}</span>}</div></div>
-        <div className="matopt-header-actions"><Button variant="ghost" size="sm" aria-label="Open workspace" title="Workspace" aria-expanded={paneVisible && !activityVisible} onClick={() => paneVisible && !activityVisible ? closePane() : openPane(view)}><Layers className="size-4" /><span>Workspace</span></Button><Button variant="ghost" size="sm" aria-label="Open activity" title="Activity" aria-expanded={activityVisible} onClick={() => activityVisible ? closeActivity() : openActivity()}><Activity className="size-4" /><span>Activity</span></Button><Button variant="ghost" size="sm" aria-label="Voice tutor" title="Voice tutor" aria-pressed={voice.avatarOpen} onClick={() => voice.setPreference("avatarOpen", !voice.avatarOpen)}><Smile className="size-4" /><span>Tutor</span></Button>{settings}</div></>} />
+        <div className="matopt-header-actions"><Button variant="ghost" size="sm" aria-label="Open workspace" title="Workspace" aria-expanded={paneVisible && !activityVisible} onClick={() => paneVisible && !activityVisible ? closePane() : openPane(view)}><Layers className="size-4" /><span>Workspace</span></Button><Button variant="ghost" size="sm" aria-label="Open activity" title="Activity" aria-expanded={activityVisible} onClick={() => activityVisible ? closeActivity() : openActivity()}><Activity className="size-4" /><span>Activity</span></Button><Button variant="ghost" size="sm" aria-label="Voice tutor" title="Voice tutor" aria-pressed={voice.avatarOpen} onClick={() => voice.setPreference("avatarOpen", !voice.avatarOpen)}><Smile className="size-4" /><span>Tutor</span></Button>{settings}<FontSettingsDialog open={fontsOpen} onOpenChange={setFontsOpen} value={fonts} onChange={(next) => setFonts(setFontPreferences(next))} /></div></>} />
   </UiWorkspaceProvider>;
 }

@@ -1,6 +1,6 @@
 # MatOpt frontend design
 
-Updated 10 October 2026. This redesign is frontend only. The current React/Vite, Radix/ZCode primitives, Markdown/KaTeX and intelligent-result renderer remain in place. Existing conversations, request payloads, streaming/replay, file operations and backend behavior are preserved.
+Updated 28 October 2026. This redesign is frontend only. The current React/Vite, Radix/ZCode primitives, Markdown/KaTeX and intelligent-result renderer remain in place. Existing conversations, request payloads, streaming/replay, file operations and backend behavior are preserved.
 
 ## Direction
 
@@ -46,18 +46,20 @@ Use semantic tokens consumed by existing `--color-*` aliases. One source owns bo
 
 | Role | Light | Dark |
 | --- | --- | --- |
-| App canvas | `#f3f4f6` | `#111214` |
-| Navigation | `#f3f4f6` | `#151619` |
-| Working surface | `#ffffff` | `#1b1d20` |
-| Secondary surface | `#f5f6f8` | `#24272c` |
-| Primary text | `#202329` | `#eeeef1` |
-| Secondary text | `#5f6671` | `#afb4bf` |
-| Subtle border | `#e3e6eb` | `#343840` |
-| Interactive focus | `#4e60b9` | `#aab8ff` |
+| App canvas (paper) | `#f6f5f1` | `#15161a` |
+| Navigation | `#f6f5f1` | `#15161a` |
+| Working surface | `#ffffff` | `#1d1f24` |
+| Secondary surface | `#f3f1ec` | `#25282e` |
+| Primary text (ink) | `#1c1f26` | `#ecebe6` |
+| Secondary text | `#5b5f69` | `#b1b3ba` |
+| Subtle border | `#e7e4dc` | `#31343b` |
+| Accent (ink blue) | `#1f4e8c` | `#9db8e6` |
 
-The cool accent identifies selected/focused controls and genuine active work. Success, warning and error colors remain semantic and paired with text/icons. No decorative gradients or heavy shadows.
+**Folio** (selected 28 October 2026): an academic, editorial treatment. The ink-blue accent identifies selected/focused controls and genuine active work. Success, warning and error colors remain semantic and paired with text/icons. No decorative gradients or heavy shadows.
 
-- Typography: native system sans stack. Default answer/composer 16px; controls 13–14px; secondary metadata no smaller than 12px. Existing text-size preference continues to scale semantic roles. Welcome heading 30–34px; document hierarchy 24/20/17px. Answer line height about 1.7; controls about 1.4. Only code uses monospace; KaTeX retains its own metrics.
+- Typography: Newsreader (variable, optical sizing) for answers, requests, headings and titles; Inter for interface controls and metadata; IBM Plex Mono for code. All three are self-hosted via `@fontsource`. Answer prose is UI size + 4px (18px default) at line height 1.65; requests read as a serif line under a small "You asked" label. KaTeX keeps its own metrics.
+- Mark: an ink seal containing a small neural network (2 inputs, 3 hidden units, 1 output), shared by `MatOptMark` and `public/matopt.svg`.
+- Navigation: a 60px icon rail (mark, new chat, search, files, collapse) beside a serif "Chats" list. The workspace and activity panes are paper cards raised off the canvas.
 - Spacing: 4, 8, 12, 16, 20, 24, 32, 40, 48px. Desktop navigation about 248px; header 56–60px; answer measure about 760px. Dense context and generous reading space serve different jobs.
 - Radii: 6px small embedded controls, 9px standard controls, 12px content blocks, 18px composer, 20px canvas. Pills reserved for compact state/chip controls.
 - Elevation: one subtle canvas/composer edge; floating menus may use a soft shadow. Avoid shadow on every block.

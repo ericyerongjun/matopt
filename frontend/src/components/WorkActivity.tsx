@@ -194,6 +194,13 @@ export function WorkDisclosure({ work, conversationId, onOpenWork }: { work: Pre
     </div>;
 }
 
+/** MCP tools arrive untitled as `server__tool`; show them as a sourced call. */
+function TranscriptTitle({ entry }: { entry: TranscriptEntry }) {
+    const separator = entry.title || !entry.tool ? -1 : entry.tool.indexOf("__");
+    if (separator <= 0) return <span className="matopt-tx-title">{entry.title ?? entry.tool}</span>;
+    return <span className="matopt-tx-title matopt-tx-mcp"><span className="matopt-tx-mcp-badge">MCP</span><strong>{entry.tool!.slice(0, separator)}</strong><span aria-hidden="true">›</span><span className="matopt-tx-subject">{entry.tool!.slice(separator + 2)}</span></span>;
+}
+
 /** Claude Code-style narration and expandable action rows. */
 export function WorkTranscript({ entries }: { entries: TranscriptEntry[] }) {
     return <ol className="matopt-tx" aria-label="Work transcript">{entries.map((entry) => entry.kind === "note"
@@ -201,7 +208,7 @@ export function WorkTranscript({ entries }: { entries: TranscriptEntry[] }) {
         : <li key={entry.id} className="matopt-tx-action" data-status={entry.status}>
             <details>
                 <summary>
-                    <span className="matopt-tx-title">{entry.title ?? entry.tool}</span>
+                    <TranscriptTitle entry={entry} />
                     {entry.subject && <span className="matopt-tx-subject">{entry.subject}</span>}
                     {entry.status === "running" && <Loader2 className="matopt-work-icon matopt-work-spinning" aria-label="Running" />}
                     {entry.status === "error" && <CircleAlert className="matopt-work-icon matopt-tx-failed" aria-label="Failed" />}
