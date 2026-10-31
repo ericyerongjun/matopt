@@ -83,6 +83,37 @@ def plan_cut(history: list[dict], target: int) -> Optional[int]:
     return latest
 
 
+def plan_intra_turn_cut(history: list[dict], target: int) -> Optional[tuple[int, int]]:
+    """(start, end) of the latest turn's earlier steps to summarise, or None.
+
+    ``plan_cut`` only cuts at user-run starts, so one long turn — forty steps
+    of large tool outputs — could outgrow the window with nothing to cut.
+    Codex compacts mid-turn when the token limit is reached and a follow-up is
+    still needed (``core/src/session/turn.rs``); this is that cut for MatOpt's
+    history. The turn's own user run (its ``<turn-context>`` and request) is
+    never touched (a steer or nudge is a user run too, so it starts a new
+    "turn" here and is likewise kept). The span starts after it and ends at an
+    assistant message,
+    so a tool call is never separated from its result, and the newest step is
+    always kept.
+    """
+    starts = turn_starts(history)
+    if not starts:
+        return None
+    first = starts[-1]
+    while first < len(history) and history[first].get("role") == "user" and not is_summary(history[first]):
+        first += 1
+    groups = [i for i in range(first, len(history)) if history[i].get("role") == "assistant"]
+    if len(groups) < 2:
+        return None
+    sizes = [_size(message) for message in history]
+    head = sum(sizes[:first]) + 4_000
+    for cut in groups[1:]:
+        if head + sum(sizes[cut:]) <= target:
+            return first, cut
+    return first, groups[-1]
+
+
 def render_span(span: list[dict]) -> str:
     """Transcript text for the summariser, bounded and with long outputs trimmed."""
     lines = []
@@ -134,11 +165,13 @@ def _unwrap(content: str) -> str:
     return body.split("\n\n", 1)[1].strip() if body.startswith("Harness-provided") and "\n\n" in body else body
 
 
-def summary_message(text: str, *, turns: int, model_written: bool) -> dict:
+def summary_message(text: str, *, turns: int, model_written: bool, steps: int | None = None) -> dict:
     source = "a model-written summary" if model_written else "an automatic digest (the summariser was unavailable)"
+    scope = (f"{steps} earlier step(s) of the current turn" if steps is not None
+             else f"{turns} earlier turn(s)")
     return {"role": "user", "content": (
-        f"<{SUMMARY_TAG}>\nHarness-provided context, not written by the user: {source} of {turns} earlier "
-        f"turn(s) removed to keep the conversation within its context budget. Full records remain in the "
+        f"<{SUMMARY_TAG}>\nHarness-provided context, not written by the user: {source} of {scope} "
+        f"removed to keep the conversation within its context budget. Full records remain in the "
         f"workspace and session log; re-read files rather than relying on remembered output.\n\n"
         f"{text.strip()}\n</{SUMMARY_TAG}>"
     )}

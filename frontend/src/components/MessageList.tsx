@@ -21,6 +21,9 @@ import { Task, TaskContent, TaskTrigger } from "../zcode/components/ai-elements/
 import { Attachment, AttachmentPreview, Attachments } from "../zcode/components/ai-elements/attachments.js";
 import "./conversation.css";
 import { MatOptMark } from "./MatOptMark.tsx";
+import { TurnChangesChip } from "../features/changes/TurnChangesChip.tsx";
+import { AnswerModeBadge } from "./ModeSwitch.tsx";
+import { readMode } from "../services/stream.ts";
 
 interface Props {
     messages: ChatMessage[];
@@ -29,6 +32,8 @@ interface Props {
     onPickOption?: (text: string) => void;
     onOpenWork?: () => void;
     onQuote?: (quote: QuoteRef) => void;
+    /** Opens the Workspace "Changes" view for a turn. */
+    onOpenChanges?: (turn: number) => void;
 }
 
 function TaskHeader({ title, children, live = false }: { title: string; children?: ReactNode; live?: boolean }) {
@@ -40,7 +45,7 @@ function TaskHeader({ title, children, live = false }: { title: string; children
     </TaskTrigger>;
 }
 
-function AssistantFooter({ answer }: { answer: string }) {
+function AssistantFooter({ answer, children }: { answer: string; children?: ReactNode }) {
     const [copied, setCopied] = useState(false);
     const [reading, setReading] = useState(false);
     const readAloud = async () => {
@@ -61,10 +66,11 @@ function AssistantFooter({ answer }: { answer: string }) {
         <MessageAction tooltip={reading ? "Stop reading" : "Read aloud"} label={reading ? "Stop reading" : "Read aloud"} disabled={!answer} onClick={() => void readAloud()}>
             {reading ? <Square className="size-4" /> : <Volume2 className="size-4" />}
         </MessageAction>
+        {children}
     </MessageActions>;
 }
 
-export default function MessageList({ messages, conversationId, streaming = false, onPickOption, onOpenWork, onQuote }: Props) {
+export default function MessageList({ messages, conversationId, streaming = false, onPickOption, onOpenWork, onQuote, onOpenChanges }: Props) {
     const rootRef = useRef<HTMLDivElement>(null);
     const pinnedRef = useRef(true);
     const [atBottom, setAtBottom] = useState(true);
@@ -121,7 +127,7 @@ export default function MessageList({ messages, conversationId, streaming = fals
         }}>
         <div className="matopt-message-column" data-markdown-table-layout-root="true">
             {messages.map((message) => <MessageRow key={message.id} message={message} conversationId={conversationId}
-                streaming={streaming && isAssistantContent(message.content) && message.content.status === "streaming"} onPickOption={onPickOption} onOpenWork={onOpenWork} />)}
+                streaming={streaming && isAssistantContent(message.content) && message.content.status === "streaming"} onPickOption={onPickOption} onOpenWork={onOpenWork} onOpenChanges={onOpenChanges} />)}
         </div>
       </div>
       {!atBottom && <Button type="button" variant="outline" size="icon-md" className="absolute bottom-3 left-1/2 -translate-x-1/2 rounded-full bg-background shadow-sm"
@@ -169,9 +175,9 @@ function PublicResult({ block, conversationId, items, onOpenWork }: {
     </section>;
 }
 
-function MessageRow({ message, conversationId, streaming, onPickOption, onOpenWork }: {
+function MessageRow({ message, conversationId, streaming, onPickOption, onOpenWork, onOpenChanges }: {
     message: ChatMessage; conversationId: string | null; streaming: boolean;
-    onPickOption?: (text: string) => void; onOpenWork?: () => void;
+    onPickOption?: (text: string) => void; onOpenWork?: () => void; onOpenChanges?: (turn: number) => void;
 }) {
     if (message.role === "user" && isUserContent(message.content)) {
         const parsed = parseSlashCommands(message.content.text);
@@ -207,9 +213,10 @@ function MessageRow({ message, conversationId, streaming, onPickOption, onOpenWo
     if (message.role !== "assistant" || !isAssistantContent(message.content)) return null;
     const content = message.content;
     const presentation = projectAssistantPresentation(content, streaming);
+    const mode = readMode(content.mode);
     const answerForCopy = presentation.answer || [...presentation.resultBlocks.map((block) => block.content), ...presentation.surfaces.map((surface) => surface.fallback)].join("\n\n");
     return <Message from="assistant" className="matopt-assistant-message" data-message-id={message.id}><MessageContent className="matopt-assistant-content w-full">
-        <div className="matopt-answer-author"><MatOptMark size={22} className="matopt-answer-mark" /><span>MatOpt</span></div>
+        <div className="matopt-answer-author"><MatOptMark size={22} className="matopt-answer-mark" /><span>MatOpt</span>{mode && <AnswerModeBadge mode={mode} />}</div>
         {presentation.work && <WorkDisclosure work={presentation.work} conversationId={conversationId} onOpenWork={onOpenWork} />}
         <div data-testid="assistant-answer" data-quote-source="assistant" className="matopt-answer-document min-w-0">
             {presentation.resultBlocks.map((block) => <PublicResult key={block.id} block={block} conversationId={conversationId} items={presentation.work?.items ?? []} onOpenWork={onOpenWork} />)}
@@ -233,6 +240,6 @@ function MessageRow({ message, conversationId, streaming, onPickOption, onOpenWo
             {content.status === "stopped" ? "Stopped." : "Couldn’t complete that analysis. Try again, or rephrase the question."}
         </p>}
     </MessageContent>
-        {!streaming && <AssistantFooter answer={answerForCopy} />}
+        {!streaming && <AssistantFooter answer={answerForCopy}>{onOpenChanges && <TurnChangesChip content={content} conversationId={conversationId} streaming={streaming} onOpen={onOpenChanges} />}</AssistantFooter>}
     </Message>;
 }

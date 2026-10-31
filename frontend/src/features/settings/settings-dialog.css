@@ -1,0 +1,90 @@
+/* Settings dialog. Colors, radii and spacing come from the design tokens. */
+.matopt-settings-dialog { width: min(820px, calc(100vw - 32px)); max-width: min(820px, calc(100vw - 32px)) !important; height: min(680px, calc(100dvh - 32px)); grid-template-rows: auto minmax(0, 1fr); gap: 16px; padding: 20px; }
+.matopt-settings-dialog [data-slot="dialog-title"] { font-family: var(--font-serif); font-size: calc(var(--ui-font-size) + 8px); font-weight: 500; }
+.matopt-settings-layout { display: grid; grid-template-columns: 180px minmax(0, 1fr); gap: 20px; min-height: 0; }
+.matopt-settings-nav { display: flex; flex-direction: column; gap: 2px; }
+.matopt-settings-nav button { display: flex; align-items: center; gap: 10px; min-height: 36px; padding: 6px 10px; border: 0; border-radius: var(--mo-radius-control); background: transparent; color: var(--mo-text-muted); font: inherit; font-size: var(--matopt-text-compact); text-align: left; cursor: pointer; }
+.matopt-settings-nav button svg { width: 16px; height: 16px; flex-shrink: 0; }
+.matopt-settings-nav button:hover { background: var(--mo-surface-hover); color: var(--mo-text); }
+.matopt-settings-nav button[aria-selected=true] { background: var(--mo-surface-selected); color: var(--mo-text); font-weight: 600; }
+.matopt-settings-nav button:focus-visible, .matopt-settings-panel:focus-visible { outline: 2px solid var(--mo-accent); outline-offset: 2px; }
+.matopt-settings-panel { display: grid; align-content: start; gap: var(--mo-space-4); min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 2px 4px 8px 2px; font-size: var(--matopt-text-compact); color: var(--mo-text); }
+.matopt-settings-panel[hidden] { display: none; }
+.matopt-settings-lead { margin: 0; color: var(--mo-text-muted); line-height: 1.55; }
+.matopt-settings-note { margin: 0; padding: 8px 12px; border-radius: var(--mo-radius-sm); background: var(--mo-surface-secondary); color: var(--mo-text-muted); line-height: 1.5; }
+.matopt-settings-note.is-error, .matopt-setting-hint.is-error { color: var(--mo-danger); }
+.matopt-setting-hint.is-warning { color: var(--mo-warning); }
+.matopt-settings-foot { margin: 0; color: var(--mo-text-muted); font-size: var(--text-ui-xs); overflow-wrap: anywhere; }
+.matopt-settings-block { display: grid; gap: var(--mo-space-3); }
+.matopt-settings-block + .matopt-settings-block { padding-top: var(--mo-space-4); border-top: 1px solid var(--mo-border); }
+.matopt-settings-block h3 { margin: 0; font-size: var(--matopt-text-base); font-weight: 600; }
+.matopt-block-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.matopt-settings-list { display: grid; margin: 0; padding: 0; list-style: none; border: 1px solid var(--mo-border); border-radius: var(--mo-radius-block); background: var(--mo-surface); }
+.matopt-setting-row { display: flex; align-items: flex-start; gap: 12px; padding: 12px 14px; min-width: 0; }
+.matopt-settings-list > .matopt-setting-row + .matopt-setting-row { border-top: 1px solid var(--mo-border); }
+.matopt-setting-row.is-check > input { margin-top: 4px; width: 16px; height: 16px; flex-shrink: 0; accent-color: var(--mo-accent); }
+.matopt-setting-text { display: grid; flex: 1; gap: 3px; min-width: 0; }
+.matopt-setting-text p { margin: 0; color: var(--mo-text-muted); line-height: 1.5; overflow-wrap: anywhere; }
+.matopt-setting-title { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; }
+.matopt-setting-title strong { font-weight: 600; overflow-wrap: anywhere; }
+.matopt-setting-hint { color: var(--mo-text-muted); font-size: var(--text-ui-xs); }
+.matopt-setting-controls { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
+.matopt-stage, .matopt-state { padding: 0 7px; border: 1px solid var(--mo-border); border-radius: 999px; color: var(--mo-text-muted); font-size: var(--text-ui-xs); line-height: 1.6; white-space: nowrap; }
+.matopt-stage[data-stage=experimental], .matopt-stage[data-stage=under_development] { color: var(--mo-warning); }
+.matopt-stage[data-stage=beta] { color: var(--mo-accent); }
+.matopt-state { flex-shrink: 0; margin-top: 2px; }
+.matopt-state[data-state=connected] { color: var(--mo-success); }
+.matopt-state[data-state=failed] { border-color: var(--mo-danger); color: var(--mo-danger); }
+.matopt-path { display: block; margin-top: 2px; font-family: var(--font-mono); font-size: var(--text-ui-xs); color: var(--mo-text-muted); overflow-wrap: anywhere; }
+.matopt-facts { display: grid; margin: 0; border: 1px solid var(--mo-border); border-radius: var(--mo-radius-block); background: var(--mo-surface); }
+.matopt-fact { display: grid; grid-template-columns: 160px minmax(0, 1fr); gap: 12px; padding: 10px 14px; }
+.matopt-fact + .matopt-fact { border-top: 1px solid var(--mo-border); }
+.matopt-fact dt { color: var(--mo-text-muted); }
+.matopt-fact dd { margin: 0; overflow-wrap: anywhere; }
+
+.matopt-switch { position: relative; flex-shrink: 0; width: 36px; height: 20px; margin-top: 2px; padding: 0; border: 1px solid var(--mo-border-strong); border-radius: 999px; background: var(--mo-surface-secondary); cursor: pointer; transition: background var(--mo-duration-fast) var(--mo-ease); }
+.matopt-switch > span { position: absolute; top: 2px; left: 2px; width: 14px; height: 14px; border-radius: 50%; background: var(--mo-text-muted); transition: transform var(--mo-duration-fast) var(--mo-ease); }
+.matopt-switch[aria-checked=true] { border-color: var(--mo-accent); background: var(--mo-accent); }
+.matopt-switch[aria-checked=true] > span { transform: translateX(16px); background: var(--mo-on-accent); }
+.matopt-switch:disabled { opacity: .55; cursor: default; }
+.matopt-switch:focus-visible { outline: 2px solid var(--mo-accent); outline-offset: 2px; }
+
+.matopt-settings-button { display: inline-flex; align-items: center; gap: 6px; min-height: 32px; padding: 4px 12px; border: 1px solid var(--mo-border-strong); border-radius: var(--mo-radius-control); background: var(--mo-surface); color: var(--mo-text); font: inherit; font-size: var(--matopt-text-compact); cursor: pointer; white-space: nowrap; }
+.matopt-settings-button svg, .matopt-icon-button svg { width: 15px; height: 15px; }
+.matopt-settings-button:hover:not(:disabled) { background: var(--mo-surface-hover); }
+.matopt-settings-button.is-primary { border-color: var(--mo-accent); background: var(--mo-accent); color: var(--mo-on-accent); }
+.matopt-settings-button.is-danger { border-color: var(--mo-danger); color: var(--mo-danger); }
+.matopt-settings-button:disabled, .matopt-icon-button:disabled { opacity: .55; cursor: default; }
+.matopt-icon-button { display: inline-grid; place-items: center; width: 32px; height: 32px; border: 0; border-radius: var(--mo-radius-sm); background: transparent; color: var(--mo-text-muted); cursor: pointer; }
+.matopt-icon-button:hover:not(:disabled) { background: var(--mo-surface-hover); color: var(--mo-danger); }
+.matopt-settings-button:focus-visible, .matopt-icon-button:focus-visible { outline: 2px solid var(--mo-accent); outline-offset: 2px; }
+.matopt-settings-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; }
+.matopt-confirm { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 6px; padding: 8px 10px; border-radius: var(--mo-radius-sm); background: var(--mo-surface-secondary); }
+.matopt-confirm > span { flex: 1 1 200px; }
+.matopt-danger-zone { padding-top: var(--mo-space-4); border-top: 1px solid var(--mo-border); }
+.matopt-inline-form { display: grid; gap: 6px; }
+.matopt-inline-form > label { color: var(--mo-text-muted); font-size: var(--text-ui-xs); }
+.matopt-inline-form > div { display: flex; align-items: flex-start; gap: 8px; }
+.matopt-inline-form input, .matopt-inline-form textarea, .matopt-note textarea { flex: 1; min-width: 0; min-height: 34px; padding: 6px 10px; border: 1px solid var(--mo-border-strong); border-radius: var(--mo-radius-control); background: var(--mo-surface); color: var(--mo-text); font: inherit; font-size: var(--matopt-text-compact); resize: vertical; }
+.matopt-note textarea { width: 100%; box-sizing: border-box; }
+.matopt-inline-form input:focus-visible, .matopt-inline-form textarea:focus-visible, .matopt-note textarea:focus-visible { outline: 2px solid var(--mo-accent); outline-offset: 1px; }
+.matopt-import-result { flex-shrink: 0; max-width: 40%; color: var(--mo-text-muted); font-size: var(--text-ui-xs); overflow-wrap: anywhere; }
+.matopt-import-result[data-status=imported] { color: var(--mo-success); }
+.matopt-import-result[data-status=failed], .matopt-import-result[data-status=error] { color: var(--mo-danger); }
+.matopt-memory-summary { max-height: 220px; overflow: auto; padding: 10px 12px; border: 1px solid var(--mo-border); border-radius: var(--mo-radius-control); background: var(--mo-surface-secondary); white-space: pre-wrap; line-height: 1.55; overflow-wrap: anywhere; }
+.matopt-memory-summary:focus-visible { outline: 2px solid var(--mo-accent); outline-offset: 2px; }
+.matopt-notes { display: grid; gap: 6px; margin: 0; padding: 0; list-style: none; }
+.matopt-note { display: flex; align-items: flex-start; gap: 10px; padding: 10px 12px; border: 1px solid var(--mo-border); border-radius: var(--mo-radius-control); background: var(--mo-surface); }
+.matopt-note > form { display: grid; flex: 1; gap: 8px; }
+.matopt-note-text { flex: 1; min-width: 0; }
+.matopt-note-text p { margin: 0; white-space: pre-wrap; line-height: 1.5; overflow-wrap: anywhere; }
+
+@media (max-width: 640px) {
+  .matopt-settings-dialog { padding: 16px; height: calc(100dvh - 16px); width: calc(100vw - 16px); max-width: calc(100vw - 16px) !important; }
+  .matopt-settings-layout { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr); gap: 12px; }
+  .matopt-settings-nav { flex-direction: row; overflow-x: auto; scrollbar-width: none; }
+  .matopt-settings-nav button { flex-shrink: 0; min-height: 40px; }
+  .matopt-fact { grid-template-columns: minmax(0, 1fr); gap: 2px; }
+  .matopt-settings-button { min-height: 40px; }
+}
+@media (prefers-reduced-motion: reduce) { .matopt-switch, .matopt-switch > span { transition: none; } }

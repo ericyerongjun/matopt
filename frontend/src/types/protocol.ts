@@ -239,6 +239,68 @@ export interface TranscriptEntry {
     status?: "running" | "done" | "error" | "stopped";
 }
 
+/** Public sub-agent lifecycle event. Only the child's own final summary is public. */
+export type SubagentKind = "started" | "completed" | "errored" | "interrupted" | "closed";
+export interface SubagentEvent {
+    id: string;
+    path: string;
+    nickname: string;
+    role: string;
+    kind: SubagentKind;
+    status: string;
+    task: string;
+    summary?: string;
+}
+
+export type ApprovalRisk = "low" | "medium" | "high" | "critical";
+export interface ApprovalRequest {
+    id: string;
+    tool: string;
+    title: string;
+    summary: string;
+    reason: string;
+    risk: ApprovalRisk;
+}
+export interface ApprovalResolution {
+    id: string;
+    decision: "allow" | "deny" | "timeout";
+    by: "user" | "guardian";
+}
+
+/** Automatic review of an approval-requiring call; the rationale is a public summary. */
+export interface GuardianReview {
+    call_id: string;
+    tool: string;
+    outcome: "allow" | "deny" | "error";
+    risk_level: string;
+    user_authorization: string;
+    rationale: string;
+}
+
+export interface ChangedFile {
+    path: string;
+    status: "A" | "M" | "D";
+    added?: number;
+    removed?: number;
+    binary?: boolean;
+    untracked?: boolean;
+}
+export interface WorkspaceChanges {
+    turn: number;
+    files: ChangedFile[];
+}
+
+/** Composer choice; "auto" lets the server classify each turn. */
+export type ChatMode = "auto" | "mat" | "opt";
+/** The mode an answer actually ran in. `from` is set when an auto turn upgraded mid-turn. */
+export interface AnswerMode {
+    mode: "mat" | "opt";
+    source: "user" | "auto";
+    reason: string;
+    switched?: boolean;
+    from?: "mat" | "opt";
+}
+
 export interface AssistantContent {
     parts: Part[];
     model: string;
@@ -255,6 +317,14 @@ export interface AssistantContent {
     /** Controlled explanation when an older result cannot be safely consolidated. */
     notice?: string;
     transcript?: TranscriptEntry[];
+    /** Harness turn number; keys the turn's workspace diff. */
+    turn?: number;
+    /** Files this turn changed, from `workspace_changes` (live) or a saved summary. */
+    changes?: WorkspaceChanges;
+    /** Guardian reviews seen live during this run. */
+    guardian_reviews?: GuardianReview[];
+    /** Mat (chat and explain) or Opt (work on files), and why. */
+    mode?: AnswerMode;
 }
 
 export interface ChatMessage {

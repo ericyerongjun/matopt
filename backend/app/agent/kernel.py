@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import asyncio
 import base64
+import dataclasses
 import hashlib
 import json
 import logging
@@ -27,6 +28,7 @@ from typing import Any, Awaitable, Callable, Optional
 
 from app.agent.child_env import KERNEL_MPLBACKEND, build_child_env
 from app.agent.events import Artifact
+from app.agent.exec_output import HeadTailBuffer
 from app.agent.workspace import Workspace
 
 logger = logging.getLogger(__name__)
@@ -169,21 +171,61 @@ class KernelSession:
         self.execution_count = 0
         self._seen_figure_digests: set[str] = set()
         self._ipc_dir: str | None = None
+        # Code mode (app/agent/kernel_tools.py): the host end of this kernel's
+        # tools socket, present only when settings.code_mode_enabled.
+        self._tool_server: Any = None
 
     # ── lifecycle ───────────────────────────────────────────────────────
 
     async def start(self) -> None:
         from jupyter_client import AsyncKernelManager
+        from app.agent.sandbox import build_policy, wrap_argv
+        from app.config import settings
 
-        env = _child_env(self.workspace.root)
-        km = AsyncKernelManager(kernel_name="python3")
+        policy = build_policy(settings, self.workspace.root)
+        self._ipc_dir = tempfile.mkdtemp(prefix="mo-k")
+        tool_server = None
+        if getattr(settings, "code_mode_enabled", False) and os.name == "posix":
+            from app.agent.kernel_tools import SOCKET_NAME, KernelToolServer
+
+            tool_server = KernelToolServer(os.path.join(self._ipc_dir, SOCKET_NAME))
+            try:
+                await tool_server.start()
+            except Exception:
+                self._remove_ipc_dir()
+                raise
+            # Seatbelt matches the real path (/var -> /private/var on macOS).
+            policy = dataclasses.replace(policy, unix_sockets=(
+                *policy.unix_sockets, Path(os.path.realpath(tool_server.socket_path))))
+
+        class SandboxedKernelManager(AsyncKernelManager):
+            """Prepends the sandbox wrapper to the kernel's launch command."""
+
+            def format_kernel_cmd(self, extra_arguments=None):
+                return wrap_argv(super().format_kernel_cmd(extra_arguments), policy)
+
+        km = (SandboxedKernelManager if policy.active else AsyncKernelManager)(kernel_name="python3")
         if os.name == "posix":
             # Unix sockets instead of unencrypted loopback TCP: other local users
             # and processes cannot connect to the kernel. A short private
             # directory keeps socket paths under the ~104-character limit.
-            self._ipc_dir = tempfile.mkdtemp(prefix="mo-k")
             km.transport, km.ip = "ipc", os.path.join(self._ipc_dir, "k")
-        await km.start_kernel(cwd=str(self.workspace.root), env=env)
+        # IPython runs every file in <IPYTHONDIR>/profile_default/startup/ at
+        # boot. Under the default (~/.ipython, and HOME is the workspace) the
+        # agent could plant one that runs in every later kernel. A private,
+        # per-start directory keeps profiles out of the agent's reach.
+        env = _child_env(self.workspace.root)
+        env["IPYTHONDIR"] = os.path.join(self._ipc_dir, "ipython")
+        env.update(policy.child_env())
+        if tool_server is not None:
+            env.update(tool_server.child_env())
+        try:
+            await km.start_kernel(cwd=str(self.workspace.root), env=env)
+        except Exception:
+            if tool_server is not None:
+                await tool_server.close()
+            self._remove_ipc_dir()
+            raise
         kc = km.client()
         kc.start_channels()
         try:
@@ -191,11 +233,19 @@ class KernelSession:
         except Exception:
             kc.stop_channels()
             await km.shutdown_kernel(now=True)
+            if tool_server is not None:
+                await tool_server.close()
             self._remove_ipc_dir()
             raise
         self._km, self._kc = km, kc
+        self._tool_server = tool_server
         self.started = True
-        boot = await self._execute_raw(STARTUP_CODE.format(cwd=str(self.workspace.root)), timeout=60)
+        startup = STARTUP_CODE.format(cwd=str(self.workspace.root))
+        if tool_server is not None:
+            from app.agent.kernel_tools import KERNEL_TOOLS_CODE
+
+            startup += KERNEL_TOOLS_CODE
+        boot = await self._execute_raw(startup, timeout=60)
         if boot.status != "ok":
             logger.warning("Kernel startup cell failed for %s: %s %s", self.conversation_id, boot.error_name, boot.error_value)
 
@@ -219,6 +269,9 @@ class KernelSession:
         self.started = False
         kc, km = self._kc, self._km
         self._kc, self._km = None, None
+        tool_server, self._tool_server = self._tool_server, None
+        if tool_server is not None:
+            await tool_server.close()
         if kc is not None:
             try:
                 kc.stop_channels()
@@ -238,18 +291,42 @@ class KernelSession:
 
     # ── execution ───────────────────────────────────────────────────────
 
+    @property
+    def code_mode(self) -> bool:
+        """Whether this kernel was started with a ``tools`` object."""
+        return self._tool_server is not None
+
     async def execute(
         self,
         code: str,
         timeout: float = 120.0,
         on_stream: Optional[Callable[[str, str], Awaitable[None]]] = None,
         cancel: Optional[asyncio.Event] = None,
+        tools: Any = None,
     ) -> ExecResult:
+        """Run one cell. ``tools`` is the cell's ``KernelToolBinding``, if any.
+
+        The binding is activated inside the lock, for exactly the life of the
+        cell (Codex's per-cell dispatch gate, ``code_mode/delegate.rs``), and
+        closed afterwards whatever happened, which cancels a nested tool call
+        still in flight when the cell was interrupted or timed out.
+        """
         async with self._lock:
             await self.ensure_started()
             self.last_used = time.time()
             self.execution_count += 1
-            result = await self._execute_raw(code, timeout=timeout, on_stream=on_stream, cancel=cancel)
+            server = self._tool_server
+            if tools is not None:
+                tools.deadline = time.monotonic() + timeout
+                if server is not None:
+                    server.activate(tools)
+            try:
+                result = await self._execute_raw(code, timeout=timeout, on_stream=on_stream, cancel=cancel)
+            finally:
+                if tools is not None:
+                    tools.close()
+                    if server is not None:
+                        server.deactivate(tools)
             self.last_used = time.time()
             try:
                 from app.agent.notebook import append_analysis_cell
@@ -272,8 +349,10 @@ class KernelSession:
         started = time.monotonic()
         deadline = started + timeout
         msg_id = kc.execute(code, store_history=True, allow_stdin=False, stop_on_error=True)
-        stdout_parts: list[str] = []
-        stderr_parts: list[str] = []
+        # Bounded like bash: a cell printing in a loop must not grow the
+        # backend's memory without limit (Codex's head/tail capture).
+        stdout_parts = HeadTailBuffer()
+        stderr_parts = HeadTailBuffer()
         interrupted = False
         interrupt_sent_at: Optional[float] = None
 
@@ -306,9 +385,9 @@ class KernelSession:
             if mtype == "stream":
                 text = content.get("text", "")
                 if content.get("name") == "stderr":
-                    stderr_parts.append(text)
+                    stderr_parts.write(text)
                 else:
-                    stdout_parts.append(text)
+                    stdout_parts.write(text)
                 if on_stream is not None:
                     try:
                         await on_stream(content.get("name", "stdout"), text)
@@ -333,8 +412,8 @@ class KernelSession:
         except Exception:  # noqa: BLE001
             pass
 
-        res.stdout = strip_ansi("".join(stdout_parts))
-        res.stderr = strip_ansi("".join(stderr_parts))
+        res.stdout = strip_ansi(stdout_parts.text())
+        res.stderr = strip_ansi(stderr_parts.text())
         res.duration_ms = int((time.monotonic() - started) * 1000)
         if res.status == "timeout":
             res.error_name = res.error_name or "TimeoutError"

@@ -9,15 +9,22 @@ export const FONT_PREFERENCES_STORAGE_KEY = "matopt.fonts";
 
 export const DEFAULT_FONT_PREFERENCES: FontPreferences = { reading: null, interface: null, code: null };
 
+/**
+ * Calibri is the default for reading and interface text. It is not
+ * redistributable, so the bundled fallback is Carlito, its metric-compatible
+ * open counterpart; a chosen family still falls back through the same stack.
+ */
+const CALIBRI_FALLBACK = '"Carlito", "Segoe UI", ui-sans-serif, -apple-system, BlinkMacSystemFont, Helvetica, Arial, "PingFang SC", "Microsoft YaHei", sans-serif, "Apple Color Emoji", "Segoe UI Emoji"';
+
 /** Each role's token, bundled default and the generic stack every choice falls back to. */
 export const FONT_ROLES: Record<FontRole, { variable: string; label: string; description: string; defaultFamily: string; fallback: string }> = {
     reading: {
         variable: "--font-serif", label: "Reading", description: "Answers, your requests and titles",
-        defaultFamily: "Newsreader Variable", fallback: '"Iowan Old Style", "Charter", Georgia, "Songti SC", serif',
+        defaultFamily: "Calibri", fallback: CALIBRI_FALLBACK,
     },
     interface: {
         variable: "--font-sans", label: "Interface", description: "Menus, buttons, labels and tables",
-        defaultFamily: "Inter Variable", fallback: 'ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji"',
+        defaultFamily: "Calibri", fallback: CALIBRI_FALLBACK,
     },
     code: {
         variable: "--font-mono", label: "Code", description: "Code, file paths and tool calls",
@@ -27,8 +34,8 @@ export const FONT_ROLES: Record<FontRole, { variable: string; label: string; des
 
 /** Widely installed families offered without asking for font access. */
 export const POPULAR_FONTS: Record<FontRole, string[]> = {
-    reading: ["Inter Variable", "Georgia", "Charter", "Iowan Old Style", "Palatino", "Baskerville", "Times New Roman", "Cambria", "Helvetica Neue", "Arial"],
-    interface: ["Newsreader Variable", "system-ui", "Helvetica Neue", "Arial", "Avenir Next", "Segoe UI", "Verdana", "Georgia"],
+    reading: ["Newsreader Variable", "Inter Variable", "Georgia", "Charter", "Iowan Old Style", "Palatino", "Baskerville", "Times New Roman", "Cambria", "Arial"],
+    interface: ["Inter Variable", "system-ui", "Helvetica Neue", "Arial", "Avenir Next", "Segoe UI", "Verdana", "Newsreader Variable"],
     code: ["SF Mono", "Menlo", "Monaco", "Consolas", "Cascadia Code", "Courier New"],
 };
 

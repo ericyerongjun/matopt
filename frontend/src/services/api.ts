@@ -50,7 +50,7 @@ const fetchAdapter: ApiAdapter = async (config) => {
     try { data = text ? JSON.parse(text) : null; } catch { /* Non-JSON bodies stay text. */ }
     if (!response.ok) {
         const detail = (data && typeof data === "object" && "detail" in data) ? (data as { detail: unknown }).detail : null;
-        throw new Error(typeof detail === "string" ? detail : `${response.status} ${response.statusText}`.trim());
+        throw Object.assign(new Error(typeof detail === "string" ? detail : `${response.status} ${response.statusText}`.trim()), { status: response.status });
     }
     return { data, status: response.status, statusText: response.statusText, config };
 };
@@ -79,6 +79,25 @@ const apiClient = {
         request<T>({ ...options, url, method: "post", data: body(data) }),
     patch: <T = unknown>(url: string, data?: unknown, options: Options = {}) =>
         request<T>({ ...options, url, method: "patch", data: body(data) }),
+    put: <T = unknown>(url: string, data?: unknown, options: Options = {}) =>
+        request<T>({ ...options, url, method: "put", data: body(data) }),
 };
+
+/** HTTP status attached to a failed request, when the server answered. */
+export function errorStatus(error: unknown): number | undefined {
+    const status = (error as { status?: unknown } | null)?.status;
+    return typeof status === "number" ? status : undefined;
+}
+
+/** True when the endpoint does not exist on this server or the feature behind it is off. */
+export function isUnavailable(error: unknown): boolean {
+    const status = errorStatus(error);
+    return status === 404 || status === 405 || status === 501 || status === 503;
+}
+
+/** A short, user-facing message for a failed request. */
+export function errorMessage(error: unknown, fallback: string): string {
+    return error instanceof Error && error.message ? error.message : fallback;
+}
 
 export default apiClient;

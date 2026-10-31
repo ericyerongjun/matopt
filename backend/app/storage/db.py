@@ -80,6 +80,22 @@ CREATE TABLE IF NOT EXISTS run_events (
     data TEXT NOT NULL,
     PRIMARY KEY (run_id, seq)
 );
+-- Sub-agents a turn spawned (Codex's thread_spawn_edges plus agent metadata).
+CREATE TABLE IF NOT EXISTS subagents (
+    id TEXT PRIMARY KEY,
+    conversation_id TEXT NOT NULL REFERENCES conversations(id) ON DELETE CASCADE,
+    run_turn INTEGER NOT NULL,
+    parent_id TEXT,
+    path TEXT NOT NULL,
+    nickname TEXT NOT NULL,
+    role TEXT NOT NULL,
+    status TEXT NOT NULL,
+    task TEXT NOT NULL,
+    summary TEXT,
+    created_at REAL NOT NULL,
+    updated_at REAL NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_subagents_conversation ON subagents(conversation_id, created_at);
 """
 
 
@@ -147,6 +163,31 @@ class Database:
     def touch_conversation(self, cid: str) -> None:
         with self._lock:
             self._conn.execute("UPDATE conversations SET updated_at=? WHERE id=?", (time.time(), cid))
+
+    # ── sub-agents ──────────────────────────────────────────────────────
+
+    def upsert_subagent(self, row: dict) -> None:
+        now = time.time()
+        with self._lock:
+            self._conn.execute(
+                "INSERT INTO subagents (id,conversation_id,run_turn,parent_id,path,nickname,role,status,task,summary,"
+                "created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET "
+                "status=excluded.status, summary=excluded.summary, updated_at=excluded.updated_at",
+                (row["id"], row["conversation_id"], row["run_turn"], row.get("parent_id"), row["path"], row["nickname"],
+                 row["role"], row["status"], row["task"], row.get("summary"), row.get("created_at", now), now))
+
+    def list_subagents(self, cid: str) -> list[dict]:
+        with self._lock:
+            rows = self._conn.execute("SELECT * FROM subagents WHERE conversation_id=? ORDER BY created_at",
+                                      (cid,)).fetchall()
+        return [dict(r) for r in rows]
+
+    def interrupt_running_subagents(self) -> int:
+        """After a restart nothing is running: mark leftovers interrupted."""
+        with self._lock:
+            cur = self._conn.execute("UPDATE subagents SET status='interrupted', updated_at=? "
+                                     "WHERE status IN ('pending','running')", (time.time(),))
+        return cur.rowcount
 
     def delete_conversation(self, cid: str) -> bool:
         with self._lock:

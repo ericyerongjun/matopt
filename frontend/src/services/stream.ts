@@ -9,6 +9,14 @@
 
 import type {
     ActivityItem,
+    AnswerMode,
+    ChatMode,
+    ApprovalRequest,
+    ApprovalResolution,
+    ChangedFile,
+    GuardianReview,
+    SubagentEvent,
+    WorkspaceChanges,
     ProgressUpdate,
     AssistantContent,
     Attachment,
@@ -41,6 +49,8 @@ export interface ChatStreamBody {
     tools?: string[];
     /** Defaults to automatic availability; false disables web tools for this turn. */
     web_search?: boolean;
+    /** Mat, Opt or Auto. Always sent by this client; omitted means the legacy full toolset. */
+    mode?: ChatMode;
     /** Advertise this client's renderer contract. The server gates UI tools. */
     ui_version?: 1;
 }
@@ -69,6 +79,17 @@ export interface StreamState {
     earlierDrafts?: string[];
     notice?: string;
     transcript?: TranscriptEntry[];
+    /** Harness turn of this answer (from `workspace_changes`, `message_end` or `done`). */
+    turn?: number;
+    changes?: WorkspaceChanges;
+    /** Latest public state of each sub-agent, in first-seen order. */
+    subagents?: SubagentEvent[];
+    /** Approval requests still waiting for a decision. */
+    approvals?: ApprovalRequest[];
+    /** Recent decisions, newest last; used to settle a card the user just answered. */
+    resolvedApprovals?: ApprovalResolution[];
+    guardianReviews?: GuardianReview[];
+    mode?: AnswerMode;
 }
 
 export function emptyStreamState(): StreamState {
@@ -104,6 +125,10 @@ export function assistantFromStream(state: StreamState): AssistantContent {
         earlier_drafts: state.earlierDrafts,
         transcript: state.transcript,
         notice: state.notice,
+        ...(state.turn !== undefined ? { turn: state.turn } : {}),
+        ...(state.changes ? { changes: state.changes } : {}),
+        ...(state.guardianReviews?.length ? { guardian_reviews: state.guardianReviews } : {}),
+        ...(state.mode ? { mode: state.mode } : {}),
     };
 }
 
@@ -172,6 +197,75 @@ function readActivity(value: unknown): ActivityItem | undefined {
                 ...(typeof output.surface_id === "string" ? { surface_id: output.surface_id } : {}) }];
         }),
     };
+}
+
+const text = (value: unknown, max: number) => typeof value === "string" ? value.slice(0, max) : "";
+const turnNumber = (value: unknown) => typeof value === "number" && Number.isSafeInteger(value) && value >= 0 ? value : undefined;
+const SUBAGENT_KINDS = new Set(["started", "completed", "errored", "interrupted", "closed"]);
+
+/** `subagent` events: public lifecycle and the child's final summary only. */
+export function readSubagent(value: unknown): SubagentEvent | undefined {
+    const event = asRecord(value);
+    if (typeof event.id !== "string" || !event.id || !SUBAGENT_KINDS.has(String(event.kind))) return undefined;
+    return { id: event.id.slice(0, 200), path: text(event.path, 300), nickname: text(event.nickname, 120), role: text(event.role, 120),
+        kind: event.kind as SubagentEvent["kind"], status: text(event.status, 60) || String(event.kind), task: text(event.task, 500),
+        ...(typeof event.summary === "string" ? { summary: event.summary.slice(0, 2000) } : {}) };
+}
+
+export function readApprovalRequest(value: unknown): ApprovalRequest | undefined {
+    const event = asRecord(value);
+    if (typeof event.id !== "string" || !event.id) return undefined;
+    return { id: event.id.slice(0, 200), tool: text(event.tool, 120), title: text(event.title, 200) || text(event.tool, 120) || "Action",
+        summary: text(event.summary, 1000), reason: text(event.reason, 1000),
+        risk: ["low", "medium", "high", "critical"].includes(String(event.risk)) ? event.risk as ApprovalRequest["risk"] : "medium" };
+}
+
+export function readApprovalResolved(value: unknown): ApprovalResolution | undefined {
+    const event = asRecord(value);
+    if (typeof event.id !== "string" || !event.id || !["allow", "deny", "timeout"].includes(String(event.decision))
+        || !["user", "guardian"].includes(String(event.by))) return undefined;
+    return { id: event.id, decision: event.decision as ApprovalResolution["decision"], by: event.by as ApprovalResolution["by"] };
+}
+
+export function readGuardianReview(value: unknown): GuardianReview | undefined {
+    const event = asRecord(value);
+    if (typeof event.call_id !== "string" || !event.call_id || !["allow", "deny", "error"].includes(String(event.outcome))) return undefined;
+    return { call_id: event.call_id.slice(0, 200), tool: text(event.tool, 120), outcome: event.outcome as GuardianReview["outcome"],
+        risk_level: text(event.risk_level, 40), user_authorization: text(event.user_authorization, 40), rationale: text(event.rationale, 1000) };
+}
+
+export function readChangedFiles(value: unknown): ChangedFile[] {
+    return (Array.isArray(value) ? value : []).slice(0, 500).flatMap((raw): ChangedFile[] => {
+        const file = asRecord(raw);
+        if (typeof file.path !== "string" || !file.path || !["A", "M", "D"].includes(String(file.status))) return [];
+        const count = (v: unknown) => typeof v === "number" && Number.isSafeInteger(v) && v >= 0 ? v : undefined;
+        const added = count(file.added), removed = count(file.removed);
+        return [{ path: file.path.slice(0, 1000), status: file.status as ChangedFile["status"],
+            ...(added !== undefined ? { added } : {}), ...(removed !== undefined ? { removed } : {}),
+            ...(file.binary === true ? { binary: true } : {}), ...(file.untracked === true ? { untracked: true } : {}) }];
+    });
+}
+
+/** `workspace_changes` events and saved `changes` summaries. */
+export function readWorkspaceChanges(value: unknown): WorkspaceChanges | undefined {
+    const event = asRecord(value);
+    const turn = turnNumber(event.turn);
+    if (turn === undefined) return undefined;
+    return { turn, files: readChangedFiles(event.files) };
+}
+
+/** `mode` events and saved `content.mode`. */
+export function readMode(value: unknown): AnswerMode | undefined {
+    const event = asRecord(value);
+    if (event.mode !== "mat" && event.mode !== "opt") return undefined;
+    return { mode: event.mode, source: event.source === "auto" ? "auto" : "user", reason: text(event.reason, 500),
+        ...(event.switched === true ? { switched: true } : {}),
+        ...(event.from === "mat" || event.from === "opt" ? { from: event.from } : {}) };
+}
+
+function withTurn(state: StreamState, value: unknown): StreamState {
+    const turn = turnNumber(value);
+    return turn === undefined || state.turn === turn ? state : { ...state, turn };
 }
 
 function runningWork(): WorkSummary {
@@ -261,7 +355,57 @@ function reduceEvent(state: StreamState, event: StreamEvent): StreamState {
             work: undefined,
             earlierDrafts: undefined,
             notice: undefined,
+            turn: turnNumber(event.turn),
+            changes: undefined,
+            guardianReviews: undefined,
+            mode: undefined,
         };
+    }
+
+    if (type === "mode") {
+        const mode = readMode(event);
+        if (!mode) return state;
+        if (mode.switched && !mode.from) {
+            const from = state.mode && state.mode.mode !== mode.mode ? state.mode.mode : mode.mode === "opt" ? "mat" : "opt";
+            return { ...state, mode: { ...mode, from } };
+        }
+        return { ...state, mode };
+    }
+
+    if (type === "subagent") {
+        const agent = readSubagent(event);
+        if (!agent) return state;
+        const agents = state.subagents ?? [];
+        return { ...state, subagents: agents.some((entry) => entry.id === agent.id)
+            ? agents.map((entry) => entry.id === agent.id ? { ...agent, summary: agent.summary ?? entry.summary } : entry) : [...agents, agent] };
+    }
+
+    if (type === "approval_request") {
+        const request = readApprovalRequest(event);
+        if (!request || state.resolvedApprovals?.some((entry) => entry.id === request.id)) return state;
+        const pending = state.approvals ?? [];
+        return { ...state, approvals: pending.some((entry) => entry.id === request.id)
+            ? pending.map((entry) => entry.id === request.id ? request : entry) : [...pending, request] };
+    }
+
+    if (type === "approval_resolved") {
+        const resolved = readApprovalResolved(event);
+        if (!resolved) return state;
+        return { ...state, approvals: (state.approvals ?? []).filter((entry) => entry.id !== resolved.id),
+            resolvedApprovals: [...(state.resolvedApprovals ?? []).filter((entry) => entry.id !== resolved.id), resolved].slice(-50) };
+    }
+
+    if (type === "guardian_review") {
+        const review = readGuardianReview(event);
+        if (!review) return state;
+        const reviews = (state.guardianReviews ?? []).filter((entry) => entry.call_id !== review.call_id);
+        return { ...state, guardianReviews: [...reviews, review].slice(-200) };
+    }
+
+    if (type === "workspace_changes") {
+        const changes = readWorkspaceChanges(event);
+        if (!changes) return state;
+        return { ...state, turn: state.turn ?? changes.turn, changes };
     }
 
     if (type === "work") {
@@ -511,9 +655,15 @@ function reduceEvent(state: StreamState, event: StreamEvent): StreamState {
 
     if (type === "message_end") {
         const content = event.content as AssistantContent | undefined;
+        state = withTurn(withTurn(state, event.turn), content && typeof content === "object" ? (content as { turn?: unknown }).turn : undefined);
         if (content && Array.isArray(content.parts)) {
+            const savedChanges = readWorkspaceChanges(content.changes);
+            const savedMode = readMode(content.mode);
             return {
                 ...state,
+                ...(savedChanges && !state.changes ? { changes: savedChanges } : {}),
+                // The live record keeps a mid-turn switch the saved summary may not carry.
+                ...(savedMode && !(state.mode?.switched && savedMode.mode === state.mode.mode) ? { mode: savedMode } : {}),
                 messageId: String(event.message_id ?? state.messageId),
                 parts: settlePreviews(content.parts.filter((part) => part.type === "ui" || part.type === "artifact" || part.type === "options" || part.type === "result_block"
                     || (part.type === "text" && part.phase !== "verify")).flatMap(readablePart)),
@@ -539,8 +689,10 @@ function reduceEvent(state: StreamState, event: StreamEvent): StreamState {
     }
 
     if (type === "done") {
+        state = withTurn(state, event.turn);
         return {
             ...state,
+            approvals: [],
             parts: settlePreviews(state.parts),
             conversationId: String(event.conversation_id ?? state.conversationId),
             messageId: String(event.message_id ?? state.messageId),
@@ -557,6 +709,7 @@ function reduceEvent(state: StreamState, event: StreamEvent): StreamState {
             conversationId: String(event.conversation_id ?? state.conversationId),
             messageId: String(event.message_id ?? state.messageId),
             status: "stopped",
+            approvals: [],
             work: terminalWork(state.work, "stopped"),
             paused: false, pauseRequested: false, controlStatus: null,
             statusLine: null,
@@ -571,6 +724,7 @@ function reduceEvent(state: StreamState, event: StreamEvent): StreamState {
             ...state,
             parts: settlePreviews(state.parts),
             status: "error",
+            approvals: [],
             work: terminalWork(state.work, "error"),
             paused: false, pauseRequested: false, controlStatus: null,
             error: String(event.message ?? "The run failed"),

@@ -187,7 +187,7 @@ async def test_shell_tool_env_has_no_credentials(ws, planted_env, monkeypatch):
     captured: dict = {}
 
     class FakeStdout:
-        async def readline(self):
+        async def read(self, n=-1):
             return b""
 
     class FakeProc:
@@ -208,6 +208,7 @@ async def test_shell_tool_env_has_no_credentials(ws, planted_env, monkeypatch):
     assert result.ok, result.error
 
     env = captured["env"]
+    assert captured["argv"][:3] == ("/bin/bash", "--noprofile", "--norc")
     assert captured["cwd"] == str(ws.root)
     assert "DEEPSEEK_API_KEY" not in env
     assert "MATOPT_LEGACY_TOKEN" not in env

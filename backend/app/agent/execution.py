@@ -19,6 +19,7 @@ from jsonschema import Draft202012Validator, ValidationError, SchemaError
 
 from app.agent.budget import BudgetExhausted
 from app.agent.events import ToolResult, ev
+from app.agent.exec_output import redact_secrets
 from app.agent.monitor import inspect_tool_call
 from app.agent.recovery_guard import RecoveryGuard
 from app.agent.session import SessionLog
@@ -57,8 +58,10 @@ def _interrupted(tool: Tool, ctx: ToolContext, reason: str) -> ToolResult:
 
 
 class ToolExecutionService:
-    def __init__(self, settings: Any, *, cleanup_timeout: float = 3.0):
+    def __init__(self, settings: Any, *, cleanup_timeout: float = 3.0, hooks: Any = None):
         self.settings = settings
+        # PreToolUse / PostToolUse command hooks (app/agent/hooks.py), if any.
+        self.hooks = hooks
         self.cleanup_timeout = max(0.01, cleanup_timeout)
         # Cancellation-resistant work is owned until it actually settles. A
         # timed-out coroutine may not be labelled finished while it still runs.
@@ -95,6 +98,50 @@ class ToolExecutionService:
         except Exception as exc:
             detail = exc.message if isinstance(exc, (ValidationError, SchemaError)) else str(exc)
             return _failure("TOOL_ARGUMENTS_INVALID", f"Invalid arguments for {tool.name}: {detail}")
+
+        hooks = self.hooks
+        hook_meta: dict[str, Any] = {}
+        if hooks is not None and hooks.has("PreToolUse"):
+            pre = await hooks.run("PreToolUse", {"conversation_id": ctx.conversation_id, "tool_name": tool.name,
+                                                 "tool_input": args, "cwd": str(ctx.workspace.root)},
+                                  cwd=ctx.workspace.root, target=tool.name)
+            if pre.blocked:
+                return _failure("TOOL_HOOK_BLOCKED", f"Tool call blocked by PreToolUse hook: {pre.reason}")
+            if pre.updated_input is not None:
+                # A rewrite is held to the same contract as the model's input,
+                # and recorded so the executed arguments stay inspectable.
+                try:
+                    snapshot_json(pre.updated_input)
+                    Draft202012Validator(tool.parameters).validate(pre.updated_input)
+                except Exception as exc:
+                    detail = exc.message if isinstance(exc, (ValidationError, SchemaError)) else str(exc)
+                    return _failure("TOOL_ARGUMENTS_INVALID", f"PreToolUse hook produced invalid arguments: {detail}")
+                args = pre.updated_input
+                hook_meta["hook_updated_input"] = args
+
+        if tool.name in (ctx.state.get("mode_excluded") or ()):
+            return _failure("TOOL_NOT_IN_MODE", f"`{tool.name}` is not available in Mat (chat and explain) mode, "
+                            "which does not change files or run commands."
+                            + (" Call switch_to_opt first if the request needs it." if ctx.state.get("mode_can_switch")
+                               else " Suggest that the user switch to Opt."))
+        approvals = ctx.state.get("approvals")
+        if approvals is not None and not ctx.cancel.is_set():
+            from app.agent.approvals import approval_trigger, decide
+            needed = approval_trigger(tool, args)
+            if needed is not None:
+                waited = time.monotonic()
+                outcome = await decide(approvals, ctx, tool, args, *needed)
+                if outcome.by == "user":
+                    # The critical path counts this as waiting on the user, not tool time.
+                    hook_meta["approval_wait_ms"] = int((time.monotonic() - waited) * 1000)
+                if outcome.decision != "allow":
+                    why = outcome.reason or "The action was not approved."
+                    if outcome.by == "guardian":
+                        return _failure("TOOL_GUARDIAN_DENIED", why, approval=outcome.decision, approved_by="guardian")
+                    return _failure("TOOL_APPROVAL_DENIED", f"Not approved ({outcome.by}): {why} Choose another "
+                                    "approach or ask the user.", approval=outcome.decision, approved_by=outcome.by)
+                ctx.state.setdefault("approved_calls", set()).add(ctx.call_id)
+                hook_meta["approved_by"] = outcome.by
 
         if any(cid == ctx.conversation_id for cid in self._unsettled.values()):
             return _failure("TOOL_EXECUTION_UNSETTLED", "An interrupted tool is still stopping in this workspace.")
@@ -189,7 +236,26 @@ class ToolExecutionService:
             if stop_waiter is not None:
                 stop_waiter.cancel()
                 await asyncio.gather(stop_waiter, return_exceptions=True)
+            if result is not None and body is not None and not outer_cancelled and hooks is not None \
+                    and hooks.has("PostToolUse"):
+                try:
+                    post = await hooks.run("PostToolUse", {
+                        "conversation_id": ctx.conversation_id, "tool_name": tool.name, "tool_input": args,
+                        "tool_response": {"ok": result.ok, "output": result.output, "error": result.error},
+                        "cwd": str(ctx.workspace.root)}, cwd=ctx.workspace.root, target=tool.name)
+                except asyncio.CancelledError:
+                    outer_cancelled = True
+                    post = None
+                if post is not None and (post.blocked or post.additional_context):
+                    feedback = post.reason if post.blocked else post.additional_context
+                    result.output = f"{result.output}\n\n[PostToolUse hook] {feedback}".strip()
+                    result.meta["hook_feedback"] = feedback
             if result is not None:
+                result.meta.update(hook_meta)
+                if getattr(self.settings, "redact_tool_output", True):
+                    result.output = redact_secrets(result.output)
+                    if result.error:
+                        result.error = redact_secrets(result.error)
                 result.meta.setdefault("duration_ms", int((time.monotonic() - started_at) * 1000))
                 if result.meta.get("recovery_code") == "TOOL_OUTCOME_UNKNOWN":
                     result.meta.setdefault("execution_id", ctx.call_id)

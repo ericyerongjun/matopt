@@ -110,6 +110,15 @@ async def conversation_request(conversation_id: str, seq: int):
     return derive_request(events[:seq + 1])
 
 
+@router.get("/conversations/{conversation_id}/turns/{turn}/diff")
+async def conversation_turn_diff(conversation_id: str, turn: int):
+    """Files a turn created, changed or removed in the workspace, with a unified diff."""
+    for event in reversed(await _session_events(conversation_id)):
+        if event["type"] == "workspace/changes" and event["data"].get("turn") == turn:
+            return event["data"]
+    return {"turn": turn, "files": [], "diff": "", "truncated": False}
+
+
 @router.get("/conversations/{conversation_id}/stats")
 async def conversation_stats(conversation_id: str):
     from app.agent.session.telemetry import project_trajectory

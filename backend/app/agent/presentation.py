@@ -172,6 +172,19 @@ def public_content(content: dict | None) -> dict:
             out[key] = public_counts(content[key], fields)
     if type(content.get("recovered")) is bool:
         out["recovered"] = content["recovered"]
+    if type(content.get("turn")) is int:
+        out["turn"] = content["turn"]
+    mode = content.get("mode")
+    if isinstance(mode, dict) and mode.get("mode") in {"mat", "opt"} and mode.get("source") in {"user", "auto"}:
+        out["mode"] = {"mode": mode["mode"], "source": mode["source"], "reason": str(mode.get("reason") or "")[:300]}
+        if mode.get("switched") is True and mode.get("from") in {"mat", "opt"}:
+            out["mode"].update(switched=True, **{"from": mode["from"]})
+    changes = content.get("changes")
+    if isinstance(changes, dict) and type(changes.get("turn")) is int and isinstance(changes.get("files"), list):
+        out["changes"] = {"turn": changes["turn"], "files": [
+            {k: c[k] for k in ("path", "status", "added", "removed", "binary", "untracked") if k in c}
+            for c in changes["files"][:500]
+            if isinstance(c, dict) and isinstance(c.get("path"), str) and c.get("status") in {"A", "M", "D"}]}
     out["presentation"] = "final"
     current = "final_text" in content
     already_public = content.get("presentation") == "final" and not current

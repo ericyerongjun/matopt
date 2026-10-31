@@ -5,7 +5,7 @@ Start, observe, reconnect to, and explicitly control durable agent runs.
 from __future__ import annotations
 
 import asyncio
-from typing import Optional
+from typing import Literal, Optional
 
 from fastapi import APIRouter, HTTPException, Query, Request
 from fastapi.responses import StreamingResponse
@@ -43,6 +43,9 @@ class ChatStreamRequest(BaseModel):
                                          pattern=r"^[A-Za-z0-9_.:-]+$")
     strict_final: bool = False
     language: Optional[str] = Field(default=None, max_length=8)
+    # "mat": chat and explain; "opt": work on files; "auto": decide per turn.
+    # Omitted: the full toolset with no mode, as before modes existed.
+    mode: Optional[Literal["auto", "mat", "opt"]] = None
 
 
 @router.post("/chat/stream")
@@ -71,6 +74,7 @@ async def chat_stream(body: ChatStreamRequest, request: Request):
         ui_version=body.ui_version,
         strict_final=body.strict_final,
         language=body.language,
+        mode=body.mode,
     )
     try:
         run = await rt.runs.start(req, body.client_run_id)

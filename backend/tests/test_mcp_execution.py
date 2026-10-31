@@ -261,3 +261,65 @@ async def test_mcp_protocol_measured_progress_and_media_output(runtime):
     assert progress == [(1, 3)]
     assert any(block.type == 'image' and base64.b64decode(block.data) == b'png-bytes' for block in result.content)
     assert result.structured_content['artifacts'][0]['path'] == 'sample.png'
+
+
+@pytest.mark.asyncio
+async def test_hub_never_shadows_native_tools_and_honours_server_policy(monkeypatch):
+    import fastmcp
+    import app.agent.mcp.client as client_module
+    seen_configs = []
+    class FakeClient:
+        def __init__(self, config):
+            seen_configs.append(config)
+            self.name = next(iter(config['mcpServers']))
+        async def __aenter__(self):
+            return self
+        async def __aexit__(self, *_):
+            pass
+        async def list_tools(self):
+            return [{'name': 'python', 'inputSchema': {'type': 'object'}},
+                    {'name': 'lookup', 'inputSchema': {'type': 'object'}},
+                    {'name': 'drop_me', 'inputSchema': {'type': 'object'}}]
+    monkeypatch.setattr(fastmcp, 'Client', FakeClient)
+    monkeypatch.setattr(client_module, 'load_mcp_config', lambda _: {'mcpServers': {
+        'only': {'command': 'x', 'tool_timeout_sec': 7, 'disabled_tools': ['drop_me']},
+        'off': {'command': 'y', 'enabled': False}}})
+    hub = McpHub()
+    await hub.start(reserved={'python', 'read_file'})
+    names = {t.name: t for t in hub.tools()}
+    # 'off' is skipped, so 'only' keeps historical prefixing for >1 configured server.
+    assert 'python' not in names
+    assert 'mcp__only__python' in names or 'only_python' in names
+    assert 'drop_me' not in {t.remote_name for t in hub.tools()}
+    assert all(t.tool_timeout == 7 for t in hub.tools())
+    assert [next(iter(c['mcpServers'].values())) for c in seen_configs] == [{'command': 'x'}]
+    await hub.stop()
+
+
+@pytest.mark.asyncio
+async def test_single_server_bare_name_collision_is_namespaced(monkeypatch):
+    import fastmcp
+    import app.agent.mcp.client as client_module
+    class FakeClient:
+        def __init__(self, config):
+            pass
+        async def __aenter__(self):
+            return self
+        async def __aexit__(self, *_):
+            pass
+        async def list_tools(self):
+            return [{'name': 'python', 'inputSchema': {'type': 'object'}}]
+    monkeypatch.setattr(fastmcp, 'Client', FakeClient)
+    monkeypatch.setattr(client_module, 'load_mcp_config', lambda _: {'mcpServers': {'solo': {}}})
+    hub = McpHub()
+    await hub.start(reserved={'python'})
+    assert [t.name for t in hub.tools()] == ['mcp__solo__python']
+    await hub.stop()
+
+
+def test_namespaced_name_is_bounded_and_distinct():
+    from app.agent.mcp.client import namespaced_name
+    a = namespaced_name('s' * 40, 'tool_' + 'a' * 40)
+    b = namespaced_name('s' * 40, 'tool_' + 'b' * 40)
+    assert len(a) <= 64 and len(b) <= 64 and a != b
+    assert namespaced_name('my.server', 'x') == 'mcp__my_server__x'

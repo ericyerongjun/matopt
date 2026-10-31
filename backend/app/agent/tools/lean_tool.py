@@ -19,6 +19,7 @@ from typing import Any, Optional
 
 from app.agent.child_env import build_child_env
 from app.agent.events import ToolResult
+from app.agent.sandbox import SandboxUnavailable, build_policy, wrap_argv
 from app.agent.tools.base import Tool, ToolContext
 from app.config import settings
 
@@ -85,11 +86,18 @@ class LeanCheckTool(Tool):
         path.write_text(source)
         shortcuts = sorted({m.group(1) or "axiom" for m in SHORTCUTS.finditer(_strip_comments(source))})
 
-        env = build_child_env(workspace_root=ctx.workspace.root, extra={
+        # The Lean project (its build cache) must stay writable under a sandbox.
+        policy = build_policy(getattr(ctx, "settings", None) or settings, ctx.workspace.root,
+                              extra_writable=[self.cwd] if self.cwd else ())
+        env = build_child_env(workspace_root=ctx.workspace.root, extra={**policy.child_env(),
             "ELAN_HOME": str(ELAN_HOME), "PATH": f"{ELAN_HOME / 'bin'}{os.pathsep}{os.environ.get('PATH', '')}"})
+        try:
+            argv = wrap_argv([*self.command, str(path)], policy)
+        except SandboxUnavailable as exc:
+            return ToolResult(ok=False, output="", error=f"Sandbox unavailable: {exc}", meta={"code": "SANDBOX_UNAVAILABLE"})
         started = time.monotonic()
         proc = await asyncio.create_subprocess_exec(
-            *self.command, str(path), cwd=str(self.cwd or ctx.workspace.root),
+            *argv, cwd=str(self.cwd or ctx.workspace.root),
             stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.STDOUT, env=env, start_new_session=True)
         wait = asyncio.create_task(proc.communicate())
         cancelled = asyncio.create_task(ctx.cancel.wait())

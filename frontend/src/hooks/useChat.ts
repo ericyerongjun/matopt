@@ -6,7 +6,7 @@ import { controlRun, latestRun, observeRun } from "../services/runs.ts";
 import { textFromAssistant, isAssistantContent } from "../types/protocol.ts";
 import { uploadFiles } from "../services/files.ts";
 import { applyEvent, assistantFromStream, emptyStreamState, type StreamState, type ChatStreamBody } from "../services/stream.ts";
-import type { Attachment, ChatMessage, StreamEvent, UserContent } from "../types/protocol";
+import type { ApprovalRequest, Attachment, ChatMode, ChatMessage, StreamEvent, SubagentEvent, UserContent } from "../types/protocol";
 
 interface Options {
     activeId: string | null;
@@ -19,6 +19,8 @@ interface Options {
     model: string | null;
     reasoning: string | null;
     verify: boolean;
+    /** Composer mode sent with every new turn; steers keep the running turn's mode. */
+    mode?: ChatMode;
     /** Reply language chosen in the UI; null lets the model follow the user's language. */
     language?: string | null;
     onArtifacts?: () => void;
@@ -31,6 +33,7 @@ interface Subscription {
     assistantId: string;
     accepted: boolean;
 }
+const EMPTY_RUN_VIEW = { runId: null, approvals: [] as ApprovalRequest[], subagents: [] as SubagentEvent[] };
 function uid(prefix: string) { return `${prefix}${crypto.randomUUID()}`; }
 
 export function useChat(options: Options) {
@@ -43,6 +46,8 @@ export function useChat(options: Options) {
     const [paused, setPaused] = useState(false);
     const [pauseRequested, setPauseRequested] = useState(false);
     const [controlStatus, setControlStatus] = useState<string | null>(null);
+    /** Run-level public state: pending approvals and sub-agent lifecycle. */
+    const [runView, setRunView] = useState<{ runId: string | null; approvals: ApprovalRequest[]; subagents: SubagentEvent[] }>(EMPTY_RUN_VIEW);
     const current = useRef<Subscription | null>(null);
     const generation = useRef(0);
     const preparing = useRef(false);
@@ -56,7 +61,7 @@ export function useChat(options: Options) {
         current.current = null;
         preparing.current = false;
         setStreaming(false); setReconnecting(false); setPaused(false); setPauseRequested(false);
-        setStatusLine(null); setControlStatus(null);
+        setStatusLine(null); setControlStatus(null); setRunView(EMPTY_RUN_VIEW);
     }, []);
 
     const publish = useCallback((session: Subscription) => {
@@ -65,6 +70,9 @@ export function useChat(options: Options) {
         setPaused(Boolean(session.state.paused));
         setPauseRequested(Boolean(session.state.pauseRequested));
         setControlStatus(session.state.controlStatus ?? null);
+        const { runId = null, approvals = [], subagents = [] } = session.state;
+        setRunView((previous) => previous.runId === runId && previous.approvals === approvals && previous.subagents === subagents
+            ? previous : { runId, approvals, subagents });
         const answer: ChatMessage = {
             id: session.state.messageId || session.assistantId, conversation_id: session.cid,
             seq: session.messages.length + 1, role: "assistant", created_at: Date.now() / 1000,
@@ -228,7 +236,7 @@ export function useChat(options: Options) {
             return await monitor(session, { conversation_id: cid, client_run_id: crypto.randomUUID(), message: trimmed, attachments,
                 provider: opts.provider, model: opts.model, reasoning: opts.reasoning, verify: opts.verify,
                 skills: skills.length ? skills : undefined, tools: tools.length ? tools : undefined, ui_version: 1,
-                language: opts.language || undefined }, accepted);
+                language: opts.language || undefined, mode: opts.mode ?? "auto" }, accepted);
         } catch (error) {
             if (generation.current === mine) setStreamError(error instanceof Error ? error.message : "Could not start the run");
             return false;
@@ -272,5 +280,6 @@ export function useChat(options: Options) {
     const abandon = useCallback(async () => { unsubscribe(); setDetached(true); setOverlay(null); }, [unsubscribe]);
 
     return { sendMessage, stop, pause, resume, abandon, streaming, detached, paused, pauseRequested, controlStatus,
-        reconnecting, statusLine, streamError, setStreamError, overlay };
+        reconnecting, statusLine, streamError, setStreamError, overlay,
+        runId: runView.runId, approvals: runView.approvals, subagents: runView.subagents };
 }
