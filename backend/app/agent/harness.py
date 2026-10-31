@@ -181,6 +181,7 @@ class TurnState:
     # Budget admission ids are unique per run; a child agent shares the run's
     # budget and its turn number, so it needs its own prefix.
     admission_prefix: str = "native"
+    model_dispatches: int = 0
     mailbox: Optional[Callable[[list], bool]] = None
     subagents: Any = None
     transcript: Transcript = field(default_factory=Transcript)
@@ -1718,8 +1719,12 @@ class AgentHarness:
                 if budget_message:
                     raise BudgetExceeded(budget_message)
             attempts += 1
+            # The admission id counts every dispatch in this state, not just this
+            # call's attempts: a step re-dispatched after context-overflow
+            # compaction must not reuse the id the rejected request spent.
+            state.model_dispatches += 1
             budget = state.run_budget
-            admission_id = f"{state.admission_prefix}:{state.turn}:{state.step}:{attempts}"
+            admission_id = f"{state.admission_prefix}:{state.turn}:{state.step}:{state.model_dispatches}"
             if budget is not None:
                 admission = budget.admit_model(admission_id, source="native:" + state.phase,
                     provider=state.provider_id or provider.id, model=options.model,
@@ -1941,7 +1946,7 @@ class AgentHarness:
                 state.session.append("tool/call", {"turn": state.turn, "step": state.step,
                     "callId": call.id, "name": call.name, "arguments": call.arguments,
                     "resolved_name": resolved_name, "normalized_arguments": nc.payload,
-                    "phase": state.phase})
+                    "phase": state.phase, **_mcp_provenance(tool)})
                 # Checkpoint raw arguments and call identity before any tool
                 # body can produce a side effect.
                 await state.session.flush()
@@ -1993,7 +1998,7 @@ class AgentHarness:
             part = {
                 "type": "tool_call", "id": nc.call.id, "name": nc.call.name, "arguments": nc.payload,
                 "result": res.to_dict(), "status": "completed" if res.ok else "error", "phase": state.phase,
-                "publication": state.output_generation,
+                "publication": state.output_generation, **_mcp_provenance(nc.tool),
             }
             state.parts.append(part)
             result_seq = None
@@ -2358,6 +2363,12 @@ def _user_content(text: str, attachments: list[dict]) -> str:
         return text
     names = ", ".join(f"`{a.get('path') or a.get('name')}`" for a in attachments)
     return f"{text}\n\n[Attached files in the workspace: {names}]"
+
+
+def _mcp_provenance(tool: Optional[Tool]) -> dict:
+    """Which external MCP server a call went to, recorded whatever name the tool is advertised under."""
+    server = getattr(tool, "mcp_server", "") if tool is not None else ""
+    return {"mcp_server": server} if isinstance(server, str) and server else {}
 
 
 def _previous_turn_stopped(events: list[dict]) -> bool:

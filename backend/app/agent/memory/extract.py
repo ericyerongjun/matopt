@@ -46,8 +46,20 @@ WEB_TOOLS = frozenset({"web_search", "web_fetch"})
 
 
 def is_external_tool(name: str) -> bool:
-    """Web and MCP tools bring third-party text into the conversation."""
+    """Web tools and namespaced MCP tools, recognised by name alone."""
     return name in WEB_TOOLS or name.startswith("mcp__")
+
+
+def is_external_call(record: dict) -> bool:
+    """Web and MCP calls bring third-party text into the conversation.
+
+    MCP tools are usually advertised under their bare remote name (one server)
+    or ``<server>_<tool>``; only collisions get the ``mcp__`` prefix. The
+    harness therefore records the server on the call itself (``mcp_server``),
+    which is the provenance this checks first.
+    """
+    server = record.get("mcp_server")
+    return bool(isinstance(server, str) and server) or is_external_tool(str(record.get("name") or ""))
 
 
 @dataclass
@@ -55,6 +67,7 @@ class Transcript:
     text: str
     tools: set[str] = field(default_factory=set)
     user_turns: int = 0
+    external: bool = False      # a web or MCP call brought in third-party text
 
 
 def _clip(text: str, limit: int) -> str:
@@ -91,6 +104,7 @@ def _tool_line(part: dict) -> str:
 def render_conversation(db, cid: str, *, max_chars: int = MAX_TRANSCRIPT_CHARS) -> Transcript:
     """The filtered, redacted transcript and the set of tools the conversation used."""
     tools: set[str] = set()
+    external = False
     lines: list[str] = []
     user_turns = 0
     for message in db.list_messages(cid):
@@ -107,6 +121,7 @@ def render_conversation(db, cid: str, *, max_chars: int = MAX_TRANSCRIPT_CHARS) 
             for part in content.get("parts") or []:
                 if isinstance(part, dict) and part.get("type") == "tool_call":
                     tools.add(str(part.get("name") or ""))
+                    external = external or is_external_call(part)
                     lines.append(_tool_line(part))
             answer = _assistant_text(content)
             if answer:
@@ -115,14 +130,17 @@ def render_conversation(db, cid: str, *, max_chars: int = MAX_TRANSCRIPT_CHARS) 
     try:
         for event in db.list_session_events(cid):
             if event.get("type") == "tool/call":
-                name = (event.get("data") or {}).get("name")
+                data = event.get("data") or {}
+                name = data.get("name")
                 if isinstance(name, str):
                     tools.add(name)
+                external = external or is_external_call(data)
     except Exception:  # noqa: BLE001 — a missing log only weakens the web check
         logger.debug("memory: no session events for %s", cid, exc_info=True)
     tools.discard("")
     text = redact_secrets(_clip("\n\n".join(lines), max_chars))
-    return Transcript(text=text, tools=tools, user_turns=user_turns)
+    return Transcript(text=text, tools=tools, user_turns=user_turns,
+                      external=external or any(is_external_tool(t) for t in tools))
 
 
 def ineligible_reason(conv: dict, store: MemoryStore, settings, *, now: float | None = None,
@@ -146,7 +164,7 @@ def ineligible_reason(conv: dict, store: MemoryStore, settings, *, now: float | 
 def transcript_reason(transcript: Transcript, settings) -> Optional[str]:
     if transcript.user_turns == 0:
         return "empty"
-    if settings.memory_disable_on_web and any(is_external_tool(t) for t in transcript.tools):
+    if settings.memory_disable_on_web and (transcript.external or any(is_external_tool(t) for t in transcript.tools)):
         return "external_context"
     return None
 

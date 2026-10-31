@@ -381,3 +381,12 @@ def test_api_routes(client):
     client.svc.store.write_summary("s")
     assert client.delete("/api/memories").json() == {"cleared": True}
     assert client.get("/api/memories").json()["summary"] == ""
+
+
+def test_mcp_calls_are_external_whatever_their_advertised_name():
+    from app.agent.memory.extract import is_external_call
+    assert is_external_call({"name": "lookup", "mcp_server": "crm"})
+    assert is_external_call({"name": "crm_lookup", "mcp_server": "crm"})
+    assert is_external_call({"name": "mcp__crm__lookup"})
+    assert is_external_call({"name": "web_fetch"})
+    assert not is_external_call({"name": "python"})

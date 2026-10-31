@@ -132,3 +132,14 @@ async def test_seatbelt_confines_bash_writes_and_reads(tmp_path):
     assert (ws / "inside.txt").read_text() == "hi\n"
     assert "secret" not in result.output
     assert not outside.exists()
+
+
+@pytest.mark.parametrize("command,decision", [
+    ("echo ready\ngit push origin main", "prompt"),
+    ("ls # list\nsudo id", "forbidden"),
+    ("echo ok\r\nsudo id", "forbidden"),
+    ("echo 'a\nsudo b'", "allow"),
+    ("python x.py \\\n  --flag", "allow"),
+])
+def test_newlines_separate_commands(command, decision):
+    assert ExecPolicy().evaluate(command).decision == decision

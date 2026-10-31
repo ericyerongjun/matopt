@@ -1,6 +1,8 @@
 """Loop mechanics ported from Codex: retry policy, token estimate, mid-turn compaction."""
 
 import random
+
+import pytest
 from types import SimpleNamespace
 
 from app.agent import compaction
@@ -96,3 +98,40 @@ def test_previous_stopped_turn_is_visible_to_the_model():
     assert not _previous_turn_stopped(events[:1])
     assert "stopped the previous turn" in build_turn_context("files", "", previous_stopped=True)
     assert "stopped the previous turn" not in build_turn_context("files", "")
+
+
+@pytest.mark.asyncio
+async def test_overflow_redispatch_gets_a_fresh_admission(tmp_path):
+    """A step re-sent after context-overflow compaction must not reuse the spent admission id."""
+    from types import SimpleNamespace
+    from app.agent.budget import RunBudget
+    from app.agent.harness import AgentHarness, RunRequest
+    from app.agent.tools.base import ToolRegistry
+    from app.config import settings
+    from app.storage.db import Database
+    from tests.fake_provider import FakeProvider, FakeRegistry
+
+    class OverflowOnce(FakeProvider):
+        def __init__(self):
+            super().__init__([{"text": "Recovered answer."}, {"text": "Recovered answer."}])
+            self.overflowed = False
+
+        async def stream(self, messages, tools, options):
+            if not self.overflowed:
+                self.overflowed = True
+                raise RuntimeError("This model's maximum context length is 128000 tokens")
+            async for delta in super().stream(messages, tools, options):
+                yield delta
+
+    db = Database(tmp_path / "o.sqlite")
+    config = settings.model_copy(update={"data_dir": tmp_path, "skill_auto_activate": False,
+                                         "data_agent_enabled": False, "verify_rounds": 0})
+    provider = OverflowOnce()
+    harness = AgentHarness(db, SimpleNamespace(peek=lambda cid: None), config, FakeRegistry(provider), ToolRegistry([]))
+    cid = db.create_conversation()["id"]
+    events = [e.to_dict() async for e in harness.run(RunRequest(cid, "Explain the identity at length."))]
+    assert provider.overflowed
+    assert not [e for e in events if e["type"] == "error"], [e for e in events if e["type"] == "error"]
+    end = next(e for e in events if e["type"] == "message_end")
+    assert end["status"] == "complete"
+    db.close()

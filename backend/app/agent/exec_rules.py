@@ -146,9 +146,16 @@ def _strip_wrappers(argv: list[str]) -> list[str]:
 
 def split_segments(command: str) -> Optional[list[list[str]]]:
     """argv of each pipeline/list segment, or None when the line cannot be parsed."""
+    # Bash runs each line as its own command, so an unquoted newline must
+    # separate segments like ``;`` does. shlex counts newline as whitespace by
+    # default, and its comment handling swallows the newline that ends a
+    # comment, so both are turned off: a ``# comment`` then stays inside its
+    # own segment as harmless extra words. A backslash-newline continues a line.
+    command = command.replace("\\\r\n", " ").replace("\\\n", " ")
     lexer = shlex.shlex(command, posix=True, punctuation_chars=";&|()\n")
+    lexer.whitespace = " \t\r"
     lexer.whitespace_split = True
-    lexer.commenters = "#"
+    lexer.commenters = ""
     try:
         tokens = list(lexer)
     except ValueError:
