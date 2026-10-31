@@ -173,7 +173,10 @@ def invalidate_reads(state: dict, workspace: Workspace, paths: Iterable[str]) ->
 
 def invalidate_execution_changes(state: dict, workspace: Workspace, before: dict, changed: Iterable[str]) -> dict:
     """Include removed files, which the artifact-oriented changed_since omits."""
-    removed = (rel for rel in before if not (workspace.root / rel).is_file())
+    removed = [rel for rel in before if not (workspace.root / rel).is_file()]
+    from app.agent.turn_diff import tracker
+    if (diff := tracker(state)) is not None:
+        diff.observe_exec(before, [*changed, *removed])
     return invalidate_reads(state, workspace, [*changed, *removed])
 
 

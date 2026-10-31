@@ -529,4 +529,14 @@ def project_trajectory(events: list[dict]) -> dict:
                     if record["status"] == "running":
                         record["status"] = "interrupted"
     stats["turns"] = len(closed_turns)
+    # Codex-style exclusive attribution of each turn's wall time
+    # (app/agent/session/critical_path.py); side tasks carry their own turn.
+    from app.agent.session.critical_path import turn_critical_path
+    by_turn: dict[Any, list[dict]] = {}
+    for event in events:
+        turn_id = event["data"].get("turn")
+        if turn_id in turns:
+            by_turn.setdefault(turn_id, []).append(event)
+    for turn_id, turn in turns.items():
+        turn["critical_path"] = turn_critical_path(by_turn.get(turn_id, []))
     return {"turns": list(turns.values()), "stats": stats, "legacy": not events}

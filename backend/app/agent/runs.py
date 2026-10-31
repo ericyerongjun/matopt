@@ -134,6 +134,54 @@ def project_public_event(event: Event) -> Event | None:
         out = _strings(data, "text")
         for key in ("skills", "tools"):
             out[key] = [value for value in data.get(key, []) if isinstance(value, str)]
+    elif kind == "mode":
+        if data.get("mode") not in {"mat", "opt"} or data.get("source") not in {"user", "auto"}:
+            return None
+        out = {"mode": data["mode"], "source": data["source"], "reason": str(data.get("reason") or "")[:300]}
+        if data.get("switched") is True:
+            out["switched"] = True
+            if data.get("from") in {"mat", "opt"}:
+                out["from"] = data["from"]
+    elif kind == "subagent":
+        out = _strings(data, "id", "path", "nickname", "role", "status", "task")
+        if data.get("kind") not in {"started", "completed", "errored", "interrupted", "closed"} or "id" not in out:
+            return None
+        out["kind"] = data["kind"]
+        # Only the child's own final summary is public, never inter-agent mail.
+        if isinstance(data.get("summary"), str):
+            out["summary"] = data["summary"][:2000]
+        out["task"] = out.get("task", "")[:500]
+    elif kind == "approval_request":
+        out = _strings(data, "id", "tool", "title", "summary", "reason")
+        if "id" not in out:
+            return None
+        out["summary"] = out.get("summary", "")[:1000]
+        out["risk"] = data["risk"] if data.get("risk") in {"low", "medium", "high", "critical"} else "medium"
+    elif kind == "approval_resolved":
+        if data.get("decision") not in {"allow", "deny", "timeout"} or data.get("by") not in {"user", "guardian"}:
+            return None
+        out = {**_strings(data, "id"), "decision": data["decision"], "by": data["by"]}
+    elif kind == "guardian_review":
+        if data.get("outcome") not in {"allow", "deny", "error"}:
+            return None
+        out = {**_strings(data, "call_id", "tool", "risk_level", "user_authorization"), "outcome": data["outcome"]}
+        out["rationale"] = str(data.get("rationale") or "")[:1000]
+    elif kind == "workspace_changes":
+        if type(data.get("turn")) is not int:
+            return None
+        files = []
+        for entry in data.get("files") or []:
+            if not isinstance(entry, dict) or not isinstance(entry.get("path"), str) or entry.get("status") not in {"A", "M", "D"}:
+                continue
+            item = {"path": entry["path"], "status": entry["status"]}
+            for key in ("added", "removed"):
+                if type(entry.get(key)) is int:
+                    item[key] = entry[key]
+            for key in ("binary", "untracked"):
+                if entry.get(key) is True:
+                    item[key] = True
+            files.append(item)
+        out = {"turn": data["turn"], "files": files[:500]}
     elif kind == "message_end":
         out = _strings(data, "message_id", "status")
         out["content"] = public_content(data.get("content"))

@@ -41,6 +41,19 @@ TOOLS = {
     "load_skill": ("Loading skill", "Load the instructions for the selected skill"),
     "search_skills": ("Finding skill", "Find relevant task instructions"),
     "update_plan": ("Updating plan", "Track the task's public milestones"),
+    "find_files": ("Finding files", "Locate files by approximate name"),
+    "bash_poll": ("Checking background job", "Read the output of a running job"),
+    "spawn_agent": ("Starting sub-agent", "Hand a self-contained task to a helper agent"),
+    "wait_agent": ("Waiting for sub-agents", "Collect results from helper agents"),
+    "send_message": ("Messaging sub-agent", "Give a helper agent more information"),
+    "followup_task": ("Assigning follow-up", "Give a helper agent its next task"),
+    "interrupt_agent": ("Stopping sub-agent", "Stop a helper agent's current work"),
+    "list_agents": ("Listing sub-agents", "Check the status of helper agents"),
+    "memory_search": ("Searching memories", "Recall relevant notes from earlier conversations"),
+    "memory_read": ("Reading memory", "Read a remembered note"),
+    "memory_note": ("Saving memory", "Remember what the user asked to keep"),
+    "list_mcp_resources": ("Listing resources", "Find resources offered by a connected server"),
+    "read_mcp_resource": ("Reading resource", "Read a resource from a connected server"),
 }
 
 
@@ -235,7 +248,10 @@ class PublicActivity:
             progress = {"completed": meta["count"], "unit": "sources"}
         elif ok and outputs:
             summary = f"Produced {len(outputs)} output{'s' if len(outputs) != 1 else ''}."
-        elif name in {"python", "bash"} and type(meta.get("exit_code")) is int:
+        elif name in {"bash", "bash_poll"} and meta.get("running") is True:
+            # A background job is still going; it is not "completed" yet.
+            summary = f"Running in the background (job {_text(str(meta.get('session_id')), 16)})."
+        elif name in {"python", "bash", "bash_poll"} and type(meta.get("exit_code")) is int:
             summary = "Computation completed." if ok else f"Computation failed (exit {meta['exit_code']})."
         await self.item(item_id, status="completed" if ok else "cancelled" if cancelled else "failed",
                         summary=summary, outputs=outputs, **({"progress": progress} if progress else {}))

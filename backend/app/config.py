@@ -1,6 +1,12 @@
 """
 Application settings (pydantic-settings). Values come from the environment
 or ``backend/.env``; see ``.env.example`` for the full list.
+
+Below those sits a user TOML layer (Codex's ``config.toml``, from
+``codex-rs/config``): ``~/.matopt/config.toml`` or ``$MATOPT_CONFIG``, with an
+optional ``[profiles.<name>]`` table selected by ``$MATOPT_PROFILE`` and a
+``[features]`` table of feature keys (``app/features.py``). Precedence, highest
+first: constructor arguments, environment, ``.env``, profile, TOML, defaults.
 """
 
 from __future__ import annotations
@@ -8,8 +14,12 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Literal, Optional
 
+import os
+import tomllib
+
 from pydantic import Field, field_validator
-from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic.fields import FieldInfo
+from pydantic_settings import BaseSettings, PydanticBaseSettingsSource, SettingsConfigDict
 from app.llm.catalog import LEVELS, MAX_OUTPUT_TOKENS, MODEL_ID, PROVIDER_ID, canonical_model, canonical_provider, canonical_reasoning
 
 BACKEND_DIR = Path(__file__).resolve().parent.parent
@@ -36,8 +46,57 @@ def default_skill_group_dirs(*roots: Path) -> list[Path]:
     return dirs
 
 
+def user_config_path() -> Path:
+    return Path(os.environ.get("MATOPT_CONFIG") or Path.home() / ".matopt" / "config.toml").expanduser()
+
+
+def load_user_layers(path: Path | None = None) -> tuple[dict, dict]:
+    """(base table, selected profile table) of the user TOML, both flattened to field names."""
+    path = path or user_config_path()
+    try:
+        data = tomllib.loads(path.read_text(encoding="utf-8"))
+    except (FileNotFoundError, IsADirectoryError):
+        return {}, {}
+    except (OSError, tomllib.TOMLDecodeError) as exc:
+        import logging
+        logging.getLogger(__name__).error("Ignoring invalid %s: %s", path, exc)
+        return {}, {}
+
+    def flatten(table: dict) -> dict:
+        from app.features import BY_KEY
+        out = {k: v for k, v in table.items() if not isinstance(v, dict)}
+        for key, enabled in (table.get("features") or {}).items():
+            spec = BY_KEY.get(key)
+            if spec is not None and isinstance(enabled, bool):
+                out[spec.setting] = enabled
+        return out
+
+    profile_name = os.environ.get("MATOPT_PROFILE")
+    profile = (data.get("profiles") or {}).get(profile_name, {}) if profile_name else {}
+    return flatten(data), flatten(profile if isinstance(profile, dict) else {})
+
+
+class _TomlLayer(PydanticBaseSettingsSource):
+    def __init__(self, settings_cls, values: dict):
+        super().__init__(settings_cls)
+        self.values = {k: v for k, v in values.items() if k in settings_cls.model_fields}
+
+    def get_field_value(self, field: FieldInfo, field_name: str):
+        return self.values.get(field_name), field_name, False
+
+    def __call__(self) -> dict:
+        return dict(self.values)
+
+
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=str(BACKEND_DIR / ".env"), env_file_encoding="utf-8", extra="ignore")
+
+    @classmethod
+    def settings_customise_sources(cls, settings_cls, init_settings, env_settings, dotenv_settings,
+                                   file_secret_settings):
+        base, profile = load_user_layers()
+        return (init_settings, env_settings, dotenv_settings, _TomlLayer(settings_cls, profile),
+                _TomlLayer(settings_cls, base), file_secret_settings)
 
     # ── App ──────────────────────────────────────────────────────────────
     app_name: str = "MatOpt"
@@ -139,6 +198,67 @@ class Settings(BaseSettings):
     # change — but it re-exposes DEEPSEEK_API_KEY & co. to anything the agent
     # runs, so treat it as a temporary override rather than a setting.
     child_env_allowlist: bool = True
+    # Mask credential-shaped strings in tool output before the model, the
+    # session log or the UI see it (app/agent/exec_output.py).
+    redact_tool_output: bool = True
+
+    # ── Execution policy (ported from Codex; docs/CODEX-INTEGRATION.md) ─
+    # OS sandbox around bash, lean and the Jupyter kernel (app/agent/sandbox.py).
+    # "off" runs unsandboxed (the historical behaviour); "workspace-write" lets
+    # children write only the workspace and temp; "read-only" writes nothing;
+    # "external" means the deployment already isolates (a container) and only
+    # the network setting is advertised to children.
+    sandbox_mode: Literal["off", "workspace-write", "read-only", "external"] = "off"
+    sandbox_network: bool = True               # outbound network inside the sandbox (pip, web data)
+    sandbox_backend: Literal["auto", "seatbelt", "bwrap", "none"] = "auto"
+    # Prefix rules for shell commands (app/agent/exec_rules.py). Empty uses the
+    # built-in defaults; a TOML file adds to them.
+    exec_rules_path: Optional[Path] = None
+    # Command hooks (app/agent/hooks.py). Off by default: a hook runs as the
+    # backend user, so only an operator-owned file may enable them.
+    hooks_enabled: bool = False
+    hooks_path: Optional[Path] = None          # default: <data_dir>/hooks.json
+    hook_timeout: float = Field(default=60.0, gt=0, le=600)
+    # AGENTS.md instruction files (app/agent/instructions.py).
+    agents_md_enabled: bool = True
+    agents_md_max_bytes: int = Field(default=32 * 1024, ge=1024, le=256 * 1024)
+    # Approvals for calls that need them (Tool.needs_approval, exec rules that
+    # say "prompt"): "off" runs needs_approval tools and refuses prompt rules
+    # (the historical behaviour); "guardian" asks a reviewer model
+    # (app/agent/guardian.py); "user" asks the person in the UI.
+    approvals_reviewer: Literal["off", "guardian", "user"] = "off"
+    # Configuration writes through the HTTP API (feature toggles, plugin
+    # install, config import). Turn off when the sandbox allows network: the
+    # agent's kernel can reach the API on localhost.
+    settings_api_writable: bool = True
+    approval_timeout: float = Field(default=600.0, gt=0, le=3600)
+    guardian_timeout: float = Field(default=60.0, gt=0, le=600)
+    guardian_fail_closed: bool = True
+
+    # ── Sub-agents (app/agent/subagents/) ───────────────────────────────
+    subagents_enabled: bool = False
+    subagent_max_concurrent: int = Field(default=3, ge=1, le=8)
+    subagent_max_per_turn: int = Field(default=6, ge=1, le=32)
+    subagent_max_depth: int = Field(default=1, ge=1, le=3)
+    subagent_max_steps: int = Field(default=20, ge=1, le=100)
+
+    # ── Memories (app/agent/memory/) ────────────────────────────────────
+    memories_enabled: bool = False
+    memory_min_idle_hours: float = Field(default=6.0, ge=0)
+    memory_max_inputs: int = Field(default=64, ge=1, le=1024)
+    memory_summary_tokens: int = Field(default=2500, ge=200, le=20000)
+    memory_disable_on_web: bool = True       # chats that read the web are not learned from
+
+    # ── Code mode: Python cells call MatOpt tools (app/agent/kernel_tools.py)
+    code_mode_enabled: bool = False
+    code_mode_max_calls_per_cell: int = Field(default=50, ge=1, le=500)
+
+    # ── Plugins (app/agent/plugins/) ────────────────────────────────────
+    plugins_dir: Optional[Path] = None        # default: <data_dir>/plugins
+
+    # Model-request retries (app/llm/retry.py): exponential backoff with jitter.
+    llm_max_retries: int = Field(default=4, ge=0, le=10)
+    llm_retry_base_delay: float = Field(default=0.2, gt=0, le=10)
 
     # Operator supplied per-million-token prices, keyed by provider/model.
     model_pricing: dict = Field(default_factory=dict)

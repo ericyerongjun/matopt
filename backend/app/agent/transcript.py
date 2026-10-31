@@ -37,6 +37,19 @@ ACTIONS: dict[str, tuple[str, Optional[str], Optional[str], Optional[str]]] = {
     "create_ui_app": ("Built interactive app", "title", None, None),
     "register_ui_action": ("Registered interactive action", "action_id", None, None),
     "data_agent": ("Ran the data agent", None, "task", None),
+    "find_files": ("Found files matching", "query", None, None),
+    "bash_poll": ("Checked background job", "session_id", "input", None),
+    "spawn_agent": ("Started sub-agent", "task_name", "message", None),
+    "wait_agent": ("Waited for sub-agents", None, None, None),
+    "send_message": ("Messaged sub-agent", "target", "message", None),
+    "followup_task": ("Gave sub-agent a follow-up", "target", "message", None),
+    "interrupt_agent": ("Stopped sub-agent", "target", None, None),
+    "list_agents": ("Listed sub-agents", None, None, None),
+    "memory_search": ("Searched memories for", "query", None, None),
+    "memory_read": ("Read memory", "path", None, None),
+    "memory_note": ("Saved a memory", None, "note", None),
+    "list_mcp_resources": ("Listed resources", "server", None, None),
+    "read_mcp_resource": ("Read resource", "uri", None, None),
 }
 # Bookkeeping the user sees elsewhere (plan checklist, published results).
 HIDDEN = {"update_plan", "publish_result", "search_tools", "load_tool_schemas"}

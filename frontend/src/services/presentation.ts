@@ -1,4 +1,5 @@
-import type { ActivityItem, Artifact, AssistantContent, Part, ProgressUpdate, ResultBlock, TranscriptEntry } from "../types/protocol.ts";
+import type { ActivityItem, Artifact, AssistantContent, GuardianReview, Part, ProgressUpdate, ResultBlock, TranscriptEntry } from "../types/protocol.ts";
+import { readGuardianReview } from "./stream.ts";
 import { readResultBlock, readPublicProgress, readPublicMilestones } from "../types/protocol.ts";
 import type { UISurface } from "../types/ui.ts";
 
@@ -23,6 +24,12 @@ export interface PresentedWork {
     durationMs?: number;
     /** Narration and actions, Claude Code style; empty for older messages. */
     transcript: TranscriptEntry[];
+    /** Guardian reviews keyed to transcript actions by call id. */
+    reviews?: GuardianReview[];
+}
+
+function readReviews(value: unknown): GuardianReview[] {
+    return Array.isArray(value) ? value.map(readGuardianReview).filter((review): review is GuardianReview => Boolean(review)) : [];
 }
 
 export interface AssistantPresentation {
@@ -111,6 +118,7 @@ function workFor(content: AssistantContent, streaming: boolean): PresentedWork |
             milestones: readPublicMilestones(publicWork.milestones),
             startedAt: timestamp(publicWork.started_at), finishedAt: timestamp(publicWork.finished_at), durationMs: timestamp(publicWork.duration_ms),
             transcript: readTranscript(content.transcript, workStatus),
+            reviews: readReviews(content.guardian_reviews),
         };
     }
 
@@ -136,7 +144,7 @@ function workFor(content: AssistantContent, streaming: boolean): PresentedWork |
     if (!steps.length && (status === "running" || content.parts.some((part) => part.type === "reasoning"))) steps.push({ label: "Working", status: status === "running" ? "running" : "complete" });
     if (!steps.length) return null;
     return { status, toolCount: Math.max(toolCount, count(content.stats?.tool_calls)), verification, steps, items: [], progress: null, milestones: [],
-        transcript: readTranscript(content.transcript, status) };
+        transcript: readTranscript(content.transcript, status), reviews: readReviews(content.guardian_reviews) };
 }
 
 function legacyAnswer(parts: Part[]): string {

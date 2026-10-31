@@ -61,7 +61,10 @@ class PythonTool(Tool):
         "identical figures are captured once. Plot each distinct claim once — do not re-run a plotting cell "
         "only to tweak titles. For interactive charts build a plotly figure and call fig.show(). "
         "The last expression of the cell is displayed like in a notebook. Print intermediate values you need to see. "
-        "Files you write under the workspace become downloadable artifacts. Long-running cells are interrupted after `timeout` seconds."
+        "Files you write under the workspace become downloadable artifacts. Long-running cells are interrupted after `timeout` seconds. "
+        "If code mode is enabled, a `tools` object calls read-only MatOpt tools from the cell, e.g. "
+        "`tools.read_file(path=\"data.csv\")` or `tools.web_search(query=\"...\")` (keyword arguments; returns the text "
+        "output, raises `ToolError` on failure); `tools.list()` and `tools.describe(name)` show what is callable."
     )
     parameters = {
         "type": "object",
@@ -101,6 +104,31 @@ class PythonTool(Tool):
                 return {**arguments, "code": cleaned}
         return arguments
 
+    @staticmethod
+    def _tool_binding(ctx: ToolContext, limit: float) -> Any:
+        """The code-mode binding for this cell, or None when code mode is off.
+
+        The harness supplies ``ctx.state["tool_dispatch"]`` (and optionally
+        ``ctx.state["tool_registry"]`` for the allow-list and ``tools.list()``);
+        without a dispatcher the binding is still made so ``tools.*`` reports
+        that code mode is unavailable instead of "no cell is running".
+        """
+        settings = ctx.settings
+        if settings is None:
+            from app.config import settings
+        if not getattr(settings, "code_mode_enabled", False):
+            return None
+        import time
+
+        from app.agent.kernel_tools import KernelToolBinding
+
+        dispatch = ctx.state.get("tool_dispatch")
+        return KernelToolBinding(
+            ctx=ctx, call_id=ctx.call_id, dispatch=dispatch if callable(dispatch) else None,
+            registry=ctx.state.get("tool_registry"),
+            max_calls=int(getattr(settings, "code_mode_max_calls_per_cell", 50)),
+            deadline=time.monotonic() + limit)
+
     async def run(self, ctx: ToolContext, code: str, timeout: int | None = None, reset: bool = False, **_: Any) -> ToolResult:
         code = clean_code(code)   # idempotent: still true when `run` is called directly
         if not code or not code.strip():
@@ -117,8 +145,12 @@ class PythonTool(Tool):
         async def on_stream(name: str, text: str) -> None:
             await ctx.progress(text)
 
+        # Only pass `tools` when code mode is on, so kernel stand-ins without
+        # the parameter keep working.
+        binding = self._tool_binding(ctx, limit)
+        extra = {"tools": binding} if binding is not None else {}
         try:
-            res = await session.execute(code, timeout=limit, on_stream=on_stream, cancel=ctx.cancel)
+            res = await session.execute(code, timeout=limit, on_stream=on_stream, cancel=ctx.cancel, **extra)
         finally:
             changed = ctx.workspace.changed_since(before)
             read_state_meta = invalidate_execution_changes(ctx.state, ctx.workspace, before, changed)

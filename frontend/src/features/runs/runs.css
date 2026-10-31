@@ -1,0 +1,54 @@
+/* Sub-agents, background jobs, approvals and guardian notes. Colors, radii and spacing come from the design tokens. */
+.matopt-runs-panel { display: grid; gap: var(--mo-space-3); padding: 4px 16px 16px; font-size: var(--matopt-text-compact); color: var(--mo-text); }
+.matopt-runs-empty, .matopt-runs-note { margin: 0; padding: 8px 16px; color: var(--mo-text-muted); font-size: var(--matopt-text-compact); }
+.matopt-runs-panel .matopt-runs-empty, .matopt-runs-panel .matopt-runs-note { padding: 4px 0; }
+.matopt-runs-list { display: grid; gap: var(--mo-space-2); margin: 0; padding: 0; list-style: none; }
+.matopt-runs-list > li { display: grid; gap: 6px; padding: 10px 12px; border: 1px solid var(--mo-border); border-radius: var(--mo-radius-control); background: var(--mo-surface); }
+.matopt-runs-row { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.matopt-runs-row > svg { width: 15px; height: 15px; flex-shrink: 0; color: var(--mo-text-muted); }
+.matopt-runs-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; }
+.matopt-runs-role { flex-shrink: 0; color: var(--mo-text-muted); font-size: var(--text-ui-xs); }
+.matopt-runs-command { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: var(--font-mono); font-size: var(--text-ui-xs); }
+.matopt-runs-badge { margin-left: auto; flex-shrink: 0; padding: 1px 8px; border: 1px solid var(--mo-border); border-radius: 999px; color: var(--mo-text-muted); font-size: var(--text-ui-xs); line-height: 1.5; white-space: nowrap; }
+.matopt-runs-badge[data-tone=active] { border-color: var(--mo-accent); color: var(--mo-accent); }
+.matopt-runs-badge[data-tone=success] { color: var(--mo-success); }
+.matopt-runs-badge[data-tone=danger] { border-color: var(--mo-danger); color: var(--mo-danger); }
+.matopt-runs-task, .matopt-runs-meta { margin: 0; color: var(--mo-text-muted); font-size: var(--text-ui-xs); line-height: 1.5; overflow-wrap: anywhere; }
+.matopt-runs-summary { display: grid; gap: 2px; padding: 8px 10px; border-radius: var(--mo-radius-sm); background: var(--mo-surface-secondary); }
+.matopt-runs-summary > span { color: var(--mo-text-muted); font-size: var(--text-ui-xs); }
+.matopt-runs-summary p { margin: 0; line-height: 1.55; overflow-wrap: anywhere; white-space: pre-wrap; }
+
+/* Approval card in the composer dock. */
+.matopt-approvals { display: grid; gap: var(--mo-space-2); width: 100%; }
+.matopt-approval { display: grid; gap: 8px; width: 100%; padding: 12px 14px; border: 1px solid var(--mo-border-strong); border-left: 3px solid var(--mo-warning); border-radius: var(--mo-radius-block); background: var(--mo-surface); color: var(--mo-text); font-size: var(--matopt-text-compact); }
+.matopt-approval[data-risk=high], .matopt-approval[data-risk=critical] { border-left-color: var(--mo-danger); }
+.matopt-approval[data-risk=low] { border-left-color: var(--mo-accent); }
+.matopt-approval-head { display: flex; align-items: flex-start; gap: 10px; }
+.matopt-approval-head > svg { width: 18px; height: 18px; margin-top: 2px; flex-shrink: 0; color: var(--mo-warning); }
+.matopt-approval[data-risk=high] .matopt-approval-head > svg, .matopt-approval[data-risk=critical] .matopt-approval-head > svg { color: var(--mo-danger); }
+.matopt-approval-heading { display: grid; gap: 2px; min-width: 0; }
+.matopt-approval-heading h3 { margin: 0; font-size: var(--matopt-text-base); font-weight: 600; overflow-wrap: anywhere; }
+.matopt-approval-heading p { display: flex; flex-wrap: wrap; gap: 4px 10px; margin: 0; color: var(--mo-text-muted); font-size: var(--text-ui-xs); }
+.matopt-approval-risk { font-weight: 600; }
+.matopt-approval-summary, .matopt-approval-reason { margin: 0; line-height: 1.55; overflow-wrap: anywhere; white-space: pre-wrap; }
+.matopt-approval-reason { color: var(--mo-text-muted); }
+.matopt-approval-reason span { font-weight: 600; }
+.matopt-approval-error { margin: 0; color: var(--mo-danger); }
+.matopt-approval-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; align-items: center; gap: 8px; }
+.matopt-approval-actions p { margin: 0; color: var(--mo-text-muted); }
+.matopt-approval-actions button { display: inline-flex; align-items: center; gap: 6px; min-height: 34px; padding: 4px 14px; border: 1px solid var(--mo-border-strong); border-radius: var(--mo-radius-control); background: var(--mo-surface); color: var(--mo-text); font: inherit; cursor: pointer; transition: background var(--mo-duration-fast) var(--mo-ease); }
+.matopt-approval-actions button svg { width: 15px; height: 15px; }
+.matopt-approval-actions button:hover:not(:disabled) { background: var(--mo-surface-hover); }
+.matopt-approval-actions button.is-allow { border-color: var(--mo-accent); background: var(--mo-accent); color: var(--mo-on-accent); }
+.matopt-approval-actions button.is-allow:hover:not(:disabled) { background: var(--mo-accent); opacity: .9; }
+.matopt-approval-actions button:disabled { opacity: .55; cursor: default; }
+.matopt-approval-actions button:focus-visible { outline: 2px solid var(--mo-accent); outline-offset: 2px; }
+
+/* Transcript badges: background shell sessions and guardian reviews. */
+.matopt-tx-badge { flex-shrink: 0; padding: 0 7px; border: 1px solid var(--mo-border); border-radius: 999px; color: var(--mo-text-muted); font-size: var(--text-ui-xs); line-height: 1.6; white-space: nowrap; }
+.matopt-tx-badge[data-tone=active] { border-color: var(--mo-accent); color: var(--mo-accent); }
+.matopt-tx-badge[data-tone=danger] { border-color: var(--mo-danger); color: var(--mo-danger); }
+.matopt-tx-badge[data-tone=success] { color: var(--mo-success); }
+.matopt-tx-guardian { margin: 6px 0 0; padding: 6px 10px; border-radius: var(--mo-radius-sm); background: var(--mo-surface-secondary); color: var(--mo-text-muted); font-size: var(--text-ui-xs); line-height: 1.5; overflow-wrap: anywhere; }
+.matopt-tx-guardian strong { color: var(--mo-text); font-weight: 600; }
+@media (max-width: 640px) { .matopt-approval-actions button { min-height: 44px; flex: 1; justify-content: center; } }

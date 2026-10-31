@@ -1,0 +1,45 @@
+/* Turn change review in the Workspace pane. Tokens only. */
+.matopt-changes { display: grid; align-content: start; height: 100%; overflow: auto; overscroll-behavior: contain; box-sizing: border-box; gap: var(--mo-space-3); padding: 12px 16px 24px; min-height: 0; color: var(--mo-text); font-size: var(--matopt-text-compact); }
+.matopt-changes-bar { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 12px; }
+.matopt-changes-turn { display: inline-flex; align-items: center; gap: 6px; font-weight: 600; }
+.matopt-changes-turn select { min-height: 32px; padding: 0 8px; border: 1px solid var(--mo-border-strong); border-radius: var(--mo-radius-sm); background: var(--mo-surface); color: var(--mo-text); font: inherit; }
+.matopt-changes-turn select:focus-visible { outline: 2px solid var(--mo-accent); outline-offset: 2px; }
+.matopt-changes-summary { display: inline-flex; align-items: center; gap: 8px; color: var(--mo-text-muted); }
+.matopt-changes-bar .matopt-chrome-button { margin-left: auto; }
+.matopt-changes-note { margin: 0; padding: 8px 12px; border-radius: var(--mo-radius-sm); background: var(--mo-surface-secondary); color: var(--mo-text-muted); line-height: 1.5; }
+.matopt-changes-error { color: var(--mo-danger); }
+.matopt-change-files { display: grid; gap: 6px; margin: 0; padding: 0; list-style: none; }
+.matopt-change-file { border: 1px solid var(--mo-border); border-radius: var(--mo-radius-control); background: var(--mo-surface); overflow: hidden; }
+.matopt-change-file summary { display: flex; align-items: center; gap: 8px; min-height: 38px; padding: 6px 10px; cursor: pointer; list-style: none; }
+.matopt-change-file summary::-webkit-details-marker { display: none; }
+.matopt-change-file summary:hover { background: var(--mo-surface-hover); }
+.matopt-change-file summary:focus-visible { outline: 2px solid var(--mo-accent); outline-offset: -2px; }
+.matopt-change-chevron { width: 14px; height: 14px; flex-shrink: 0; color: var(--mo-text-muted); transition: transform var(--mo-duration-fast) var(--mo-ease); }
+.matopt-change-file details[open] .matopt-change-chevron { transform: rotate(90deg); }
+.matopt-change-status { display: inline-grid; place-items: center; width: 20px; height: 20px; flex-shrink: 0; border-radius: var(--mo-radius-sm); background: var(--mo-surface-secondary); font-family: var(--font-mono); font-size: var(--text-ui-xs); font-weight: 600; }
+.matopt-change-status[data-status=A] { color: var(--mo-success); }
+.matopt-change-status[data-status=D] { color: var(--mo-danger); }
+.matopt-change-status[data-status=M] { color: var(--mo-warning); }
+.matopt-change-path { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: var(--font-mono); font-size: var(--text-ui-xs); }
+.matopt-change-flag { flex-shrink: 0; padding: 0 6px; border: 1px solid var(--mo-border); border-radius: 999px; color: var(--mo-text-muted); font-size: var(--text-ui-xs); }
+.matopt-change-counts { display: inline-flex; gap: 6px; flex-shrink: 0; font-family: var(--font-mono); font-size: var(--text-ui-xs); font-variant-numeric: tabular-nums; }
+.matopt-change-counts .is-add { color: var(--mo-success); }
+.matopt-change-counts .is-del { color: var(--mo-danger); }
+.matopt-change-notice { margin: 0; padding: 10px 12px; border-top: 1px solid var(--mo-border); color: var(--mo-text-muted); }
+.matopt-diff { margin: 0; padding: 8px 0; border-top: 1px solid var(--mo-border); max-height: 60vh; overflow: auto; overscroll-behavior: contain; background: var(--mo-surface); font-family: var(--font-mono); font-size: var(--text-ui-xs); line-height: 1.55; }
+.matopt-diff:focus-visible { outline: 2px solid var(--mo-accent); outline-offset: -2px; }
+.matopt-diff code { display: block; min-width: max-content; }
+.matopt-diff-line { display: block; padding: 0 12px; white-space: pre; }
+.matopt-diff-line[data-kind=add] { background: color-mix(in srgb, var(--mo-success) 12%, transparent); }
+.matopt-diff-line[data-kind=del] { background: color-mix(in srgb, var(--mo-danger) 12%, transparent); }
+.matopt-diff-line[data-kind=hunk] { color: var(--mo-text-muted); background: var(--mo-surface-secondary); }
+.matopt-diff-highlighted { border-top: 1px solid var(--mo-border); max-height: 60vh; overflow: auto; overscroll-behavior: contain; }
+.matopt-changes-empty { display: grid; justify-items: center; gap: 8px; padding: 48px 24px; text-align: center; color: var(--mo-text-muted); }
+.matopt-changes-empty h3 { margin: 0; color: var(--mo-text); font-family: var(--font-serif); font-size: var(--matopt-text-base); font-weight: 500; }
+.matopt-changes-empty p { margin: 0; max-width: 36ch; line-height: 1.5; }
+
+/* "N files changed" chip under an answer. */
+.matopt-changes-chip { display: inline-flex; align-items: center; gap: 6px; min-height: 28px; padding: 2px 10px; border: 1px solid var(--mo-border); border-radius: 999px; background: var(--mo-surface); color: var(--mo-text-muted); font: inherit; font-size: var(--text-ui-xs); cursor: pointer; transition: background var(--mo-duration-fast) var(--mo-ease); }
+.matopt-changes-chip:hover { background: var(--mo-surface-hover); color: var(--mo-text); }
+.matopt-changes-chip:focus-visible { outline: 2px solid var(--mo-accent); outline-offset: 2px; }
+.matopt-changes-chip svg { width: 14px; height: 14px; }

@@ -30,8 +30,14 @@ from typing import Any, AsyncIterator, Awaitable, Callable, Optional
 from app.agent.datasets import datasets_block
 from app.agent.events import Event, ToolResult, ev, keepalive
 from app.agent.execution import ToolExecutionService, restore_execution_state
+from app.agent.approvals import ApprovalBroker, ApprovalContext
+from app.agent.guardian import GuardianCircuitBreaker
+from app.agent.hooks import MAX_STOP_BLOCKS, HookEngine
+from app.agent.instructions import operator_instructions, workspace_instructions
+from app.agent.intent import MAT_EXCLUDED, IntentDecision, decide, mode_prompt
 from app.agent import compaction, otel
 from app.agent.transcript import Transcript
+from app.agent.turn_diff import TurnDiffTracker
 from app.agent.budget import BudgetExhausted, RunBudget
 from app.agent.activity import PublicActivity
 from app.agent.results import ResultPublisher
@@ -64,6 +70,7 @@ from app.agent.tools.read_state import latest_read, parse_read_state_metadata
 from app.agent.workspace import Workspace
 from app.llm.base import ChatOptions, LLMProvider, ToolCallSpec
 from app.llm.catalog import CONTEXT_WINDOW, canonical_reasoning
+from app.llm.retry import backoff_delay, classify
 from app.storage.db import Database, new_id
 
 logger = logging.getLogger(__name__)
@@ -80,6 +87,14 @@ class BudgetExceeded(BudgetExhausted):
 
     def __init__(self, message: str):
         super().__init__("observed_spend", limit=None, used=None, detail=message)
+
+
+class ContextOverflow(Exception):
+    """The provider rejected the request as longer than its context window.
+
+    Raised only when nothing was streamed, so the step can compact and be
+    dispatched again (Codex's ``ContextWindowExceeded`` recovery).
+    """
 
 
 class SteeringPending(Exception):
@@ -103,6 +118,7 @@ class RunRequest:
     strict_final: bool = False  # verify the exact answer text before releasing it
     run_id: Optional[str] = None
     language: Optional[str] = None  # reply language chosen in the UI (app.speech.LANGUAGES code)
+    mode: Optional[str] = None      # "auto" | "mat" (chat and explain) | "opt" (work on files); app/agent/intent.py
 
 
 @dataclass
@@ -152,6 +168,22 @@ class TurnState:
     publish_outputs: bool = True
     last_finish_reason: Optional[str] = None
     last_prompt_tokens: Optional[int] = None
+    # Length of the history the last usage report covered. Tokens appended
+    # since are estimated on top of it (Codex's get_total_token_usage).
+    last_usage_len: Optional[int] = None
+    overflow_compactions: int = 0
+    stop_hook_blocks: int = 0
+    mode: Any = None              # IntentDecision (app/agent/intent.py)
+    # Sub-agents (app/agent/subagents.py): a child's state is marked so it
+    # never takes the user's steers or runs Stop hooks; ``mailbox`` delivers
+    # sub-agent reports to a parent, or the parent's messages to a child.
+    is_subagent: bool = False
+    # Budget admission ids are unique per run; a child agent shares the run's
+    # budget and its turn number, so it needs its own prefix.
+    admission_prefix: str = "native"
+    model_dispatches: int = 0
+    mailbox: Optional[Callable[[list], bool]] = None
+    subagents: Any = None
     transcript: Transcript = field(default_factory=Transcript)
     answer_truncated: bool = False
     work: dict = field(default_factory=lambda: {"status": "running", "tool_count": 0,
@@ -205,6 +237,10 @@ class AgentHarness:
         self.tools = tools
         self._owns_executions = executions is None
         self.executions = executions or ToolExecutionService(settings)
+        if self.executions.hooks is None:
+            self.executions.hooks = HookEngine.from_settings(settings)
+        self.hooks: HookEngine = self.executions.hooks
+        self.approvals = ApprovalBroker()
         self.skills = skills or SkillRegistry()
         self.skill_router = SkillRouter(
             self.skills,
@@ -455,6 +491,8 @@ class AgentHarness:
         The existing UI still receives one aggregate assistant row per turn;
         that display view is never used for durable model replay.
         """
+        if state.is_subagent:
+            return False  # the user's instructions belong to the parent
         # Verifier histories are temporary and cannot own a user instruction.
         if state.phase == "verify":
             if self._has_steer(conversation_id):
@@ -720,6 +758,9 @@ class AgentHarness:
                 await original_emit(event)
             elif event.type in {"conversation", "usage", "steer_applied", "run_state"}:
                 await original_emit(event)
+            elif event.type in {"subagent", "approval_request", "approval_resolved", "guardian_review", "mode"}:
+                # Public lifecycle facts; runs.project_public_event allowlists their fields.
+                await original_emit(event)
             elif event.type == "text_delta" and state.final_streaming:
                 await original_emit(event)
             elif event.type in {"ui_start", "ui_patch", "ui_commit", "ui_error"} and state.phase != "verify" and not req.strict_final:
@@ -795,6 +836,22 @@ class AgentHarness:
                               kernels=self.kernels, settings=self.settings)
             state.context = ctx
             ctx.state["run_budget"] = state.run_budget
+            if req.mode in ("auto", "mat", "opt"):
+                # A request without a mode (older API clients) keeps the full toolset.
+                state.mode = self._decide_mode(req, workspace, prior_messages)
+                ctx.state["mode"] = state.mode.mode
+                ctx.state["mode_excluded"] = MAT_EXCLUDED if state.mode.mode == "mat" else frozenset()
+                ctx.state["mode_can_switch"] = state.mode.mode == "mat" and state.mode.source == "auto"
+
+                async def mode_switched(reason: str) -> None:
+                    state.mode = IntentDecision("opt", "auto", reason, switched_from="mat")
+                    await emit(ev("mode", **state.mode.public()))
+
+                ctx.state["mode_switched"] = mode_switched
+                await emit(ev("mode", **state.mode.public()))
+            diff_tracker = TurnDiffTracker(workspace)
+            await asyncio.to_thread(diff_tracker.prime)
+            ctx.state["turn_diff"] = diff_tracker
 
             async def control_boundary():
                 try:
@@ -849,6 +906,17 @@ class AgentHarness:
                 self._enable_tool_flags(ctx, req.tools)
             options = ChatOptions(model=model.id, reasoning=level, temperature=req.temperature,
                                   max_tokens=self.settings.max_output_tokens or None)
+            reviewer = getattr(self.settings, "approvals_reviewer", "off")
+            if reviewer != "off":
+                ctx.state["approvals"] = ApprovalContext(
+                    reviewer=reviewer, broker=self.approvals, emit=emit,
+                    timeout=float(getattr(self.settings, "approval_timeout", 600.0)),
+                    guardian=self._guardian_reviewer(provider, options, state) if reviewer == "guardian" else None,
+                    breaker=GuardianCircuitBreaker() if reviewer == "guardian" else None,
+                    fail_closed=bool(getattr(self.settings, "guardian_fail_closed", True)))
+            if getattr(self.settings, "code_mode_enabled", False):
+                ctx.state["tool_dispatch"] = self._kernel_dispatcher(ctx, state, emit)
+                ctx.state["tool_registry"] = self.tools
             # Document OCR uses the exact provider already resolved for this
             # conversation, including configured credentials/base URL. Its
             # page requests are separate, cancellable and accounted side tasks.
@@ -887,7 +955,12 @@ class AgentHarness:
             # the parent callback records their actual usage, without charging twice.
             ctx.state["data_agent_record_call"] = record_auxiliary_call
             system = {"role": "system", "content": self._system_prompt(workspace, route, ui=ctx.state["ui_enabled"])}
-            turn_context = self._turn_context(workspace, route, cid, req.language)
+            hook_context = await self._prompt_hooks(cid, workspace, req.text, first_turn=not prior_messages)
+            turn_context = self._turn_context(workspace, route, cid, req.language,
+                previous_stopped=state.session is not None and _previous_turn_stopped(state.session.events),
+                hook_context=hook_context,
+                mode_section=mode_prompt(state.mode, can_switch=bool(ctx.state.get("mode_can_switch")))
+                if state.mode is not None else "")
             if not prior_messages and conv["title"] in ("New chat", _heuristic_title(req.text)):
                 # Titles depend only on the first request; starting once setup
                 # succeeds lets the header update while the agent works. A title
@@ -904,6 +977,14 @@ class AgentHarness:
                 history = [system, *self._replay(prior_messages, provider), turn_context,
                            {"role": "user", "content": _user_content(req.text, req.attachments)}]
             _compact_ui_history(history)
+            if getattr(self.settings, "subagents_enabled", False):
+                from app.agent.subagents import SubAgentManager
+                manager = SubAgentManager(self, provider=provider, options=options, parent_ctx=ctx, parent_state=state,
+                                          emit=emit, settings=self.settings)
+                manager.parent_history = history
+                ctx.state["subagents"] = manager
+                state.subagents = manager
+                state.mailbox = manager.drain_mailbox
             await self._prepare_attachments(req, provider, history, ctx, state, emit)
             skip_check = req.verify and _trivial_verification_request(req)
             if skip_check:
@@ -1014,6 +1095,10 @@ class AgentHarness:
                     for step in state.work["steps"]:
                         if step["status"] == "running":
                             step["status"] = "complete" if status == "complete" else "error"
+                    if state.subagents is not None:
+                        await state.subagents.close_all()
+                    tracked = ctx.state.get("turn_diff") if ctx else None
+                    changes = await asyncio.to_thread(tracked.render) if tracked is not None else {"files": []}
                     content = {
                         "parts": state.parts, "model": options.model if options else conv.get("model"),
                         "provider": state.provider_id, "reasoning": options.reasoning if options else conv.get("reasoning"),
@@ -1029,11 +1114,20 @@ class AgentHarness:
                     }
                     if state.notice:
                         content["notice"] = state.notice
+                    if state.turn:
+                        content["turn"] = state.turn
+                    if state.mode is not None:
+                        content["mode"] = state.mode.public()
+                    if changes["files"]:
+                        # The file list only; the diff text is served by the turn diff endpoint.
+                        content["changes"] = {"turn": state.turn, "files": changes["files"]}
                     if state.session is not None and state.turn:
                         state.session.close_open_step("aborted" if status == "stopped" else "error")
                         state.session.append_ui_message("assistant", content, message_id)
                         self._persist_steers(cid, state)
                         reason = state.end_reason or ("completed" if status == "complete" else "aborted" if status == "stopped" else "error")
+                        if changes["files"]:
+                            state.session.append("workspace/changes", {"turn": state.turn, **changes})
                         state.session.append("turn/end", {"turn": state.turn, "reason": {"kind": reason}})
                         await state.session.flush()
                         try:
@@ -1047,6 +1141,8 @@ class AgentHarness:
                     presentation = public_content(content)
                     if not internal_events:
                         await original_emit(ev("work", work=presentation["work"]))
+                        if changes["files"] and state.turn:
+                            await original_emit(ev("workspace_changes", turn=state.turn, files=changes["files"]))
                         if not state.final_started:
                             await original_emit(ev("final_start", message_id=message_id, mode="buffered"))
                         # These are chunks of the checked, buffered answer. No
@@ -1222,10 +1318,23 @@ class AgentHarness:
                 "and page fetch. Available by default: use automatically for time-sensitive information. "
                 "The user does not need to select a slash command."
             )
-        return build_system_prompt(extra, interactive_ui=ui)
+        prompt = build_system_prompt(extra, interactive_ui=ui, operator_instructions=operator_instructions(self.settings))
+        if getattr(self.settings, "memories_enabled", False):
+            # Codex's read path: the consolidated memory summary joins the
+            # stable system head, so it changes only when memories do.
+            try:
+                from app.agent.memory import get_memory_service
+                memory = get_memory_service().read_path_prompt()
+            except Exception:  # noqa: BLE001 - memory must never block a turn
+                logger.warning("Memory prompt unavailable", exc_info=True)
+                memory = ""
+            if memory:
+                prompt += "\n\n" + memory
+        return prompt
 
     def _turn_context(self, workspace: Workspace, route: Optional[RoutePlan], cid: str,
-                      language: Optional[str] = None) -> dict:
+                      language: Optional[str] = None, previous_stopped: bool = False,
+                      hook_context: str = "", mode_section: str = "") -> dict:
         try:
             ds = datasets_block(workspace)
         except Exception:  # noqa: BLE001
@@ -1239,8 +1348,95 @@ class AgentHarness:
         reply = LANGUAGES.get(language or "")
         content = build_turn_context(workspace.describe_for_prompt(), ds, skills_catalog=catalog,
                                      skills_active=active, ui_state=self.ui.store.context_summary(cid),
-                                     reply_language=reply.label if reply else "")
+                                     reply_language=reply.label if reply else "",
+                                     previous_stopped=previous_stopped,
+                                     workspace_instructions=workspace_instructions(workspace.root, self.settings),
+                                     hook_context=hook_context, mode_section=mode_section)
         return {"role": "user", "content": content}
+
+    async def _drain_mailbox(self, history: list, state: TurnState) -> bool:
+        if state.mailbox is None or not state.mailbox(history):
+            return False
+        if state.session is not None:
+            state.session.sync_history(history, source="subagent", turn=state.turn, step=state.step)
+            await state.session.flush()
+        return True
+
+    async def _await_subagents(self, history: list, state: TurnState) -> bool:
+        """Before the parent answers: wait for running children, then deliver their reports."""
+        await state.subagents.settle()
+        return await self._drain_mailbox(history, state)
+
+    def _kernel_dispatcher(self, ctx: ToolContext, state: TurnState, emit: EmitFn):
+        """Code mode: a tool call made from a Python cell, through the normal execution boundary.
+
+        Nested calls are reported like any other tool call, nested under the
+        Python cell's activity item, and spend their own budget admission.
+        """
+        async def dispatch(name: str, args: dict, parent_call_id: str, *, call_id: str) -> ToolResult:
+            tool, error = self.tool_router.resolve(self.tools, name)
+            if tool is None:
+                return ToolResult(ok=False, error=error or f"Unknown tool '{name}'.")
+            await emit(ev("tool_call_ready", id=call_id, name=name, resolved_name=tool.name, arguments=args,
+                          parent_call_id=parent_call_id))
+            activity = state.activity
+            if activity is not None:
+                child = activity.calls.get((state.step, call_id))
+                parent = activity.calls.get((state.step, parent_call_id))
+                if child and parent:
+                    await activity.item(child, parent_id=parent)
+            result = await self.executions.dispatch(tool, dataclasses.replace(ctx, call_id=call_id), args,
+                                                    admission_id=call_id)
+            await emit(ev("tool_result", id=call_id, name=tool.name, ok=result.ok, output=result.output,
+                          error=result.error, artifacts=[a.to_dict() for a in result.artifacts], meta=result.meta,
+                          parent_call_id=parent_call_id))
+            return result
+        return dispatch
+
+    def _guardian_reviewer(self, provider, options, state: TurnState):
+        """The run's guardian: a reviewer-model call over this conversation's log."""
+        async def review(request: dict):
+            from app.agent import guardian
+            events = state.session.events if state.session is not None else []
+            context = state.context
+            return await guardian.review(
+                guardian.GuardianRequest(**request), events, provider, options,
+                timeout=float(getattr(self.settings, "guardian_timeout", 60.0)), budget=state.run_budget,
+                session=state.session, turn=state.turn, step=state.step,
+                operator_instructions=operator_instructions(self.settings),
+                workspace_instructions=workspace_instructions(context.workspace.root, self.settings)
+                if context is not None else "")
+        return review
+
+    def _decide_mode(self, req: RunRequest, workspace: Workspace, prior_messages: list[dict]) -> IntentDecision:
+        """Mat or Opt for this turn: the user's choice, or the classifier's."""
+        previous = None
+        for message in reversed(prior_messages):
+            mode = (message.get("content") or {}).get("mode") if message.get("role") == "assistant" else None
+            if isinstance(mode, dict) and mode.get("mode") in ("mat", "opt"):
+                previous = mode["mode"]
+                break
+        if req.mode not in ("mat", "opt") and set(req.tools) & MAT_EXCLUDED:
+            # An explicit /bash or /write_file is a request to work on files.
+            return IntentDecision("opt", "auto", "a file or shell tool was selected")
+        try:
+            files = [f["path"] for f in workspace.list_files(limit=200)]
+        except Exception:  # noqa: BLE001
+            files = []
+        return decide(req.mode, req.text, attachments=req.attachments, workspace_files=files, previous=previous)
+
+    async def _prompt_hooks(self, cid: str, workspace: Workspace, text: str, *, first_turn: bool) -> str:
+        """SessionStart and UserPromptSubmit hooks; their context joins the turn context."""
+        context: list[str] = []
+        payload = {"conversation_id": cid, "cwd": str(workspace.root)}
+        if first_turn and self.hooks.has("SessionStart"):
+            context.append((await self.hooks.run("SessionStart", payload, cwd=workspace.root)).additional_context)
+        if self.hooks.has("UserPromptSubmit"):
+            outcome = await self.hooks.run("UserPromptSubmit", {**payload, "prompt": text}, cwd=workspace.root)
+            if outcome.blocked:
+                raise RuntimeError(f"This request was blocked by a UserPromptSubmit hook: {outcome.reason}")
+            context.append(outcome.additional_context)
+        return "\n\n".join(c for c in context if c)
 
     def _route_turn(self, req: RunRequest, workspace: Workspace) -> RoutePlan:
         if not len(self.skills):
@@ -1383,7 +1579,8 @@ class AgentHarness:
             preferred = list(ctx.state.get("tools") or [])
             out = self.tool_router.schemas(tools, query, route, preferred_tools=preferred,
                                            loaded_tools=ctx.state.get("loaded_tools"), ctx=ctx)
-            visible = {t.name for t in tools if t.is_provider_visible(ctx)}
+            excluded = ctx.state.get("mode_excluded") or ()
+            visible = {t.name for t in tools if t.is_provider_visible(ctx) and t.name not in excluded}
             return [s for s in out if (s.get("function") or {}).get("name") in visible]
 
         schemas = current_schemas()
@@ -1403,15 +1600,29 @@ class AgentHarness:
                     raise Stopped()
                 if await self._drain_steer(ctx.conversation_id, history, emit, ctx, state, route):
                     schemas = current_schemas()
+                await self._drain_mailbox(history, state)
                 if worker:
                     state.work_steps += 1
                 last_step = step == max_steps - 1 or (worker and state.work_step_limit and state.work_steps >= state.work_step_limit)
                 if last_step:
                     history.append({"role": "user", "content": FINAL_STEP_NUDGE})
-                if await self._compact_history(provider, options, history, state):
-                    from app.agent.tools.read_state import clear_read_state
-                    clear_read_state(ctx.state)
-                text, reasoning, calls = await self._stream_llm(provider, options, history, None if last_step or direct_response else schemas, emit, state, ctx.cancel)
+                force_compaction = False
+                while True:
+                    if await self._compact_history(provider, options, history, state, force=force_compaction):
+                        from app.agent.tools.read_state import clear_read_state
+                        clear_read_state(ctx.state)
+                    try:
+                        text, reasoning, calls = await self._stream_llm(
+                            provider, options, history, None if last_step or direct_response else schemas,
+                            emit, state, ctx.cancel)
+                        break
+                    except ContextOverflow:
+                        # Compact harder and dispatch the same step again, a
+                        # bounded number of times per turn.
+                        if state.overflow_compactions >= 2:
+                            raise
+                        state.overflow_compactions += 1
+                        force_compaction = True
                 if direct_response and calls:
                     raise RuntimeError("The final response unexpectedly requested a tool.")
                 if reasoning.strip():
@@ -1428,6 +1639,26 @@ class AgentHarness:
                     if not direct_response and not last_step and await self._drain_steer(ctx.conversation_id, history, emit, ctx, state, route):
                         schemas = current_schemas()
                         continue
+                    if (worker and not direct_response and not last_step and state.subagents is not None
+                            and await self._await_subagents(history, state)):
+                        # The agent tried to finish with sub-agents still out:
+                        # their reports are in, so it continues with them.
+                        continue
+                    if (worker and not direct_response and not last_step and not state.is_subagent
+                            and self.hooks.has("Stop")
+                            and state.stop_hook_blocks < MAX_STOP_BLOCKS):
+                        # A Stop hook can send the agent back to work with a
+                        # reason, a bounded number of times per turn.
+                        outcome = await self.hooks.run("Stop", {"conversation_id": ctx.conversation_id,
+                            "cwd": str(ctx.workspace.root), "last_assistant_message": text,
+                            "stop_hook_active": state.stop_hook_blocks > 0}, cwd=ctx.workspace.root)
+                        if outcome.blocked:
+                            state.stop_hook_blocks += 1
+                            history.append({"role": "user", "content": f"[Stop hook] {outcome.reason}"})
+                            if state.session is not None:
+                                state.session.sync_history(history, source="stop-hook", turn=state.turn, step=state.step)
+                                await state.session.flush()
+                            continue
                     if state.phase in {"answer", "revise", "final"}:
                         state.answer_truncated = state.last_finish_reason in {"length", "max_tokens", "max-tokens"}
                         if not state.answer_truncated and state.end_reason == "max-tokens":
@@ -1488,8 +1719,12 @@ class AgentHarness:
                 if budget_message:
                     raise BudgetExceeded(budget_message)
             attempts += 1
+            # The admission id counts every dispatch in this state, not just this
+            # call's attempts: a step re-dispatched after context-overflow
+            # compaction must not reuse the id the rejected request spent.
+            state.model_dispatches += 1
             budget = state.run_budget
-            admission_id = f"native:{state.turn}:{state.step}:{attempts}"
+            admission_id = f"{state.admission_prefix}:{state.turn}:{state.step}:{state.model_dispatches}"
             if budget is not None:
                 admission = budget.admit_model(admission_id, source="native:" + state.phase,
                     provider=state.provider_id or provider.id, model=options.model,
@@ -1617,6 +1852,7 @@ class AgentHarness:
                             state.usage[key] = state.usage.get(key, 0) + value
                     if type(usage.get("prompt_tokens")) is int:
                         state.last_prompt_tokens = usage["prompt_tokens"]
+                        state.last_usage_len = len(frozen_history)
                 if attempts > 1 and state.activity is not None:
                     await state.activity.item(f"{state.activity.id}:retry:{state.step}", status="completed",
                                               summary="The model connection recovered.")
@@ -1649,12 +1885,20 @@ class AgentHarness:
                     for key, value in usage.items():
                         if type(value) in (int, float):
                             state.usage[key] = state.usage.get(key, 0) + value
-                if (isinstance(exc, Exception) and not isinstance(exc, (BudgetExhausted, Stopped)) and attempts < 2 and _is_transient(exc)
-                        and not text_parts and not reasoning_parts and not pending and not cancel.is_set()):
-                    logger.warning("Transient LLM error, retrying: %s", exc)
+                decision = classify(exc) if isinstance(exc, Exception) else None
+                untouched = not text_parts and not reasoning_parts and not pending and not cancel.is_set()
+                if (decision is not None and decision.context_overflow and untouched
+                        and not isinstance(exc, (BudgetExhausted, Stopped))):
+                    raise ContextOverflow(str(exc)) from exc
+                max_retries = int(getattr(self.settings, "llm_max_retries", 4))
+                if (decision is not None and not isinstance(exc, (BudgetExhausted, Stopped)) and attempts <= max_retries
+                        and decision.retryable and untouched):
+                    delay = backoff_delay(attempts, float(getattr(self.settings, "llm_retry_base_delay", 0.2)),
+                                          decision.retry_after)
+                    logger.warning("Transient LLM error, retrying in %.2fs: %s", delay, exc)
                     if state.session is not None:
                         state.session.append("llm/retry", {"turn": state.turn, "step": state.step,
-                            "retry": attempts, "delay_ms": 1500, "failure": data["error"]})
+                            "retry": attempts, "delay_ms": int(delay * 1000), "failure": data["error"]})
                         await state.session.flush()
                     await emit(ev("status", message="Model connection hiccup, retrying…"))
                     if state.activity is not None:
@@ -1663,7 +1907,13 @@ class AgentHarness:
                             label="Retrying model connection", purpose="Recover a connection that failed before producing output",
                             status="running", attempt=attempts + 1)
                         await state.activity.progress("The model connection was interrupted before producing output. Retrying.")
-                    await asyncio.sleep(1.5)
+                    # A stop during the backoff ends the wait, not just the next attempt.
+                    try:
+                        await asyncio.wait_for(cancel.wait(), timeout=delay)
+                    except asyncio.TimeoutError:
+                        pass
+                    if cancel.is_set():
+                        raise Stopped()
                     if state.session is not None:
                         state.session.append("llm/retry-started", {"turn": state.turn, "step": state.step,
                                                               "retry": attempts})
@@ -1696,7 +1946,7 @@ class AgentHarness:
                 state.session.append("tool/call", {"turn": state.turn, "step": state.step,
                     "callId": call.id, "name": call.name, "arguments": call.arguments,
                     "resolved_name": resolved_name, "normalized_arguments": nc.payload,
-                    "phase": state.phase})
+                    "phase": state.phase, **_mcp_provenance(tool)})
                 # Checkpoint raw arguments and call identity before any tool
                 # body can produce a side effect.
                 await state.session.flush()
@@ -1734,7 +1984,7 @@ class AgentHarness:
                     return None
 
                 res = await self.executions.dispatch(tool, call_ctx, nc.arguments or {}, normalized=True,
-                    admission_id=f"native:{state.turn}:{state.step}:{call.id}",
+                    admission_id=f"{state.admission_prefix}:{state.turn}:{state.step}:{call.id}",
                     admission_check=check_operation if operation_policy else None)
             if ctx.cancel.is_set():
                 res.meta["cancelled"] = True
@@ -1743,12 +1993,12 @@ class AgentHarness:
 
         async def record_result(nc: NormalizedCall, res: ToolResult) -> Event:
             if operation_policy and (operation := admitted_operations.get(nc.call.id)) is not None:
-                _observe_operation(state, operation, res, ctx, observation_id=f"native:{state.turn}:{state.step}:{nc.call.id}")
+                _observe_operation(state, operation, res, ctx, observation_id=f"{state.admission_prefix}:{state.turn}:{state.step}:{nc.call.id}")
             state.tool_calls += 1
             part = {
                 "type": "tool_call", "id": nc.call.id, "name": nc.call.name, "arguments": nc.payload,
                 "result": res.to_dict(), "status": "completed" if res.ok else "error", "phase": state.phase,
-                "publication": state.output_generation,
+                "publication": state.output_generation, **_mcp_provenance(nc.tool),
             }
             state.parts.append(part)
             result_seq = None
@@ -1911,28 +2161,46 @@ class AgentHarness:
 
     # ── side tasks ──────────────────────────────────────────────────────
 
-    async def _compact_history(self, provider, options: ChatOptions, history: list[dict], state: TurnState) -> bool:
-        """Replace the oldest turns with a summary once the history passes its budget."""
+    async def _compact_history(self, provider, options: ChatOptions, history: list[dict], state: TurnState,
+                               *, force: bool = False) -> bool:
+        """Replace the oldest turns with a summary once the history passes its budget.
+
+        ``force`` compacts regardless of size, after the provider rejected the
+        request as too long. When older turns are not enough — one turn grew
+        past the window by itself — earlier steps of the current turn are
+        summarised too.
+        """
         budget, token_limit = self._context_limits()
-        size = sum(len(json.dumps(m, ensure_ascii=False)) for m in history)
-        # The provider's own count of the last request is exact; the margin
-        # covers what the loop appended since (each tool output is capped).
-        near_window = state.last_prompt_tokens is not None and state.last_prompt_tokens > token_limit * 0.95
-        if size <= budget and not near_window:
+        size = _history_size(history)
+        near_window = _estimated_prompt_tokens(history, state) > token_limit * 0.95
+        if size <= budget and not near_window and not force:
             return False
         state.last_prompt_tokens = None
+        state.last_usage_len = None
         target = int(min(budget, size) * getattr(self.settings, "compaction_target_ratio", 0.5))
+        compacted = False
         cut = compaction.plan_cut(history, target)
-        if cut is None:
-            return _trim_live_history(history, budget)
-        span = history[1:cut]
-        turns = sum(1 for i in compaction.turn_starts(history) if i < cut) + int(compaction.is_summary(history[1]))
-        text = await self._summarize_span(provider, options, span, state)
-        history[1:cut] = [compaction.summary_message(text or compaction.digest(span), turns=turns,
-                                                     model_written=bool(text))]
+        if cut is not None:
+            span = history[1:cut]
+            turns = sum(1 for i in compaction.turn_starts(history) if i < cut) + int(compaction.is_summary(history[1]))
+            text = await self._summarize_span(provider, options, span, state)
+            history[1:cut] = [compaction.summary_message(text or compaction.digest(span), turns=turns,
+                                                         model_written=bool(text))]
+            compacted = True
+        # Older turns were not enough (or there were none): the current turn
+        # is itself too large, so summarise its earlier steps.
+        if force or not compacted or _history_size(history) > budget:
+            planned = compaction.plan_intra_turn_cut(history, target)
+            if planned is not None:
+                start, end = planned
+                span = history[start:end]
+                steps = sum(1 for m in span if m.get("role") == "assistant")
+                text = await self._summarize_span(provider, options, span, state)
+                history[start:end] = [compaction.summary_message(
+                    text or compaction.digest(span), turns=0, model_written=bool(text), steps=steps)]
+                compacted = True
         # A summary of the whole past can still exceed a small budget.
-        _trim_live_history(history, budget)
-        return True
+        return _trim_live_history(history, budget) or compacted
 
     def _context_limits(self) -> tuple[int, int]:
         """(history character budget, prompt token limit) for the model's context window."""
@@ -2095,6 +2363,38 @@ def _user_content(text: str, attachments: list[dict]) -> str:
         return text
     names = ", ".join(f"`{a.get('path') or a.get('name')}`" for a in attachments)
     return f"{text}\n\n[Attached files in the workspace: {names}]"
+
+
+def _mcp_provenance(tool: Optional[Tool]) -> dict:
+    """Which external MCP server a call went to, recorded whatever name the tool is advertised under."""
+    server = getattr(tool, "mcp_server", "") if tool is not None else ""
+    return {"mcp_server": server} if isinstance(server, str) and server else {}
+
+
+def _previous_turn_stopped(events: list[dict]) -> bool:
+    """Whether the last completed turn in the log was stopped by the user."""
+    for event in reversed(events):
+        if event.get("type") == "turn/end":
+            return (event.get("data", {}).get("reason") or {}).get("kind") == "aborted"
+    return False
+
+
+def _history_size(history: list[dict]) -> int:
+    return sum(len(json.dumps(m, ensure_ascii=False)) for m in history)
+
+
+def _estimated_prompt_tokens(history: list[dict], state: TurnState) -> int:
+    """The last provider-reported prompt size plus an estimate of what was added since.
+
+    The provider's count is exact for the request it answered; the loop has
+    appended the assistant message and tool results since then. Codex adds a
+    bytes/4 estimate of those items rather than assuming a fixed margin.
+    """
+    from app.agent.session.telemetry import estimate_message
+    if state.last_prompt_tokens is None:
+        return 0
+    since = history[state.last_usage_len:] if state.last_usage_len is not None else []
+    return state.last_prompt_tokens + sum(estimate_message(m) for m in since)
 
 
 def _trim_live_history(history: list[dict], budget: int) -> bool:
@@ -2479,12 +2779,6 @@ def _extract_verdict(text: str) -> str:
     if verdict and len(re.findall(r"<verdict>", outside_report, re.IGNORECASE)) == 1:
         return verdict[1].lower()
     return "uncertain"
-
-
-def _is_transient(exc: Exception) -> bool:
-    name = type(exc).__name__
-    msg = str(exc).lower()
-    return name in ("APIConnectionError", "APITimeoutError", "RateLimitError", "InternalServerError") or "timeout" in msg or "connection" in msg
 
 
 def _friendly_error(exc: Exception) -> str:

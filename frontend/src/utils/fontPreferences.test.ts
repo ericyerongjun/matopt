@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { beforeEach, describe, it } from "node:test";
 import {
     FONT_PREFERENCES_STORAGE_KEY,
+    FONT_ROLES,
     applyFontPreferences,
     fontStack,
     loadFontPreferences,
@@ -36,7 +37,7 @@ describe("font preferences", () => {
     });
 
     it("puts the chosen family before the role's generic fallback", () => {
-        assert.match(fontStack("reading", "Georgia"), /^"Georgia", .*serif$/);
+        assert.match(fontStack("reading", "Georgia"), /^"Georgia", "Carlito", .*sans-serif/);
         assert.match(fontStack("interface", "system-ui"), /^system-ui, /);
         assert.match(fontStack("code", null), /^"IBM Plex Mono", .*monospace$/);
     });
@@ -55,4 +56,12 @@ describe("font preferences", () => {
         assert.deepEqual(loadFontPreferences(), { reading: null, interface: null, code: null });
         assert.deepEqual(normalizeFontPreferences({ reading: 3, extra: "x" }), { reading: null, interface: null, code: null });
     });
+});
+
+it("Calibri is the default for reading and interface, with Carlito bundled as its fallback", () => {
+    for (const role of ["reading", "interface"] as const) {
+        assert.equal(FONT_ROLES[role].defaultFamily, "Calibri");
+        assert.match(fontStack(role, null), /^"Calibri", "Carlito", /);
+    }
+    assert.equal(FONT_ROLES.code.defaultFamily, "IBM Plex Mono");
 });

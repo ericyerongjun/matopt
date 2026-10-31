@@ -289,8 +289,14 @@ requests keep their original labels.
 ```ts
 { conversation_id?: string; message: string; attachments?: Attachment[]; provider?: string; model?: string;
   reasoning?: string; verify?: boolean; strict_final?: boolean; temperature?: number;
-  skills?: string[]; tools?: string[]; web_search?: boolean; ui_version?: number; client_run_id?: string }
+  skills?: string[]; tools?: string[]; web_search?: boolean; ui_version?: number; client_run_id?: string;
+  mode?: "auto" | "mat" | "opt" }
 ```
+`mode` selects Mat (chat and explain: answers, math, Python calculations and figures, file reading, but no
+file edits or shell) or Opt (work on files, folders and code: the full toolset); `auto` classifies each
+message, and an automatic Mat turn can upgrade itself with `switch_to_opt`. Omitting `mode` keeps the full
+toolset with no mode. The run emits a public `mode` event `{mode, source: "user"|"auto", reason, switched?}`
+and the saved answer carries `content.mode`. See [Codex integration](CODEX-INTEGRATION.md#mat-and-opt-modes).
 `skills` force-activates those playbooks for the turn (even when auto-activate is off). `tools` prefers those native tools. Leading `/skill-name` and `/tool-name` tokens in `message` do the same and are stripped before the LLM sees the prompt (`/web-search` maps to `web_search`).
 Omitting `web_search` (or sending `true`) advertises `web_search` / `web_fetch` by default (open metasearch: `ddgs`, or SearXNG / Tavily / Brave when configured). The agent automatically searches for time-sensitive information and cites current sources; stable tasks do not require browsing. `web_search: false` explicitly disables the capability for a turn. A subsequent explicit slash invocation or steer can enable it. `WEB_SEARCH_ENABLED=false` disables both tools globally. User instructions not to browse are respected.
 Response: `text/event-stream`, with `X-Run-Id` identifying the durable run. Each

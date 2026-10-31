@@ -4,6 +4,9 @@ import tempfile
 # Point the app at a throwaway data dir before settings are imported.
 _TMP = tempfile.mkdtemp(prefix="matopt-test-")
 os.environ["DATA_DIR"] = _TMP
+# Never read the developer's ~/.matopt/config.toml from tests.
+os.environ["MATOPT_CONFIG"] = os.path.join(_TMP, "config.toml")
+os.environ.pop("MATOPT_PROFILE", None)
 os.environ["MCP_ENABLED"] = "false"
 os.environ["SPEECH_PREFETCH"] = "false"  # never download speech models from tests
 os.environ.setdefault("DEEPSEEK_API_KEY", "")

@@ -1,0 +1,12 @@
+/* Mode switch and answer mode badge. Tokens only. */
+.matopt-mode-switch { display: inline-flex; flex-shrink: 0; gap: 2px; padding: 2px; border: 1px solid var(--mo-border); border-radius: var(--mo-radius-control); background: var(--mo-surface-secondary); }
+.matopt-mode-switch button { min-height: 26px; padding: 2px 9px; border: 0; border-radius: var(--mo-radius-sm); background: transparent; color: var(--mo-text-muted); font: inherit; font-size: var(--text-ui-xs); cursor: pointer; transition: background var(--mo-duration-fast) var(--mo-ease), color var(--mo-duration-fast) var(--mo-ease); }
+.matopt-mode-switch button:hover:not(:disabled) { color: var(--mo-text); }
+.matopt-mode-switch button[aria-checked=true] { background: var(--mo-surface); color: var(--mo-text); font-weight: 600; box-shadow: var(--mo-shadow-subtle); }
+.matopt-mode-switch button:disabled { opacity: .55; cursor: default; }
+.matopt-mode-switch button:focus-visible { outline: 2px solid var(--mo-accent); outline-offset: 1px; }
+.matopt-mode-badge { display: inline-flex; align-items: center; gap: 5px; padding: 0 7px; border: 1px solid var(--mo-border); border-radius: 999px; color: var(--mo-text-muted); font-size: var(--text-ui-xs); font-weight: 500; line-height: 1.6; white-space: nowrap; cursor: default; }
+.matopt-mode-badge[data-mode=opt] { color: var(--mo-accent); }
+.matopt-mode-auto { color: var(--mo-text-faint); font-weight: 400; }
+@media (max-width: 640px) { .matopt-mode-switch button { min-height: 36px; } }
+@media (prefers-reduced-motion: reduce) { .matopt-mode-switch button { transition: none; } }

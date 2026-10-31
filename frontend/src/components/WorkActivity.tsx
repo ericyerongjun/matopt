@@ -1,7 +1,9 @@
 /** Public activity only. Diagnostic messages and raw tool payloads have no UI path here. */
 import { useEffect, useState } from "react";
 import { Check, ChevronDown, ChevronRight, Circle, CircleAlert, ExternalLink, FileText, Globe, Loader2, Pause, Users, X } from "lucide-react";
-import type { ActivityItem, ActivityOutput, ActivityPhase, TranscriptEntry } from "../types/protocol.ts";
+import type { ActivityItem, ActivityOutput, ActivityPhase, GuardianReview, TranscriptEntry } from "../types/protocol.ts";
+import { shellSessionBadge } from "./transcriptBadges.ts";
+import "../features/runs/runs.css";
 import { InlineMathText } from "./InlineMathText.tsx";
 import type { PresentedWork } from "../services/presentation.ts";
 import { useOptionalUiWorkspace } from "../features/intelligent-ui/UiWorkspace.tsx";
@@ -178,7 +180,7 @@ export function WorkDisclosure({ work, conversationId, onOpenWork }: { work: Pre
             <TaskTrigger title={title}><Button type="button" variant="ghost" size="sm" aria-label={title} className="matopt-work-trigger h-auto max-w-full justify-start px-0 text-foreground-subtle hover:bg-transparent">
                 <WorkIcon status={statusIcon} /><span role={!work.progress?.text || !live ? "status" : undefined}>{title}</span>{live && duration !== undefined && <span className="matopt-work-elapsed" aria-hidden="true">{formatElapsed(duration)}</span>}<ChevronDown className="matopt-work-chevron" aria-hidden="true" />
             </Button></TaskTrigger>
-            {live && transcript.length > 0 && <WorkTranscript entries={transcript} />}
+            {live && transcript.length > 0 && <WorkTranscript entries={transcript} reviews={work.reviews} live />}
             {live && <div className="matopt-work-now">
                 {plan.length > 0 && <ol className="matopt-work-plan" aria-label="Task plan">{plan.map((item) => <li key={item.id} data-activity-status={item.status}>
                     <WorkIcon status={item.status} /><span>{item.label}</span>
@@ -189,7 +191,7 @@ export function WorkDisclosure({ work, conversationId, onOpenWork }: { work: Pre
                 </li>)}</ul>}
                 {active.length > 3 && <button type="button" className="matopt-more-actions" aria-expanded={showAllActive} onClick={() => setShowAllActive((value) => !value)}>{showAllActive ? "Show fewer actions" : `${active.length - 3} more active ${active.length - 3 === 1 ? "action" : "actions"}`}</button>}
             </div>}
-            <TaskContent className="matopt-work-history">{transcript.length > 0 && !live ? <WorkTranscript entries={transcript} /> : <><WorkMilestones work={work} /><SafeWorkTimeline work={work} conversationId={conversationId} /></>}{onOpenWork && <Button type="button" variant="ghost" size="sm" className="matopt-open-activity" onClick={onOpenWork}><ExternalLink className="size-3.5" aria-hidden="true" />Open activity</Button>}</TaskContent>
+            <TaskContent className="matopt-work-history">{transcript.length > 0 && !live ? <WorkTranscript entries={transcript} reviews={work.reviews} /> : <><WorkMilestones work={work} /><SafeWorkTimeline work={work} conversationId={conversationId} /></>}{onOpenWork && <Button type="button" variant="ghost" size="sm" className="matopt-open-activity" onClick={onOpenWork}><ExternalLink className="size-3.5" aria-hidden="true" />Open activity</Button>}</TaskContent>
         </Task>
     </div>;
 }
@@ -202,22 +204,31 @@ function TranscriptTitle({ entry }: { entry: TranscriptEntry }) {
 }
 
 /** Claude Code-style narration and expandable action rows. */
-export function WorkTranscript({ entries }: { entries: TranscriptEntry[] }) {
-    return <ol className="matopt-tx" aria-label="Work transcript">{entries.map((entry) => entry.kind === "note"
-        ? <li key={entry.id} className="matopt-tx-note"><InlineMathText text={entry.text ?? ""} /></li>
-        : <li key={entry.id} className="matopt-tx-action" data-status={entry.status}>
+const GUARDIAN = { allow: "Review allowed", deny: "Review denied", error: "Review failed" } as const;
+
+export function WorkTranscript({ entries, reviews = [], live = false }: { entries: TranscriptEntry[]; reviews?: GuardianReview[]; live?: boolean }) {
+    const byCall = new Map(reviews.map((review) => [`action:${review.call_id}`, review]));
+    return <ol className="matopt-tx" aria-label="Work transcript">{entries.map((entry) => {
+        if (entry.kind === "note") return <li key={entry.id} className="matopt-tx-note"><InlineMathText text={entry.text ?? ""} /></li>;
+        const shell = shellSessionBadge(entry, live);
+        const review = byCall.get(entry.id);
+        return <li key={entry.id} className="matopt-tx-action" data-status={entry.status}>
             <details>
                 <summary>
                     <TranscriptTitle entry={entry} />
                     {entry.subject && <span className="matopt-tx-subject">{entry.subject}</span>}
+                    {shell && <span className="matopt-tx-badge" data-tone={shell.tone}>{shell.label}</span>}
+                    {review && <span className="matopt-tx-badge" data-tone={review.outcome === "allow" ? "success" : "danger"} title={review.rationale || undefined}>{GUARDIAN[review.outcome]}</span>}
                     {entry.status === "running" && <Loader2 className="matopt-work-icon matopt-work-spinning" aria-label="Running" />}
                     {entry.status === "error" && <CircleAlert className="matopt-work-icon matopt-tx-failed" aria-label="Failed" />}
-                    {(entry.input || entry.output) && <ChevronRight className="matopt-tx-chevron" aria-hidden="true" />}
+                    {(entry.input || entry.output || review) && <ChevronRight className="matopt-tx-chevron" aria-hidden="true" />}
                 </summary>
                 {entry.input && <pre className="matopt-tx-block" data-label={entry.language === "json" ? "Arguments" : "Input"}><code>{entry.input}</code></pre>}
+                {review && <p className="matopt-tx-guardian"><strong>{GUARDIAN[review.outcome]}</strong>{review.risk_level ? ` · ${review.risk_level} risk` : ""}{review.rationale ? `: ${review.rationale}` : ""}</p>}
                 {entry.output && <pre className="matopt-tx-block matopt-tx-output" data-label={entry.status === "error" ? "Error" : "Output"}><code>{entry.output}</code></pre>}
             </details>
-        </li>)}</ol>;
+        </li>;
+    })}</ol>;
 }
 
 function WorkMilestones({ work, collapsible = false }: { work: PresentedWork; collapsible?: boolean }) {

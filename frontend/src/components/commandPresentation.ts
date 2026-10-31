@@ -1,7 +1,7 @@
 import {
   BookOpen, Braces, Calculator, ChartNoAxesCombined, CodeXml, FilePenLine,
   FileSpreadsheet, FileText, FlaskConical, FolderOpen, Globe, GraduationCap,
-  ListChecks, MousePointer2, PanelsTopLeft, PencilRuler, Presentation,
+  Bot, Brain, Database, Hourglass, ListChecks, MessageSquare, MousePointer2, OctagonX, StickyNote, PanelsTopLeft, PencilRuler, Presentation,
   ScanText, Search, ShieldCheck, Sigma, Terminal, Wrench, type LucideIcon,
 } from "lucide-react";
 import type { CommandInfo } from "../services/skills.ts";
@@ -29,6 +29,19 @@ const TOOLS: Record<string, CommandPresentation> = {
   search_skills: { label: "Find a skill", Icon: Search, description: "Find a skill suited to your task." },
   load_skill: { label: "Use a skill", Icon: BookOpen, description: "Apply a skill to this task." },
   data_agent: { label: "Analyze data", Icon: ChartNoAxesCombined, description: "Explore data and explain what it shows." },
+  bash_poll: { label: "Check a background command", Icon: Terminal, description: "Read new output from a command still running." },
+  find_files: { label: "Find files", Icon: Search, description: "Find files by name in this chat." },
+  spawn_agent: { label: "Start a sub-agent", Icon: Bot, description: "Hand part of the task to a helper agent." },
+  wait_agent: { label: "Wait for a sub-agent", Icon: Hourglass, description: "Wait for a helper agent to finish." },
+  send_message: { label: "Message a sub-agent", Icon: MessageSquare, description: "Send instructions to a helper agent." },
+  followup_task: { label: "Give a follow-up task", Icon: Bot, description: "Ask a helper agent to continue with more work." },
+  interrupt_agent: { label: "Interrupt a sub-agent", Icon: OctagonX, description: "Stop a helper agent's current work." },
+  list_agents: { label: "List sub-agents", Icon: Bot, description: "See the helper agents working on this task." },
+  memory_search: { label: "Search memories", Icon: Brain, description: "Look for something learned in earlier chats." },
+  memory_read: { label: "Read a memory", Icon: Brain, description: "Read a saved memory." },
+  memory_note: { label: "Save a memory note", Icon: StickyNote, description: "Remember something for later chats." },
+  list_mcp_resources: { label: "List connected resources", Icon: Database, description: "See resources offered by connected MCP servers." },
+  read_mcp_resource: { label: "Read a connected resource", Icon: Database, description: "Read a resource from a connected MCP server." },
 };
 
 const SKILLS: Record<string, CommandPresentation> = {

@@ -1,7 +1,10 @@
 /* MatOpt's semantic design system. Primitives and product components share these aliases. */
 :root, :root.theme-zai-light {
-  --font-sans: "Inter Variable", ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji";
-  --font-serif: "Newsreader Variable", "Iowan Old Style", "Charter", Georgia, "Songti SC", serif;
+  /* Calibri where installed (Windows, Microsoft Office); otherwise the bundled
+     Carlito, which is metric-compatible with Calibri. Calibri itself cannot
+     be redistributed. Reading and interface text share it. */
+  --font-sans: "Calibri", "Carlito", "Segoe UI", ui-sans-serif, -apple-system, BlinkMacSystemFont, Helvetica, Arial, "PingFang SC", "Microsoft YaHei", sans-serif, "Apple Color Emoji", "Segoe UI Emoji";
+  --font-serif: "Calibri", "Carlito", "Segoe UI", ui-sans-serif, -apple-system, BlinkMacSystemFont, Helvetica, Arial, "PingFang SC", "Microsoft YaHei", sans-serif, "Apple Color Emoji", "Segoe UI Emoji";
   --font-mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, "PingFang SC", "Microsoft YaHei", monospace;
   --mo-canvas: #f6f5f1;
   --mo-navigation: #f6f5f1;

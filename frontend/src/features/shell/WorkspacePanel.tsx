@@ -1,32 +1,37 @@
 import { useId, type ReactNode } from "react";
-import { ArrowLeft, FileText, FolderOpen, Layers, X } from "lucide-react";
+import { ArrowLeft, FileDiff, FileText, FolderOpen, Layers, X } from "lucide-react";
 import { useUiWorkspace } from "../intelligent-ui/UiWorkspace.tsx";
 import { UiCanvas } from "../intelligent-ui/UISurfaceView.tsx";
 import type { Artifact } from "../../types/protocol.ts";
 import type { UISurface } from "../../types/ui.ts";
 import "./workspace-panel.css";
 
-export type WorkspaceView = "results" | "files";
-export function WorkspacePanel({ view, onViewChange, onClose, results, files, resultCount = 0, fileCount = 0 }: {
+export type WorkspaceView = "results" | "files" | "changes";
+export function WorkspacePanel({ view, onViewChange, onClose, results, files, changes, resultCount = 0, fileCount = 0, changeCount = 0 }: {
   view: WorkspaceView; onViewChange: (view: WorkspaceView) => void; onClose: () => void;
-  results: ReactNode; files: ReactNode; resultCount?: number; fileCount?: number;
+  results: ReactNode; files: ReactNode; changes?: ReactNode; resultCount?: number; fileCount?: number; changeCount?: number;
 }) {
   const id = useId();
+  const tabs = ([['results', 'Results', Layers, resultCount], ['files', 'Files', FolderOpen, fileCount], ...(changes !== undefined ? [['changes', 'Changes', FileDiff, changeCount]] : [])] as Array<[WorkspaceView, string, typeof Layers, number]>);
+  const order = tabs.map(([value]) => value);
   return <div className="matopt-result-workspace">
     <header className="matopt-pane-header matopt-workspace-header">
       <div className="matopt-workspace-heading"><h2>Workspace</h2></div>
       <button type="button" className="matopt-chrome-button" aria-label="Back to conversation" title="Close workspace" onClick={onClose}><ArrowLeft className="matopt-mobile-back" /><X className="matopt-desktop-close" /></button>
     </header>
     <div className="matopt-workspace-tabs" role="tablist" aria-label="Workspace views">
-        {([['results', 'Results', Layers, resultCount], ['files', 'Files', FolderOpen, fileCount]] as const).map(([value, label, Icon, count]) => <button type="button" key={value} role="tab" data-pane-heading={view === value ? "" : undefined} id={`${id}-${value}-tab`} aria-controls={`${id}-${value}`} aria-selected={view === value} tabIndex={view === value ? 0 : -1}
+        {tabs.map(([value, label, Icon, count]) => <button type="button" key={value} role="tab" data-pane-heading={view === value ? "" : undefined} id={`${id}-${value}-tab`} aria-controls={`${id}-${value}`} aria-selected={view === value} tabIndex={view === value ? 0 : -1}
           onClick={() => onViewChange(value)} onKeyDown={(event) => {
             if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
-            event.preventDefault(); const next = event.key === 'Home' ? 'results' : event.key === 'End' ? 'files' : value === 'results' ? 'files' : 'results';
+            event.preventDefault(); const index = order.indexOf(value);
+            const next = event.key === 'Home' ? order[0] : event.key === 'End' ? order[order.length - 1]
+              : order[(index + (event.key === 'ArrowRight' ? 1 : order.length - 1)) % order.length];
             onViewChange(next); document.getElementById(`${id}-${next}-tab`)?.focus({ preventScroll: true });
           }}><Icon aria-hidden="true" /><span>{label}</span>{count > 0 && <span className="matopt-tab-count">{count}</span>}</button>)}
     </div>
     <div id={`${id}-results`} role="tabpanel" aria-labelledby={`${id}-results-tab`} className="matopt-workspace-view" hidden={view !== "results"}>{results}</div>
     <div id={`${id}-files`} role="tabpanel" aria-labelledby={`${id}-files-tab`} className="matopt-workspace-view" hidden={view !== "files"}>{files}</div>
+    {changes !== undefined && <div id={`${id}-changes`} role="tabpanel" aria-labelledby={`${id}-changes-tab`} className="matopt-workspace-view" hidden={view !== "changes"}>{changes}</div>}
   </div>;
 }
 

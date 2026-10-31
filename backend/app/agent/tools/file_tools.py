@@ -1,4 +1,4 @@
-"""Workspace file tools: read_file, write_file, edit_file, list_files, grep."""
+"""Workspace file tools: read_file, write_file, edit_file, list_files, grep, find_files."""
 
 from __future__ import annotations
 
@@ -7,6 +7,8 @@ import re
 from typing import Any
 
 from app.agent.events import ToolResult
+from app.agent.text_match import find_unique
+from app.agent.turn_diff import tracker as turn_diff
 from app.agent.tools.base import Tool, ToolContext, output_bound_bytes, truncate_text
 from app.agent.tools.read_state import (
     ReadStateError, assert_fresh, assert_observed, latest_read, mutation_lock, publish_text,
@@ -142,6 +144,9 @@ class WriteFileTool(Tool):
                     assert_fresh(prior, current, rel)
                 elif prior is not None:
                     raise ReadStateError("FS_STALE_VERSION", rel, "File was removed since read. Read it again before writing.")
+                if (diff := turn_diff(ctx.state)) is not None:
+                    diff.before_write(rel, current.content if current is not None and not current.content_truncated
+                                      else None if current is None else b"\0")
                 revision = publish_text(p, content or "", current, rel)
                 meta = record_read(ctx.state, rel, revision, (content or "")[:40000], source_tool=self.name)
         except ReadStateError as exc:
@@ -200,17 +205,33 @@ class EditFileTool(Tool):
                 # normalizing/replacing bytes outside the requested edit.
                 text = revision.content.decode("utf-8")
                 n = text.count(old_string)
-                if n == 0:
+                tolerance = ""
+                if n == 0 and not replace_all:
+                    # Codex's lenient context search: trailing/surrounding
+                    # whitespace, then Unicode punctuation, still unique.
+                    span, tolerance, hits = find_unique(text, old_string)
+                    if hits > 1:
+                        return ToolResult(ok=False, output="", error=f"old_string matches {hits} places when ignoring "
+                                          f"{tolerance}; provide more context.")
+                    if span is None:
+                        return ToolResult(ok=False, output="", error="old_string not found in file.")
+                    new_text, n = text[:span[0]] + new_string + text[span[1]:], 1
+                elif n == 0:
                     return ToolResult(ok=False, output="", error="old_string not found in file.")
-                if n > 1 and not replace_all:
+                elif n > 1 and not replace_all:
                     return ToolResult(ok=False, output="", error=f"old_string occurs {n} times; provide more context or set replace_all=true.")
-                new_text = text.replace(old_string, new_string) if replace_all else text.replace(old_string, new_string, 1)
+                else:
+                    new_text = text.replace(old_string, new_string) if replace_all else text.replace(old_string, new_string, 1)
+                if (diff := turn_diff(ctx.state)) is not None:
+                    diff.before_write(rel, revision.content)
                 after = publish_text(p, new_text, revision, rel)
                 meta = record_read(ctx.state, rel, after, new_text[:40000], source_tool=self.name)
         except ReadStateError as exc:
             return ToolResult(ok=False, output="", error=str(exc), meta=exc.metadata())
         art = ctx.workspace.artifact_for(p)
-        return ToolResult(ok=True, output=f"Edited {art.path}: replaced {n if replace_all else 1} occurrence(s).", artifacts=[art], meta=meta)
+        note = f" (matched ignoring {tolerance})" if tolerance else ""
+        return ToolResult(ok=True, output=f"Edited {art.path}: replaced {n if replace_all else 1} occurrence(s){note}.",
+                          artifacts=[art], meta=meta)
 
 
 class ListFilesTool(Tool):
@@ -291,3 +312,76 @@ class GrepTool(Tool):
         if not matches:
             return ToolResult(ok=True, output="No matches.")
         return ToolResult(ok=True, output=truncate_text("\n".join(matches), 30000), meta={"count": len(matches)})
+
+
+def fuzzy_score(query: str, path: str) -> tuple[int, list[int]] | None:
+    """fzf-style subsequence score of ``query`` in ``path``, or None (Codex file-search).
+
+    Every query character must appear in order. Matches score more at the start
+    of a path segment or a word, and when consecutive; a hit inside the file
+    name beats one in a directory. Smart case: an all-lowercase query ignores case.
+    """
+    if not query:
+        return 0, []
+    hay = path if any(c.isupper() for c in query) else path.lower()
+    base = path.rfind("/") + 1
+    positions: list[int] = []
+    score, start, previous = 0, 0, -2
+    for char in query:
+        index = hay.find(char, start)
+        if index < 0:
+            return None
+        bonus = 1
+        if index == 0 or path[index - 1] in "/_-. ":
+            bonus += 8
+        elif path[index - 1].islower() and path[index].isupper():
+            bonus += 6
+        if index == previous + 1:
+            bonus += 5
+        if index >= base:
+            bonus += 2
+        score += bonus
+        positions.append(index)
+        previous, start = index, index + 1
+    score -= (positions[-1] - positions[0]) // 4 + len(path) // 16
+    return score, positions
+
+
+class FindFilesTool(Tool):
+    name = "find_files"
+    read_only = True
+    concurrent_safe = True
+    side_effect_scope = "none"
+    risk_level = "low"
+    ui_kind = "file"
+    description = (
+        "Fuzzy-find workspace files by approximate name, like an editor's file picker: `fig rev` finds "
+        "figures/revenue_by_region.png. Use when you know roughly what a file is called but not its path."
+    )
+    parameters = {
+        "type": "object",
+        "properties": {
+            "query": {"type": "string", "description": "Approximate file name or path; spaces separate terms."},
+            "limit": {"type": "integer", "description": "Maximum results (default 20, max 100)."},
+        },
+        "required": ["query"],
+    }
+
+    async def run(self, ctx: ToolContext, query: str, limit: int = 20, **_: Any) -> ToolResult:
+        terms = [t for t in (query or "").split() if t]
+        if not terms:
+            return ToolResult(ok=False, output="", error="query must not be empty.")
+        limit = max(1, min(int(limit or 20), 100))
+        ranked: list[tuple[int, str]] = []
+        for p in ctx.workspace.iter_files():
+            rel = ctx.workspace.relpath(p)
+            scores = [fuzzy_score(term, rel) for term in terms]
+            if all(s is not None for s in scores):
+                ranked.append((sum(s[0] for s in scores), rel))
+        # Score, then path: Codex's cmp_by_score_desc_then_path_asc.
+        ranked.sort(key=lambda item: (-item[0], item[1]))
+        shown = [rel for _, rel in ranked[:limit]]
+        if not shown:
+            return ToolResult(ok=True, output=f"No workspace files match {query!r}.", meta={"matches": 0})
+        more = f"\n… {len(ranked) - limit} more" if len(ranked) > limit else ""
+        return ToolResult(ok=True, output="\n".join(shown) + more, meta={"matches": len(ranked)})

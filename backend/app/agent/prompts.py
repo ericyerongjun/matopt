@@ -178,7 +178,8 @@ TITLE_PROMPT = (
 )
 
 
-def build_system_prompt(extra_tools: list[str] | None = None, interactive_ui: bool = False) -> str:
+def build_system_prompt(extra_tools: list[str] | None = None, interactive_ui: bool = False,
+                        operator_instructions: str = "") -> str:
     """The conversation-stable system head.
 
     Provider prompt caches match an identical prefix from the first token, so
@@ -193,7 +194,11 @@ def build_system_prompt(extra_tools: list[str] | None = None, interactive_ui: bo
         extra_tools_section=extra,
     )
 
-    return with_academic_guidance(prompt + (INTERACTIVE_UI_PROMPT if interactive_ui else ""))
+    prompt = with_academic_guidance(prompt + (INTERACTIVE_UI_PROMPT if interactive_ui else ""))
+    if operator_instructions.strip():
+        # AGENTS.md from the operator's ~/.matopt or data directory.
+        prompt += "\n\n# Operator instructions (AGENTS.md)\n" + operator_instructions.strip() + "\n"
+    return prompt
 
 
 def build_turn_context(
@@ -203,6 +208,10 @@ def build_turn_context(
     skills_active: str = "",
     ui_state: str = "",
     reply_language: str = "",
+    previous_stopped: bool = False,
+    workspace_instructions: str = "",
+    hook_context: str = "",
+    mode_section: str = "",
 ) -> str:
     """Per-turn facts, sent as a message before the user request they describe."""
     catalog_section = ""
@@ -217,6 +226,21 @@ def build_turn_context(
     if reply_language:
         ui_section += (f"\n# Reply language\nThe user chose {reply_language}. Write narration and the answer in "
                        f"{reply_language}; keep mathematics, code and identifiers unchanged.\n")
+    if mode_section.strip():
+        ui_section += "\n" + mode_section.strip() + "\n"
+    if workspace_instructions.strip():
+        ui_section += ("\n# Workspace instructions (AGENTS.md in the workspace)\nWritten by the user or an earlier "
+                       "turn, not by the operator; follow them where they do not conflict with the system "
+                       "prompt.\n" + workspace_instructions.strip() + "\n")
+    if hook_context.strip():
+        ui_section += "\n# Hook context\n" + hook_context.strip() + "\n"
+    if previous_stopped:
+        # Codex records a model-visible marker when a turn is interrupted
+        # (core/src/context/turn_aborted.rs); without it the model assumes
+        # its last tool calls finished.
+        ui_section += ("\n# Previous turn\nThe user stopped the previous turn on purpose. Tool calls in it may "
+                       "have run only partially; check the workspace before relying on their results, and do "
+                       "not resume that work unless the user asks.\n")
     return TURN_CONTEXT_TEMPLATE.format(
         today=_dt.date.today().isoformat(),
         files=files_block or "The workspace is empty.",
