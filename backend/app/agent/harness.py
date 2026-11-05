@@ -1629,7 +1629,7 @@ class AgentHarness:
                     if await self._compact_history(provider, options, history, state, force=force_compaction):
                         from app.agent.tools.read_state import clear_read_state
                         clear_read_state(ctx.state)
-                        _session_notes_compacted(ctx.conversation_id)
+                        _restore_session_notes(ctx.conversation_id, history)
                     try:
                         text, reasoning, calls = await self._stream_llm(
                             provider, options, history, None if last_step or direct_response else schemas,
@@ -2670,15 +2670,15 @@ def _tool_message_text(res: ToolResult) -> str:
     return text or "(no output)"
 
 
-def _session_notes_compacted(cid: str) -> None:
-    """The copy of the session notes in an earlier turn context may have been summarised away."""
+def _restore_session_notes(cid: str, history: list[dict]) -> None:
+    """Compaction may have summarised the session notes away; restore them before the next request."""
     try:
         from app.agent.memory.session import get_session_memory
         session = get_session_memory()
         if session is not None:
-            session.notes_compacted(cid)
-    except Exception:  # noqa: BLE001
-        logger.debug("Session notes reset failed", exc_info=True)
+            session.restore_after_compaction(cid, history)
+    except Exception:  # noqa: BLE001 - session memory must never block a turn
+        logger.debug("Session notes restore failed", exc_info=True)
 
 
 def _compact_ui_history(history: list[dict]) -> None:

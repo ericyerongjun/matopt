@@ -367,3 +367,53 @@ async def test_harness_turns_use_session_notes_and_recall(tmp_path):
     assert all("# Session notes" not in c for c in contexts[:-1])
     recall_result = [m for m in provider.calls[3] if m.get("role") == "tool"][-1]
     assert "Turn 1" in recall_result["content"]
+
+
+# ── review fixes ────────────────────────────────────────────────────────
+
+
+def test_recalled_turns_keep_tool_results(tmp_path):
+    db, _, session = make(tmp_path)
+    conv = db.create_conversation(title="Fit")
+    cid = conv["id"]
+    db.add_message(cid, "user", {"text": "Tune the Lasso penalty."})
+    db.add_message(cid, "assistant", {"parts": [
+        {"type": "tool_call", "name": "python", "arguments": "{}",
+         "result": {"ok": True, "output": f"optimal alpha=0.037 token={SECRET}"}},
+        {"type": "tool_call", "name": "python", "arguments": "{}",
+         "result": {"ok": False, "output": "", "error": "ValueError: singular matrix"}},
+        {"type": "text", "text": "Done."}], "final_text": "Done."})
+    full = session.read_turn(cid, 1)["text"]
+    assert "optimal alpha=0.037" in full and "error: ValueError" in full and SECRET not in full
+    hits = session.search_conversation(cid, "optimal alpha")
+    assert hits and hits[0].ref == "turn:1"
+
+
+def test_signature_changes_on_same_length_edit(tmp_path):
+    db, _, session = make(tmp_path)
+    cid = chat(db, [("Set eta=0.05", "ok")])
+    before = db.message_signatures([cid])[cid]
+    session.sync_conversation(cid)
+    first = db.list_messages(cid)[0]
+    db.update_message(first["id"], {"text": "Set eta=0.01"})
+    assert db.message_signatures([cid])[cid] != before
+    session.sync_conversation(cid)
+    assert "0.01" in session.search_conversation(cid, "eta")[0].text
+
+
+def test_notes_restored_into_history_after_compaction(tmp_path):
+    db, _, session = make(tmp_path)
+    cid = chat(db, [("q", "a")])
+    session.set_notes(cid, "Goal: bound the spectral norm.")
+    session.turn_context_block(cid)
+    history = [{"role": "system", "content": "s"},
+               {"role": "user", "content": "<conversation-summary>\nearlier\n</conversation-summary>"},
+               {"role": "tool", "content": "42", "tool_call_id": "x"}]
+    assert session.restore_after_compaction(cid, history)
+    assert history[-1]["role"] == "user" and "Goal: bound the spectral norm." in history[-1]["content"]
+    assert history[-1]["content"].startswith("<session-notes>")
+    # Still visible: nothing is appended twice, and the next turn does not repeat them.
+    assert not session.restore_after_compaction(cid, history)
+    assert session.turn_context_block(cid) == ""
+    session.set_notes(cid, "")
+    assert not session.restore_after_compaction(cid, [{"role": "system", "content": "s"}])

@@ -46,7 +46,8 @@ from app.agent.memory.index import Doc, RecallIndex
 logger = logging.getLogger(__name__)
 
 CHAT_SCOPE = "chat"
-TURN_CHARS = 6_000
+TURN_CHARS = 8_000
+TOOL_RESULT_CHARS = 1_500
 READ_TURN_CHARS = 16_000
 NOTES_MAX_CHARS = 6_000
 PAST_CHAT_SCAN = 200
@@ -77,11 +78,26 @@ def render_turns(messages: list[dict]) -> list[dict]:
             for part in content.get("parts") or []:
                 if isinstance(part, dict) and part.get("type") == "tool_call":
                     lines.append(_tool_line(part))
+                    result = _tool_result(part)
+                    if result:
+                        lines.append(result)
             answer = _assistant_text(content)
             if answer:
                 lines.append(f"Assistant: {answer}")
     return [{"turn": t["turn"], "created_at": t["created_at"], "text": redact_secrets("\n".join(t["lines"]))}
             for t in turns]
+
+
+def _tool_result(part: dict) -> str:
+    """The tool's output (or error), clipped: a value may exist only there, e.g. a computed estimate."""
+    result = part.get("result")
+    if not isinstance(result, dict):
+        return ""
+    text = result.get("output") if result.get("ok", True) else (result.get("error") or result.get("output"))
+    if not isinstance(text, str) or not text.strip():
+        return ""
+    label = "→" if result.get("ok", True) else "→ error:"
+    return f"  {label} {_clip(text.strip(), TOOL_RESULT_CHARS)}"
 
 
 def snippet(text: str, query: str, limit: int = SNIPPET_CHARS) -> str:
@@ -197,6 +213,28 @@ class SessionMemory:
     def notes_compacted(self, cid: str) -> None:
         """A compaction removed the copy shown earlier; show the notes again next turn."""
         self.index.mark_notes_injected(cid, 0)
+
+    def restore_after_compaction(self, cid: str, history: list[dict]) -> bool:
+        """Put the notes back into the live history when compaction summarised their last copy away.
+
+        Compaction can run between steps of one turn; waiting for the next
+        turn's context would leave the remaining steps without the notes, just
+        when the history is longest. Appends one harness message (and records
+        it as shown) only when no message in ``history`` still carries them.
+        """
+        if not self.enabled:
+            return False
+        row = self.index.get_notes(cid)
+        notes = (row or {}).get("text", "").strip()
+        if not notes:
+            return False
+        if any(isinstance(m.get("content"), str) and notes in m["content"] for m in history):
+            return False
+        history.append({"role": "user", "content": (
+            "<session-notes>\nHarness-provided context, not written by the user: your session notes for this "
+            "chat, restored because compaction summarised the earlier copy.\n\n" + notes + "\n</session-notes>")})
+        self.index.mark_notes_injected(cid, row["version"])
+        return True
 
     # ── lifecycle ───────────────────────────────────────────────────────
 

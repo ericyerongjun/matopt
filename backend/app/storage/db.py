@@ -24,6 +24,7 @@ import sqlite3
 import threading
 import time
 import uuid
+import zlib
 from pathlib import Path
 from typing import Any, Optional
 
@@ -112,6 +113,11 @@ class Database:
         self._conn.row_factory = sqlite3.Row
         self._conn.execute("PRAGMA journal_mode=WAL")
         self._conn.execute("PRAGMA foreign_keys=ON")
+        # Content digest for message_signatures(): an edit that keeps the
+        # length (eta=0.05 -> eta=0.01) must still change the signature.
+        self._conn.create_function("matopt_crc32", 1,
+                                   lambda text: zlib.crc32(text.encode("utf-8", "replace")) if text else 0,
+                                   deterministic=True)
         with self._lock:
             self._conn.executescript(SCHEMA)
             if self._conn.execute("PRAGMA user_version").fetchone()[0] < 1:
@@ -223,8 +229,9 @@ class Database:
         return [self._msg_row(r) for r in rows]
 
     def message_signatures(self, cids: list[str] | None = None) -> dict[str, str]:
-        """``{conversation_id: "count:max_seq:total_bytes"}`` — changes whenever a message is added or edited."""
-        sql = "SELECT conversation_id, COUNT(*) AS n, MAX(seq) AS s, SUM(LENGTH(content)) AS b FROM messages"
+        """``{conversation_id: "count:max_seq:bytes:digest"}`` — changes whenever a message is added or edited."""
+        sql = ("SELECT conversation_id, COUNT(*) AS n, MAX(seq) AS s, SUM(LENGTH(content)) AS b, "
+               "SUM(matopt_crc32(content)) AS h FROM messages")
         args: list = []
         if cids is not None:
             if not cids:
@@ -233,7 +240,7 @@ class Database:
             args = list(cids)
         with self._lock:
             rows = self._conn.execute(sql + " GROUP BY conversation_id", args).fetchall()
-        return {r["conversation_id"]: f"{r['n']}:{r['s']}:{r['b']}" for r in rows}
+        return {r["conversation_id"]: f"{r['n']}:{r['s']}:{r['b']}:{r['h']}" for r in rows}
 
     def delete_messages_from(self, cid: str, seq: int) -> int:
         with self._lock:
