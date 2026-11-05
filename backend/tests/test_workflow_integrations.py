@@ -377,20 +377,25 @@ def test_export_writes_client_configs(tmp_path):
 
 
 @pytest.mark.asyncio
-async def test_runtime_starts_automation_runs_in_the_conversation(monkeypatch):
-    from app.runtime import get_runtime
-    rt = get_runtime()
-    conv = rt.db.create_conversation(title="loop host", provider="deepseek", model="deepseek-chat")
+async def test_runtime_starts_automation_runs_in_the_conversation(tmp_path):
+    from types import SimpleNamespace
+    from app.runtime import Runtime, build_tools
+    from app.storage.db import Database
+    db = Database(tmp_path / "t.sqlite3")
+    conv = db.create_conversation(title="loop host", provider="deepseek", model="deepseek-chat")
     seen = []
 
     async def fake_start(req, client_run_id=None):
         seen.append(req)
         return {"id": "run_x"}
 
-    monkeypatch.setattr(rt.runs, "start", fake_start)
-    assert await rt._start_automation_run(conv["id"], "check", {}) == "run_x"
-    assert seen[0].conversation_id == conv["id"] and seen[0].text == "check"
-    assert (seen[0].provider_id, seen[0].model_id) == ("deepseek", "deepseek-chat")
-    with pytest.raises(LookupError):
-        await rt._start_automation_run("missing", "check", {})
-    assert {"create_automation", "list_automations", "delete_automation"} <= set(rt.tools.names())
+    rt = SimpleNamespace(db=db, runs=SimpleNamespace(start=fake_start))
+    try:
+        assert await Runtime._start_automation_run(rt, conv["id"], "check", {}) == "run_x"
+        assert seen[0].conversation_id == conv["id"] and seen[0].text == "check"
+        assert (seen[0].provider_id, seen[0].model_id) == ("deepseek", "deepseek-chat")
+        with pytest.raises(LookupError):
+            await Runtime._start_automation_run(rt, "missing", "check", {})
+    finally:
+        db.close()
+    assert {"create_automation", "list_automations", "delete_automation"} <= set(build_tools().names())
