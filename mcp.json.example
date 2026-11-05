@@ -1,3 +1,14 @@
 {
-  "mcpServers": {}
+  "mcpServers": {
+    "microsoft-learn": {
+      "url": "https://learn.microsoft.com/api/mcp",
+      "transport": "http"
+    },
+    "github": {
+      "url": "https://api.githubcopilot.com/mcp/",
+      "transport": "http",
+      "headers": { "Authorization": "Bearer ${GITHUB_PERSONAL_ACCESS_TOKEN}" },
+      "enabled": false
+    }
+  }
 }

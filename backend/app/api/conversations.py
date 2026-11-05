@@ -147,6 +147,8 @@ async def delete_conversation(conversation_id: str):
     await rt.kernels.shutdown(conversation_id)
     ok = rt.db.delete_conversation(conversation_id)
     rt.workspace(conversation_id).delete()
+    if getattr(rt, "automations", None) is not None:
+        rt.automations.delete_for_conversation(conversation_id)
     if not ok:
         raise HTTPException(status_code=404, detail="Conversation not found")
     return {"deleted": True}

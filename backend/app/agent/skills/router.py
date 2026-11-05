@@ -212,12 +212,15 @@ class SkillRouter:
         file_exts.discard("")
         ranked = self.rank(query, file_exts)
         activate: list[Skill] = []
-        if ranked:
-            top = ranked[0]
-            second = ranked[1].score if len(ranked) > 1 else 0.0
+        # Command skills (``disable-model-invocation``) run only when asked for.
+        candidates = [r for r in ranked if not r.skill.manual]
+        if candidates:
+            ranked_auto = candidates
+            top = ranked_auto[0]
+            second = ranked_auto[1].score if len(ranked_auto) > 1 else 0.0
             if top.score >= self.auto_threshold or (top.score >= 0.28 and top.score - second >= self.margin):
                 activate.append(top.skill)
-            for r in ranked[1 : self.auto_activate_max + 2]:
+            for r in ranked_auto[1 : self.auto_activate_max + 2]:
                 if len(activate) >= self.auto_activate_max:
                     break
                 if r.score >= self.auto_threshold and r.score >= (top.score if activate else 0) - 0.15:

@@ -31,7 +31,7 @@ RUN mkdir -p /app/data/workspaces /app/data/data_agent \
 USER matopt
 
 ENV DATA_DIR=/app/data \
-    SKILLS_DIRS=/app/skills/matopt,/app/skills/data,/app/skills/anthropic
+    SKILLS_DIRS=/app/skills/matopt,/app/skills/data,/app/skills/workflow,/app/skills/anthropic
 
 EXPOSE 8000
 

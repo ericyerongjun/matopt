@@ -1,18 +1,20 @@
 /** Server settings: features, read-only security, integrations, memories and instructions. */
 import { useCallback, useEffect, useId, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
-import { BookText, Brain, FlaskConical, Plug, RefreshCw, Shield, Trash2 } from "lucide-react";
+import { BookText, Brain, Clock, Copy, ExternalLink, FlaskConical, Play, Plug, RefreshCw, Shield, Trash2 } from "lucide-react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog.js";
 import { errorMessage, isUnavailable } from "../../services/api.ts";
 import { getSettings, setFeature, type FeatureFlag, type SettingsSnapshot } from "../../services/settings.ts";
 import { memoriesService, type MemoryNote, type MemorySnapshot } from "../../services/memories.ts";
 import { pluginsService, type PluginInfo } from "../../services/plugins.ts";
 import { migrationService, type MigrationItem, type MigrationResult } from "../../services/migration.ts";
+import { connectorsService, type ClientConfig, type Connector } from "../../services/connectors.ts";
+import { automationsService, type Automation } from "../../services/automations.ts";
 import "./settings-dialog.css";
 
-export type SettingsSection = "features" | "security" | "integrations" | "memories" | "instructions";
+export type SettingsSection = "features" | "security" | "integrations" | "automations" | "memories" | "instructions";
 const SECTIONS: Array<[SettingsSection, string, typeof Shield]> = [
     ["features", "Features", FlaskConical], ["security", "Security", Shield], ["integrations", "Integrations", Plug],
-    ["memories", "Memories", Brain], ["instructions", "Instructions", BookText],
+    ["automations", "Automations", Clock], ["memories", "Memories", Brain], ["instructions", "Instructions", BookText],
 ];
 
 type Load<T> = { data: T | null; loading: boolean; error: string | null; unavailable: boolean };
@@ -225,7 +227,171 @@ function MigrationBlock() {
     </section>;
 }
 
-function IntegrationsSection({ open, settings }: { open: boolean; settings: Load<SettingsSnapshot> }) {
+const CONNECTOR_STATE = { connected: "Connected", failed: "Failed", disabled: "Paused", pending: "Connecting…" } as const;
+
+function ConnectorForm({ connector, busy, onSubmit, onCancel }: {
+    connector: Connector; busy: boolean; onSubmit: (values: Record<string, string>, secrets: Record<string, string>) => void; onCancel: () => void;
+}) {
+    const [fields, setFields] = useState<Record<string, string>>(() => Object.fromEntries(connector.inputs.map((input) => [input.key, input.default ?? ""])));
+    const formId = useId();
+    const missing = connector.inputs.some((input) => input.required && !fields[input.key]?.trim() && !(input.kind === "secret" && input.env && connector.secrets[input.env]));
+    return <form className="matopt-connector-form" aria-label={`Connect ${connector.name}`} onSubmit={(event) => {
+        event.preventDefault();
+        const values: Record<string, string> = {}; const secrets: Record<string, string> = {};
+        for (const input of connector.inputs) { const value = fields[input.key]?.trim(); if (value) (input.kind === "secret" ? secrets : values)[input.key] = value; }
+        onSubmit(values, secrets);
+    }}>
+        {connector.inputs.map((input) => {
+            const id = `${formId}-${input.key}`;
+            const stored = input.kind === "secret" && input.env && connector.secrets[input.env];
+            return <div key={input.key} className="matopt-connector-field">
+                <label htmlFor={id}>{input.label}{!input.required && <span className="matopt-setting-hint"> (optional)</span>}</label>
+                <input id={id} type={input.kind === "secret" ? "password" : "text"} value={fields[input.key] ?? ""} autoComplete="off" spellCheck={false}
+                    placeholder={stored ? "Already set on the server" : input.kind === "path" ? "/absolute/path" : input.env ?? ""}
+                    onChange={(event) => setFields((current) => ({ ...current, [input.key]: event.target.value }))} />
+                {(input.help || input.kind === "secret") && <p className="matopt-setting-hint">{input.help}{input.kind === "secret" && <> Stored on the server as <code>{input.env}</code>, never in mcp.json.</>}</p>}
+            </div>;
+        })}
+        <div className="matopt-settings-actions">
+            <button type="button" className="matopt-settings-button" onClick={onCancel}>Cancel</button>
+            <button type="submit" className="matopt-settings-button is-primary" disabled={busy || missing}>{busy ? "Connecting…" : "Connect"}</button>
+        </div>
+    </form>;
+}
+
+function ConnectorsBlock({ open, onChanged }: { open: boolean; onChanged: () => void }) {
+    const [connectors, setConnectors, reload] = useLoad(open, (signal) => connectorsService.list(signal), "Could not load connectors.");
+    const [busy, setBusy] = useState<string | null>(null);
+    const [editing, setEditing] = useState<string | null>(null);
+    const [message, setMessage] = useState<{ text: string; error?: boolean } | null>(null);
+    const titleId = useId();
+    const replace = (next: Connector | null) => { if (next) setConnectors((state) => state.data ? { ...state, data: state.data.map((c) => c.id === next.id ? next : c) } : state); };
+    const act = async (key: string, run: () => Promise<void>, done: string) => {
+        setBusy(key); setMessage(null);
+        try { await run(); setMessage({ text: done }); setEditing(null); onChanged(); }
+        catch (failure) { setMessage({ text: errorMessage(failure, "The connector change failed."), error: true }); }
+        finally { setBusy(null); }
+    };
+    const connect = (c: Connector, values: Record<string, string> = {}, secrets: Record<string, string> = {}) =>
+        void act(c.id, async () => replace(await connectorsService.connect(c.id, values, secrets)), `Connected ${c.name}. Its tools are available from the next message.`);
+    const groups = new Map<string, Connector[]>();
+    for (const c of connectors.data ?? []) groups.set(c.category, [...(groups.get(c.category) ?? []), c]);
+    return <section className="matopt-settings-block" aria-labelledby={titleId}>
+        <div className="matopt-block-head"><h3 id={titleId}>Connect apps</h3>
+            <button type="button" className="matopt-icon-button is-neutral" aria-label="Refresh connectors" title="Refresh" onClick={reload}><RefreshCw aria-hidden="true" /></button></div>
+        <p className="matopt-settings-lead">One-click MCP connections to well-known software. MatOpt reconnects right away; no restart needed.</p>
+        <Status state={connectors} what="Connectors" />
+        {[...groups].map(([category, items]) => <div key={category} className="matopt-connector-group">
+            <h4>{category}</h4>
+            <ul className="matopt-settings-list" aria-label={`${category} connectors`}>{items.map((c) => <li key={c.id} className="matopt-setting-row is-stacked">
+                <div className="matopt-setting-head">
+                    <div className="matopt-setting-text">
+                        <div className="matopt-setting-title"><strong>{c.name}</strong><span className="matopt-setting-hint">{c.vendor} · {c.transport === "remote" ? "remote" : "runs locally"}</span>
+                            {c.docs && <a className="matopt-icon-link" href={c.docs} target="_blank" rel="noreferrer" aria-label={`${c.name} documentation`} title="Documentation"><ExternalLink aria-hidden="true" /></a>}</div>
+                        <p>{c.description}</p>
+                        {c.notes && <p className="matopt-setting-hint">{c.notes}</p>}
+                        {!c.available && <p className="matopt-setting-hint is-warning">Needs {c.requires.join(", ")} on the server.</p>}
+                        {c.installed && c.missing.length > 0 && <p className="matopt-setting-hint is-warning">Set {c.missing.join(", ")} to connect.</p>}
+                        {c.installed && c.error && <p className="matopt-setting-hint is-error">{c.error}</p>}
+                        {c.installed && c.state === "connected" && typeof c.tool_count === "number" && <p className="matopt-setting-hint">{c.tool_count} {c.tool_count === 1 ? "tool" : "tools"}</p>}
+                    </div>
+                    <div className="matopt-setting-controls">
+                        {c.installed ? <>
+                            {c.state && <span className="matopt-state" data-state={c.state === "pending" ? "disabled" : c.state}>{CONNECTOR_STATE[c.state]}</span>}
+                            <Switch checked={c.enabled !== false} label={`Enable ${c.name}`} disabled={busy !== null}
+                                onChange={(next) => void act(c.id, async () => replace(await connectorsService.setEnabled(c.id, next)), `${next ? "Enabled" : "Paused"} ${c.name}.`)} />
+                            <button type="button" className="matopt-icon-button" aria-label={`Disconnect ${c.name}`} title="Disconnect" disabled={busy !== null}
+                                onClick={() => void act(c.id, async () => { await connectorsService.disconnect(c.id); reload(); }, `Disconnected ${c.name}.`)}><Trash2 aria-hidden="true" /></button>
+                        </> : <button type="button" className="matopt-settings-button" disabled={busy !== null}
+                            onClick={() => c.inputs.length ? setEditing(editing === c.id ? null : c.id) : connect(c)}>{busy === c.id ? "Connecting…" : "Connect"}</button>}
+                    </div>
+                </div>
+                {editing === c.id && !c.installed && <ConnectorForm connector={c} busy={busy === c.id} onCancel={() => setEditing(null)} onSubmit={(values, secrets) => connect(c, values, secrets)} />}
+            </li>)}</ul>
+        </div>)}
+        {message && <p className={`matopt-settings-note${message.error ? " is-error" : ""}`} role={message.error ? "alert" : "status"}>{message.text}</p>}
+    </section>;
+}
+
+function ClientsBlock({ open }: { open: boolean }) {
+    const [clients] = useLoad(open, (signal) => connectorsService.clients(signal), "Could not load MCP clients.");
+    const [client, setClient] = useState("");
+    const [http, setHttp] = useState(false);
+    const [config, setConfig] = useState<ClientConfig | null>(null);
+    const [copied, setCopied] = useState(false);
+    const [error, setError] = useState<string | null>(null);
+    const selectId = useId();
+    useEffect(() => {
+        if (!client) { setConfig(null); return; }
+        let live = true; setCopied(false); setError(null);
+        connectorsService.clientConfig(client, http).then((next) => { if (live) setConfig(next); }, (failure) => { if (live) setError(errorMessage(failure, "Could not build the configuration.")); });
+        return () => { live = false; };
+    }, [client, http]);
+    if (clients.unavailable) return null;
+    return <section className="matopt-settings-block" aria-labelledby={`${selectId}-title`}>
+        <h3 id={`${selectId}-title`}>Use MatOpt in other apps</h3>
+        <p className="matopt-settings-lead">Give Claude, Cursor, VS Code, Codex and other MCP clients MatOpt's persistent Python kernel and workspace tools.</p>
+        <Status state={clients} what="MCP clients" />
+        {clients.data && <div className="matopt-inline-form">
+            <label htmlFor={selectId}>App</label>
+            <div><select id={selectId} value={client} onChange={(event) => setClient(event.target.value)}>
+                <option value="">Choose an app…</option>
+                {clients.data.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+            </select>
+                <label className="matopt-checkbox"><input type="checkbox" checked={http} onChange={(event) => setHttp(event.target.checked)} /> Connect over HTTP to this server</label></div>
+        </div>}
+        {error && <p className="matopt-settings-note is-error" role="alert">{error}</p>}
+        {config && <div className="matopt-client-config">
+            {config.path && <p className="matopt-setting-hint">Add to <code className="matopt-path">{config.path}</code></p>}
+            <div className="matopt-snippet"><pre aria-label={`${config.name} configuration`}><code>{config.snippet}</code></pre>
+                <button type="button" className="matopt-icon-button is-neutral" aria-label="Copy configuration" title={copied ? "Copied" : "Copy"}
+                    onClick={() => void navigator.clipboard?.writeText(config.snippet).then(() => setCopied(true), () => {})}><Copy aria-hidden="true" /></button></div>
+            {copied && <p className="matopt-setting-hint" role="status">Copied.</p>}
+            {config.path && <p className="matopt-setting-hint">Or on the server: <code>{config.command}</code></p>}
+            {config.note && <p className="matopt-setting-hint">{config.note}</p>}
+        </div>}
+    </section>;
+}
+
+function formatTime(seconds: number | null) {
+    return seconds ? new Date(seconds * 1000).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" }) : "—";
+}
+
+function AutomationsSection({ open }: { open: boolean }) {
+    const [automations, setAutomations, reload] = useLoad<Automation[]>(open, (signal) => automationsService.list(signal), "Could not load automations.");
+    const [busy, setBusy] = useState<string | null>(null);
+    const [message, setMessage] = useState<{ text: string; error?: boolean } | null>(null);
+    const replace = (next: Automation | null) => { if (next) setAutomations((state) => state.data ? { ...state, data: state.data.map((a) => a.id === next.id ? next : a) } : state); };
+    const act = async (key: string, run: () => Promise<void>, done: string) => {
+        setBusy(key); setMessage(null);
+        try { await run(); setMessage({ text: done }); }
+        catch (failure) { setMessage({ text: errorMessage(failure, "The automation change failed."), error: true }); }
+        finally { setBusy(null); }
+    };
+    const rows = automations.data ?? [];
+    return <>
+        <div className="matopt-block-head"><p className="matopt-settings-lead">Recurring and watched tasks created with <code>/loop</code> and <code>/automate</code>. Each run is a normal turn in its chat.</p>
+            <button type="button" className="matopt-icon-button is-neutral" aria-label="Refresh automations" title="Refresh" onClick={reload}><RefreshCw aria-hidden="true" /></button></div>
+        <Status state={automations} what="Automations" />
+        {automations.data && !rows.length && <p className="matopt-settings-note">No automations yet. Try <code>/loop</code> to watch a long experiment or <code>/automate</code> for a weekly report.</p>}
+        {rows.length > 0 && <ul className="matopt-settings-list" aria-label="Automations">{rows.map((a) => <li key={a.id} className="matopt-setting-row">
+            <div className="matopt-setting-text">
+                <div className="matopt-setting-title"><strong>{a.name}</strong><span className="matopt-stage" data-stage={a.status === "active" ? "stable" : "deprecated"}>{a.status === "active" ? (a.enabled ? "Active" : "Paused") : a.status[0].toUpperCase() + a.status.slice(1)}</span></div>
+                <p>{a.schedule_text}{a.watch && <> · watching <code>{a.watch.path}</code>{a.watch.pattern && <> until it matches <code>{a.watch.pattern}</code></>}</>}</p>
+                <p className="matopt-setting-hint">Runs: {a.run_count} · last {formatTime(a.last_run_at)}{a.enabled && a.status === "active" && <> · next {formatTime(a.next_run_at)}</>}</p>
+                <p className="matopt-setting-hint matopt-clamp" title={a.prompt}>{a.prompt}</p>
+            </div>
+            <div className="matopt-setting-controls">
+                <Switch checked={a.enabled} label={`Enable ${a.name}`} disabled={busy !== null} onChange={(next) => void act(a.id, async () => replace(await automationsService.setEnabled(a.id, next)), `${next ? "Resumed" : "Paused"} ${a.name}.`)} />
+                <button type="button" className="matopt-icon-button is-neutral" aria-label={`Run ${a.name} now`} title="Run now" disabled={busy !== null} onClick={() => void act(a.id, async () => replace(await automationsService.runNow(a.id)), `Started ${a.name}.`)}><Play aria-hidden="true" /></button>
+                <button type="button" className="matopt-icon-button" aria-label={`Delete ${a.name}`} title="Delete" disabled={busy !== null} onClick={() => void act(a.id, async () => { await automationsService.remove(a.id); setAutomations((state) => state.data ? { ...state, data: state.data.filter((row) => row.id !== a.id) } : state); }, `Deleted ${a.name}.`)}><Trash2 aria-hidden="true" /></button>
+            </div>
+        </li>)}</ul>}
+        {message && <p className={`matopt-settings-note${message.error ? " is-error" : ""}`} role={message.error ? "alert" : "status"}>{message.text}</p>}
+    </>;
+}
+
+function IntegrationsSection({ open, settings, onChanged }: { open: boolean; settings: Load<SettingsSnapshot>; onChanged: () => void }) {
     const servers = settings.data?.mcp.servers ?? [];
     return <>
         <section className="matopt-settings-block" aria-labelledby="matopt-mcp-title">
@@ -241,6 +407,8 @@ function IntegrationsSection({ open, settings }: { open: boolean; settings: Load
                 <span className="matopt-state" data-state={server.state}>{MCP_STATE[server.state]}</span>
             </li>)}</ul>}
         </section>
+        <ConnectorsBlock open={open} onChanged={onChanged} />
+        <ClientsBlock open={open} />
         <PluginsBlock open={open} />
         <MigrationBlock />
     </>;
@@ -350,7 +518,7 @@ export function SettingsDialog({ open, onOpenChange, initialSection = "features"
     conversationId?: string | null; conversationMemory?: "enabled" | "disabled";
 }) {
     const [section, setSection] = useState<SettingsSection>(initialSection);
-    const [settings, setSettings] = useLoad(open, getSettings, "Could not load settings.");
+    const [settings, setSettings, reloadSettings] = useLoad(open, getSettings, "Could not load settings.");
     const id = useId();
     useEffect(() => { if (open) setSection(initialSection); }, [open, initialSection]);
     const onKey = (event: KeyboardEvent<HTMLButtonElement>, value: SettingsSection) => {
@@ -370,7 +538,7 @@ export function SettingsDialog({ open, onOpenChange, initialSection = "features"
         <DialogContent className="matopt-settings-dialog">
             <DialogHeader>
                 <DialogTitle>Settings</DialogTitle>
-                <DialogDescription>Server features, security, integrations and what MatOpt remembers.</DialogDescription>
+                <DialogDescription>Server features, security, integrations, automations and what MatOpt remembers.</DialogDescription>
             </DialogHeader>
             <div className="matopt-settings-layout">
                 <div className="matopt-settings-nav" role="tablist" aria-label="Settings sections" aria-orientation="vertical">
@@ -381,7 +549,8 @@ export function SettingsDialog({ open, onOpenChange, initialSection = "features"
                 {SECTIONS.map(([value]) => <div key={value} id={`${id}-${value}`} role="tabpanel" aria-labelledby={`${id}-${value}-tab`} className="matopt-settings-panel" hidden={section !== value} tabIndex={0}>
                     {value === "features" && <FeaturesSection settings={settings} onFeature={onFeature} />}
                     {value === "security" && <SecuritySection settings={settings} />}
-                    {value === "integrations" && <IntegrationsSection open={open} settings={settings} />}
+                    {value === "integrations" && <IntegrationsSection open={open} settings={settings} onChanged={reloadSettings} />}
+                    {value === "automations" && <AutomationsSection open={open && section === "automations"} />}
                     {value === "memories" && <MemoriesSection open={open} conversationId={conversationId} conversationMemory={conversationMemory} />}
                     {value === "instructions" && <InstructionsSection settings={settings} />}
                 </div>)}
