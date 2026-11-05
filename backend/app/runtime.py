@@ -52,11 +52,18 @@ class Runtime:
         self.skills = SkillRegistry.discover([*settings.skill_directories(), *self.plugins.skill_dirs()])
         self.tools = build_tools(self.skills)
         from app.agent.memory import MemoryService, set_memory_service
+        from app.agent.memory.session import SessionMemory, set_session_memory
         # Built here, not through get_memory_service(), which resolves the runtime.
         self.memories = MemoryService(settings, self.db, providers)
         set_memory_service(self.memories)
         if settings.memories_enabled:
             for tool in self.memories.tools():
+                self.tools.register(tool)
+        # Session memory shares the memory service's recall index.
+        self.session_memory = SessionMemory(settings, self.db, self.memories.index, self.memories)
+        set_session_memory(self.session_memory)
+        if settings.session_memory_enabled:
+            for tool in self.session_memory.tools():
                 self.tools.register(tool)
         self.mcp = McpHub(
             settings.resolved_mcp_config_path() if settings.mcp_enabled else None,
@@ -155,6 +162,7 @@ class Runtime:
         if shell is not None and hasattr(shell, "sessions"):
             await shell.sessions.shutdown()
         await self.kernels.shutdown_all()
+        self.memories.index.close()
         self.db.close()
 
     def workspace(self, conversation_id: str) -> Workspace:

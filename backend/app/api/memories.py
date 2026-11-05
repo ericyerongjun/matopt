@@ -4,6 +4,9 @@ The user can see what MatOpt remembers, add, edit or delete ad-hoc notes, wipe
 everything, opt one conversation out, and ask for a refresh now. Codex offers
 the same controls as ``/memories`` commands and per-thread memory mode
 (``ext/memories``); here they are REST for the settings UI.
+
+Session memory (``app/agent/memory/session.py``) has its own per-conversation
+routes: read, replace or clear the chat's working notes.
 """
 
 from __future__ import annotations
@@ -14,6 +17,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 
 from app.agent.memory.service import MemoryService, get_memory_service
+from app.agent.memory.session import SessionMemory, get_session_memory
 from app.agent.memory.store import MemoryPathError
 
 router = APIRouter(prefix="/api", tags=["memories"])
@@ -21,6 +25,17 @@ router = APIRouter(prefix="/api", tags=["memories"])
 
 def memory_service() -> MemoryService:
     return get_memory_service()
+
+
+def session_memory() -> SessionMemory:
+    service = get_session_memory()
+    if service is None:
+        raise HTTPException(status_code=503, detail="Session memory is not available")
+    return service
+
+
+class SessionNotesBody(BaseModel):
+    notes: str = Field(max_length=20_000)
 
 
 class NoteBody(BaseModel):
@@ -97,3 +112,43 @@ async def set_conversation_memory(conversation_id: str, body: ModeBody,
 @router.post("/memories/refresh")
 async def refresh_memories(svc: MemoryService = Depends(memory_service)):
     return await svc.run_pass()
+
+
+@router.get("/memories/search")
+async def search_memories(q: str, limit: int = 10, svc: MemoryService = Depends(memory_service)):
+    if not svc.enabled:
+        return {"enabled": False, "hits": []}
+    return {"enabled": True, "hits": svc.search(q, limit=max(1, min(limit, 50)))}
+
+
+def _session_out(session: SessionMemory, cid: str) -> dict:
+    row = session.index.get_notes(cid) or {}
+    return {"conversation_id": cid, "enabled": session.enabled, "notes": row.get("text", ""),
+            "version": row.get("version", 0), "updated_at": row.get("updated_at")}
+
+
+@router.get("/conversations/{conversation_id}/session-memory")
+async def get_session_memory_route(conversation_id: str, session: SessionMemory = Depends(session_memory)):
+    if session.db.get_conversation(conversation_id) is None:
+        raise HTTPException(status_code=404, detail="Unknown conversation")
+    return _session_out(session, conversation_id)
+
+
+@router.put("/conversations/{conversation_id}/session-memory")
+async def put_session_memory(conversation_id: str, body: SessionNotesBody,
+                             session: SessionMemory = Depends(session_memory)):
+    if session.db.get_conversation(conversation_id) is None:
+        raise HTTPException(status_code=404, detail="Unknown conversation")
+    try:
+        session.set_notes(conversation_id, body.notes)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc))
+    return _session_out(session, conversation_id)
+
+
+@router.delete("/conversations/{conversation_id}/session-memory")
+async def clear_session_memory(conversation_id: str, session: SessionMemory = Depends(session_memory)):
+    if session.db.get_conversation(conversation_id) is None:
+        raise HTTPException(status_code=404, detail="Unknown conversation")
+    session.set_notes(conversation_id, "")
+    return _session_out(session, conversation_id)
