@@ -24,7 +24,7 @@ from app.llm.catalog import LEVELS, MAX_OUTPUT_TOKENS, MODEL_ID, PROVIDER_ID, ca
 
 BACKEND_DIR = Path(__file__).resolve().parent.parent
 REPO_ROOT = BACKEND_DIR.parent
-SKILL_GROUPS = ("matopt", "data", "anthropic")
+SKILL_GROUPS = ("matopt", "data", "workflow", "anthropic")
 
 
 def default_skill_group_dirs(*roots: Path) -> list[Path]:
@@ -265,6 +265,10 @@ class Settings(BaseSettings):
     code_mode_enabled: bool = False
     code_mode_max_calls_per_cell: int = Field(default=50, ge=1, le=500)
 
+    # ── Automations: scheduled / watched turns for /loop and /automate ──
+    automations_enabled: bool = True
+    automations_path: Optional[Path] = None   # default: <data_dir>/automations.json
+
     # ── Plugins (app/agent/plugins/) ────────────────────────────────────
     plugins_dir: Optional[Path] = None        # default: <data_dir>/plugins
 
@@ -286,6 +290,7 @@ class Settings(BaseSettings):
     # ── MCP ─────────────────────────────────────────────────────────────
     mcp_enabled: bool = True
     mcp_config_path: Optional[Path] = None     # default: <repo>/mcp.json
+    mcp_env_path: Optional[Path] = None        # connector secrets; default: <data_dir>/mcp.env
     mcp_mount_path: str = "/mcp"
     # HTTP /mcp is unauthenticated unless one of these is set (stdio needs none).
     mcp_auth_token: Optional[str] = None       # static bearer token
@@ -361,6 +366,9 @@ class Settings(BaseSettings):
         if self.mcp_config_path:
             return Path(self.mcp_config_path)
         return REPO_ROOT / "mcp.json"
+
+    def resolved_mcp_env_path(self) -> Path:
+        return Path(self.mcp_env_path) if self.mcp_env_path else Path(self.data_dir) / "mcp.env"
 
 
 settings = Settings()

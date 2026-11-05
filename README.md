@@ -66,6 +66,8 @@ configuration and supported formats.
 ## Skills and MCP
 
 - Catalog: [`skills/`](skills/README.md) — MatOpt playbooks, data-analysis skills (`/data-eda`, `/data-report`, `/data-slides`, `/data-notebook`, `/data-agent`), plus the full [anthropics/skills](https://github.com/anthropics/skills) tree.
+- Workflow commands ([`skills/workflow/`](skills/workflow/README.md)): spec-driven development with OpenSpec (`/openspec-propose`, `/openspec-review`, `/openspec-apply`, `/openspec-archive`), `/plan-mode`, `/review`, `/review-bugbot`, `/review-security`, `/canvas`, `/goal`, `/side` (`/btw`), `/shell`, `/autopilot`, `/split-to-prs`, `/create-hook`, `/create-rule`, `/create-skill`, `/create-subagent`, `/prompt-blame`, `/migrate-to-skills`, `/matopt-sdk`, and `/prepare-reading-batch`.
+- Automations: `/loop` repeats a prompt or quietly watches a workspace file until a long job finishes or fails; `/automate` runs work on a cron schedule in a time zone and remembers what it already reported. Manage them in **Settings → Automations**.
 - Data agent: the data-analysis backend lives in `backend/data_agent_app/` and is mounted at `/api/v1`. The harness tool is `data_agent`.
 - Type `/` in the composer for a Cursor/Claude-style list of skills and tools. `/frontend-design` (or `/python`) loads that playbook or prefers that tool — including mid-turn steering, not only the first prompt.
 - Select `/web-search` or `/web-fetch` to enable web tools for the current turn (open-source `ddgs`, or SearXNG / Tavily / Brave). Skills and tools share the slash menu; selecting one never sends the message.
@@ -74,7 +76,8 @@ configuration and supported formats.
 - Native controls, charts and tables use validated schemas. More complex mini-apps run on the isolated origin. Python recomputations happen only through declared host actions, with saved parameters, explicit cancellation and replay protection.
 - The harness **routes** the user turn against skill descriptions and file types, auto-loads the best match, and resolves tool-name aliases/typos.
 - Inspect the catalog: `GET /api/skills`, `GET /api/tools`.
-- The conversation kernel is also an MCP server at `http://localhost:8000/mcp` (stdio: `cd backend && .venv/bin/python -m app.agent.mcp`). Its `open_ui_app` tool shows saved mini-apps in MCP Apps hosts ([docs/MCP-APPS-EVALUATION.md](docs/MCP-APPS-EVALUATION.md)). Set `MCP_AUTH_TOKEN` or the `MCP_OAUTH_*` settings before exposing HTTP `/mcp` beyond this machine. Extra MCP servers: copy `mcp.json.example` to `mcp.json`.
+- The conversation kernel is also an MCP server at `http://localhost:8000/mcp` (stdio: `cd backend && .venv/bin/python -m app.agent.mcp`). Its `open_ui_app` tool shows saved mini-apps in MCP Apps hosts ([docs/MCP-APPS-EVALUATION.md](docs/MCP-APPS-EVALUATION.md)). Set `MCP_AUTH_TOKEN` or the `MCP_OAUTH_*` settings before exposing HTTP `/mcp` beyond this machine. Extra MCP servers: copy `mcp.json.example` to `mcp.json`, or use **Settings → Integrations → Connect apps** for one-click connectors (Microsoft Learn, GitHub, Context7, Hugging Face, Wolfram, MATLAB, Jupyter, Playwright, Notion, Linear, Sentry and more); tokens are stored in `backend/data/mcp.env`, never in `mcp.json`.
+- Use MatOpt from other apps: `cd backend && .venv/bin/python -m app.agent.mcp.export cursor --write` (also `claude-desktop`, `claude-code`, `vscode`, `windsurf`, `codex`, `gemini`, `zed`), or copy the snippet from **Settings → Integrations**.
 
 ## License and authorship
 

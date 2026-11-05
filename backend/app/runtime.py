@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+from pathlib import Path
 from functools import lru_cache
 
 from app.agent.harness import AgentHarness
@@ -29,6 +30,7 @@ from app.agent.exec_rules import ExecPolicy
 from app.agent.tools.exec_sessions import BashPollTool
 from app.agent.tools.shell_tool import ShellTool
 from app.agent.subagents import subagent_tools
+from app.agent.automations import automation_tools
 from app.agent.intent import SwitchToOptTool
 from app.agent.tools.data_agent_tool import DataAgentTool
 from app.agent.tools.skill_tools import LoadSkillTool, SearchSkillsTool
@@ -66,7 +68,9 @@ class Runtime:
         self.mcp = McpHub(
             settings.resolved_mcp_config_path() if settings.mcp_enabled else None,
             max_output_chars=settings.tool_max_output_chars,
+            env_path=settings.resolved_mcp_env_path(),
         )
+        self._mcp_lock = asyncio.Lock()
         self.tool_router = ToolRouter()
         self.providers = providers
         self.executions = ToolExecutionService(
@@ -77,22 +81,52 @@ class Runtime:
             skills=self.skills, tool_router=self.tool_router, executions=self.executions,
         )
         self.runs = RunManager(self.db, self.harness)
+        self.automations = None
+        if settings.automations_enabled:
+            from app.agent.automations import AutomationService, AutomationStore, set_automation_service
+            self.automations = AutomationService(
+                AutomationStore(settings.automations_path or Path(settings.data_dir) / "automations.json"),
+                settings.workspace_dir, self._start_automation_run, is_busy=self.runs.is_running)
+            set_automation_service(self.automations)
 
     async def start(self) -> None:
         self.db.interrupt_running_subagents()
         await self.runs.recover()
         self.harness.ui.store.recover_pending()
         self.kernels.start_reaper()
+        if self.automations is not None:
+            self.automations.start()
         if settings.memories_enabled:
             self._memory_task = asyncio.create_task(self._memory_loop(), name="memories")
         if settings.mcp_enabled:
             from app.agent.mcp.resources import resource_tools
-            await self.mcp.start(reserved=set(self.tools.names()) | {"list_mcp_resources", "read_mcp_resource"},
-                                 extra_servers=self.plugins.mcp_servers())
             for t in resource_tools(self.mcp):
                 self.tools.register(t)
-            for t in self.mcp.tools():
-                self.tools.register(t)
+            await self._start_mcp()
+
+    async def _start_mcp(self) -> None:
+        mcp_names = {t.name for t in self.mcp.tools()}
+        reserved = {n for n in self.tools.names() if n not in mcp_names}
+        await self.mcp.start(reserved=reserved | {"list_mcp_resources", "read_mcp_resource"},
+                             extra_servers=self.plugins.mcp_servers())
+        for t in self.mcp.tools():
+            self.tools.register(t)
+
+    async def reload_mcp(self) -> list[dict]:
+        """Reconnect every MCP server after ``mcp.json`` changed, without a restart.
+
+        Calls already running on a server that is torn down fail with a
+        transport error; new turns see the new tool set.
+        """
+        if not settings.mcp_enabled:
+            return []
+        async with self._mcp_lock:
+            old = [t.name for t in self.mcp.tools()]
+            await self.mcp.stop()
+            for name in old:
+                self.tools.unregister(name)
+            await self._start_mcp()
+            return self.mcp.status()
 
     async def _memory_loop(self) -> None:
         """Codex runs memory passes in the background at startup; MatOpt also repeats hourly."""
@@ -105,7 +139,18 @@ class Runtime:
                 logging.getLogger(__name__).warning("Memory pass failed", exc_info=True)
             await asyncio.sleep(3600)
 
+    async def _start_automation_run(self, cid: str, text: str, row: dict) -> str | None:
+        from app.agent.harness import RunRequest
+        conv = self.db.get_conversation(cid)
+        if conv is None:
+            raise LookupError("conversation was deleted")
+        run = await self.runs.start(RunRequest(conversation_id=cid, text=text, provider_id=conv.get("provider"),
+                                               model_id=conv.get("model"), reasoning=conv.get("reasoning")))
+        return run.get("id")
+
     async def stop(self) -> None:
+        if self.automations is not None:
+            await self.automations.stop()
         if self._memory_task is not None:
             self._memory_task.cancel()
             await asyncio.gather(self._memory_task, return_exceptions=True)
@@ -159,6 +204,8 @@ def build_tools(skills: SkillRegistry | None = None) -> ToolRegistry:
         tools.append(WolframAlphaTool(settings.wolfram_app_id))
     if lean := LeanCheckTool.detect():
         tools.append(lean)
+    if settings.automations_enabled:
+        tools.extend(automation_tools())
     registry = ToolRegistry(tools)
     discovery = ToolRouter()
     registry.register(SearchToolsTool(registry, discovery))
