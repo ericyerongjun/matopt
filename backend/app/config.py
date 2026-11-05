@@ -248,6 +248,18 @@ class Settings(BaseSettings):
     memory_max_inputs: int = Field(default=64, ge=1, le=1024)
     memory_summary_tokens: int = Field(default=2500, ge=200, le=20000)
     memory_disable_on_web: bool = True       # chats that read the web are not learned from
+    # Recall index shared by memory_search, recall and past-chat search
+    # (app/agent/memory/index.py). Embeddings are optional and local:
+    # "model2vec" or "fastembed" (pip install the package); "none" keeps
+    # retrieval lexical (FTS5 BM25) plus the term graph.
+    memory_embedding_backend: Literal["none", "model2vec", "fastembed"] = "none"
+    memory_embedding_model: str = ""          # default per backend (see embeddings.py)
+    memory_graph_enabled: bool = True         # LinearRAG-style term graph + PPR ranker
+
+    # ── Session memory (app/agent/memory/session.py) ────────────────────
+    # Per-chat history and working context: the `recall` tool over earlier
+    # turns (including compacted ones) and the `session_notes` block.
+    session_memory_enabled: bool = True
 
     # ── Code mode: Python cells call MatOpt tools (app/agent/kernel_tools.py)
     code_mode_enabled: bool = False

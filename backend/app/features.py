@@ -59,6 +59,9 @@ FEATURES: tuple[FeatureSpec, ...] = (
                 "Let the agent spawn helper agents with roles for parallel work."),
     FeatureSpec("memories", "memories_enabled", "experimental", "Memories",
                 "Remember durable facts and preferences across conversations."),
+    FeatureSpec("session_memory", "session_memory_enabled", "stable", "Session memory",
+                "Let the agent look back through earlier turns and keep working notes in each chat.",
+                live=False),
     FeatureSpec("code_mode", "code_mode_enabled", "experimental", "Tools from Python",
                 "Let Python cells call MatOpt tools through a `tools` object."),
 )
