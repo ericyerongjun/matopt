@@ -11,7 +11,13 @@ start.rs``) and injects the read path as developer instructions
 ``read_path_prompt()``  the block appended to the system prompt: the capped
                         ``memory_summary.md`` plus the rules of Codex
                         ``read_path.md`` (when to look, staleness, never
-                        instructions).
+                        instructions). Empty for a conversation the user
+                        opted out of memory.
+``search()``            ranked hybrid retrieval over the memory files
+                        (:mod:`.index`: BM25 + optional local embeddings +
+                        term-graph PPR, fused with RRF), replacing Codex's
+                        line grep for ``memory_search``. The files stay the
+                        source of truth; the index is a rebuildable cache.
 
 Side calls use the first configured provider with reasoning off, the way the
 harness's compaction and title tasks do (``AgentHarness._summarize_span``); an
@@ -23,14 +29,16 @@ memory model later).
 from __future__ import annotations
 
 import asyncio
+import hashlib
 import logging
 import time
 from typing import Any, Callable, Optional
 
 from app.agent.memory import consolidate as phase2
 from app.agent.memory import extract as phase1
+from app.agent.memory.index import Doc, RecallIndex
 from app.agent.memory.prompts import READ_PATH
-from app.agent.memory.store import MemoryStore
+from app.agent.memory.store import MEMORY_FILE, SUMMARY_FILE, MemoryStore
 from app.llm.base import ChatOptions
 
 logger = logging.getLogger(__name__)
@@ -40,20 +48,37 @@ EXTRACTION_CONCURRENCY = 4
 SCAN_LIMIT = 200
 STAGE1_MAX_TOKENS = 4_000
 PENDING_NOTES_CHARS = 2_000
+MEMORY_SCOPE = "memory"
+MEMORY_OWNER = "global"
+SECTION_CHARS = 3_000
 
 ProviderFactory = Callable[[], Optional[tuple[Any, ChatOptions]]]
 
 
 class MemoryService:
     def __init__(self, settings, db, providers=None, *, provider_factory: ProviderFactory | None = None,
-                 root=None):
+                 root=None, index: RecallIndex | None = None):
         self.settings = settings
         self.db = db
         self.providers = providers
         self.provider_factory = provider_factory
         self.store = MemoryStore(root or settings.data_dir / "memories")
+        self._index = index
         self._pass_lock = asyncio.Lock()
         self._phase2_lock = asyncio.Lock()
+
+    @property
+    def index(self) -> RecallIndex:
+        """The shared recall index (built lazily next to the memory folder when not supplied)."""
+        if self._index is None:
+            from app.agent.memory.embeddings import get_embedder
+            settings = self.settings
+            self._index = RecallIndex(
+                self.store.root.parent / "recall.sqlite3",
+                embedder=lambda: get_embedder(getattr(settings, "memory_embedding_backend", "none"),
+                                              getattr(settings, "memory_embedding_model", "")),
+                graph=bool(getattr(settings, "memory_graph_enabled", True)))
+        return self._index
 
     @property
     def enabled(self) -> bool:
@@ -159,7 +184,7 @@ class MemoryService:
 
         async def one(conv: dict) -> None:
             cid = conv["id"]
-            transcript = phase1.render_conversation(self.db, cid)
+            transcript = phase1.render_conversation(self.db, cid, session_notes=self.session_notes(cid))
             reason = phase1.transcript_reason(transcript, self.settings)
             if reason:
                 report["skipped"][cid] = reason
@@ -193,9 +218,11 @@ class MemoryService:
 
     # ── read path ───────────────────────────────────────────────────────
 
-    def read_path_prompt(self) -> str:
-        """The system-prompt block, or ``""`` when memory is off or empty."""
+    def read_path_prompt(self, conversation_id: str | None = None) -> str:
+        """The system-prompt block, or ``""`` when memory is off, empty or off for this chat."""
         if not self.enabled:
+            return ""
+        if conversation_id is not None and not self.conversation_enabled(conversation_id):
             return ""
         summary = phase2.cap_lines(self.store.read_summary(), phase2.summary_char_cap(self.settings))
         pending = self.pending_notes()
@@ -215,6 +242,44 @@ class MemoryService:
     def tools(self) -> list:
         from app.agent.memory.tools import MemoryNoteTool, MemoryReadTool, MemorySearchTool
         return [MemorySearchTool(self), MemoryReadTool(self), MemoryNoteTool(self)]
+
+    # ── retrieval ───────────────────────────────────────────────────────
+
+    def memory_docs(self) -> tuple[str, list[Doc]]:
+        """``(signature, chunks)`` of every memory file: the two Markdown files by section, the rest whole."""
+        docs: list[Doc] = []
+        digest = hashlib.sha256()
+        for rel, text in self.store.searchable():
+            digest.update(rel.encode() + b"\0" + text.encode("utf-8", "replace") + b"\0")
+            if rel in (SUMMARY_FILE, MEMORY_FILE):
+                docs += _sections(rel, text)
+            else:
+                first = next((line for line in text.splitlines() if line.strip()), rel)
+                docs.append(Doc(ref=rel, text=text[:SECTION_CHARS * 2], title=first.lstrip("# ").strip()[:120],
+                                meta={"path": rel, "line": 1}))
+        return digest.hexdigest(), docs
+
+    def search(self, query: str, *, limit: int = 30) -> list[dict]:
+        """Ranked memory hits ``{path, line, title, text, score}``; falls back to the line grep."""
+        try:
+            signature, docs = self.memory_docs()
+            self.index.replace_source(MEMORY_SCOPE, MEMORY_OWNER, signature, docs)
+            hits = self.index.search(query, scope=MEMORY_SCOPE, owners=[MEMORY_OWNER], limit=limit)
+        except Exception:  # noqa: BLE001 — the index is a cache; grep still works
+            logger.warning("memory: ranked search failed; using grep", exc_info=True)
+            hits = []
+        if not hits:
+            return [{"path": h["path"], "line": h["line"], "title": "", "text": h["text"], "score": 0.0}
+                    for h in self.store.search(query, limit=limit)]
+        return [{"path": h.meta.get("path", h.ref), "line": int(h.meta.get("line") or 1), "title": h.title,
+                 "text": h.text, "score": h.score} for h in hits]
+
+    def session_notes(self, cid: str) -> str:
+        try:
+            row = self.index.get_notes(cid)
+        except Exception:  # noqa: BLE001
+            return ""
+        return row["text"] if row else ""
 
     # ── management (API) ────────────────────────────────────────────────
 
@@ -254,8 +319,41 @@ class MemoryService:
         if not enabled:
             self.store.delete_stage1(cid)
 
+    def forget_conversation(self, cid: str) -> None:
+        """A deleted conversation: drop its record so the next consolidation removes what it taught.
+
+        ChatGPT keeps memories derived from a deleted chat; MatOpt follows the
+        stricter reading of "delete" (as Claude does for chat-derived memory).
+        """
+        # Phase 2's input signature changes with the record set, so the next
+        # pass rewrites the memory files without this conversation.
+        self.store.delete_stage1(cid)
+        self.store.set_disabled(cid, False)
+
     def conversation_enabled(self, cid: str) -> bool:
         return cid not in self.store.disabled()
+
+
+def _sections(rel: str, text: str) -> list[Doc]:
+    """Split a Markdown memory file at its headings, keeping each section's first line number."""
+    docs: list[Doc] = []
+    lines = text.splitlines()
+    start, title = 0, rel
+
+    def flush(end: int) -> None:
+        body = "\n".join(lines[start:end]).strip()
+        if body:
+            docs.append(Doc(ref=f"{rel}#L{start + 1}", text=body[:SECTION_CHARS], title=title[:120],
+                            meta={"path": rel, "line": start + 1}))
+
+    for i, line in enumerate(lines):
+        if line.startswith("#") and i > start:
+            flush(i)
+            start = i
+        if line.startswith("#"):
+            title = line.lstrip("# ").strip() or rel
+    flush(len(lines))
+    return docs
 
 
 _service: Optional[MemoryService] = None

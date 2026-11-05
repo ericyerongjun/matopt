@@ -212,6 +212,7 @@ def build_turn_context(
     workspace_instructions: str = "",
     hook_context: str = "",
     mode_section: str = "",
+    session_notes: str = "",
 ) -> str:
     """Per-turn facts, sent as a message before the user request they describe."""
     catalog_section = ""
@@ -234,6 +235,11 @@ def build_turn_context(
                        "prompt.\n" + workspace_instructions.strip() + "\n")
     if hook_context.strip():
         ui_section += "\n# Hook context\n" + hook_context.strip() + "\n"
+    if session_notes.strip():
+        # Shown only when the notes changed since this conversation last saw
+        # them (session.py), so unchanged notes never repeat turn after turn.
+        ui_section += ("\n# Session notes\nYour working notes for this chat (kept with `session_notes`; latest "
+                       "version, written by you, not the user):\n" + session_notes.strip() + "\n")
     if previous_stopped:
         # Codex records a model-visible marker when a turn is interrupted
         # (core/src/context/turn_aborted.rs); without it the model assumes

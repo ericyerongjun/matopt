@@ -222,6 +222,19 @@ class Database:
             rows = self._conn.execute("SELECT * FROM messages WHERE conversation_id=? ORDER BY seq", (cid,)).fetchall()
         return [self._msg_row(r) for r in rows]
 
+    def message_signatures(self, cids: list[str] | None = None) -> dict[str, str]:
+        """``{conversation_id: "count:max_seq:total_bytes"}`` — changes whenever a message is added or edited."""
+        sql = "SELECT conversation_id, COUNT(*) AS n, MAX(seq) AS s, SUM(LENGTH(content)) AS b FROM messages"
+        args: list = []
+        if cids is not None:
+            if not cids:
+                return {}
+            sql += f" WHERE conversation_id IN ({','.join('?' * len(cids))})"
+            args = list(cids)
+        with self._lock:
+            rows = self._conn.execute(sql + " GROUP BY conversation_id", args).fetchall()
+        return {r["conversation_id"]: f"{r['n']}:{r['s']}:{r['b']}" for r in rows}
+
     def delete_messages_from(self, cid: str, seq: int) -> int:
         with self._lock:
             cur = self._conn.execute("DELETE FROM messages WHERE conversation_id=? AND seq>=?", (cid, seq))

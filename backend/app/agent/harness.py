@@ -1318,13 +1318,22 @@ class AgentHarness:
                 "and page fetch. Available by default: use automatically for time-sensitive information. "
                 "The user does not need to select a slash command."
             )
+        if self.tools.get("recall") or self.tools.get("session_notes"):
+            extra.append(
+                "`recall` / `session_notes` — session memory. Earlier turns of this chat may have been folded into "
+                "a <conversation-summary>; before re-deriving or guessing a value, definition or decision from "
+                "earlier, `recall` it (search, then read the turn verbatim). In multi-step work keep the goal, "
+                "notation, assumptions, established results and open questions in `session_notes`; they survive "
+                "compaction and are shown to you again under '# Session notes' when they change."
+            )
         prompt = build_system_prompt(extra, interactive_ui=ui, operator_instructions=operator_instructions(self.settings))
         if getattr(self.settings, "memories_enabled", False):
             # Codex's read path: the consolidated memory summary joins the
-            # stable system head, so it changes only when memories do.
+            # stable system head, so it changes only when memories do. A chat
+            # the user opted out of memory neither reads nor adds memories.
             try:
                 from app.agent.memory import get_memory_service
-                memory = get_memory_service().read_path_prompt()
+                memory = get_memory_service().read_path_prompt(workspace.conversation_id)
             except Exception:  # noqa: BLE001 - memory must never block a turn
                 logger.warning("Memory prompt unavailable", exc_info=True)
                 memory = ""
@@ -1346,12 +1355,21 @@ class AgentHarness:
             catalog = self.skills.catalog_lines()
         from app.speech import LANGUAGES
         reply = LANGUAGES.get(language or "")
+        session_notes = ""
+        if self.tools.get("session_notes"):
+            try:
+                from app.agent.memory.session import get_session_memory
+                session = get_session_memory()
+                session_notes = session.turn_context_block(cid) if session is not None else ""
+            except Exception:  # noqa: BLE001 - session memory must never block a turn
+                logger.warning("Session notes unavailable", exc_info=True)
         content = build_turn_context(workspace.describe_for_prompt(), ds, skills_catalog=catalog,
                                      skills_active=active, ui_state=self.ui.store.context_summary(cid),
                                      reply_language=reply.label if reply else "",
                                      previous_stopped=previous_stopped,
                                      workspace_instructions=workspace_instructions(workspace.root, self.settings),
-                                     hook_context=hook_context, mode_section=mode_section)
+                                     hook_context=hook_context, mode_section=mode_section,
+                                     session_notes=session_notes)
         return {"role": "user", "content": content}
 
     async def _drain_mailbox(self, history: list, state: TurnState) -> bool:
@@ -1611,6 +1629,7 @@ class AgentHarness:
                     if await self._compact_history(provider, options, history, state, force=force_compaction):
                         from app.agent.tools.read_state import clear_read_state
                         clear_read_state(ctx.state)
+                        _session_notes_compacted(ctx.conversation_id)
                     try:
                         text, reasoning, calls = await self._stream_llm(
                             provider, options, history, None if last_step or direct_response else schemas,
@@ -2649,6 +2668,17 @@ def _tool_message_text(res: ToolResult) -> str:
     if not res.ok and res.error and res.error not in text:
         text = f"{text}\n[error] {res.error}".strip()
     return text or "(no output)"
+
+
+def _session_notes_compacted(cid: str) -> None:
+    """The copy of the session notes in an earlier turn context may have been summarised away."""
+    try:
+        from app.agent.memory.session import get_session_memory
+        session = get_session_memory()
+        if session is not None:
+            session.notes_compacted(cid)
+    except Exception:  # noqa: BLE001
+        logger.debug("Session notes reset failed", exc_info=True)
 
 
 def _compact_ui_history(history: list[dict]) -> None:

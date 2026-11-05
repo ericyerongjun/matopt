@@ -5,6 +5,7 @@ from __future__ import annotations
 import base64
 import asyncio
 import json
+import logging
 from typing import Optional
 
 from fastapi import APIRouter, HTTPException, Query
@@ -147,6 +148,14 @@ async def delete_conversation(conversation_id: str):
     await rt.kernels.shutdown(conversation_id)
     ok = rt.db.delete_conversation(conversation_id)
     rt.workspace(conversation_id).delete()
+    if ok:
+        # Deleting a chat also forgets what memory derived from it: its
+        # personal-memory record, its recall index and its session notes.
+        try:
+            rt.memories.forget_conversation(conversation_id)
+            rt.session_memory.forget_conversation(conversation_id)
+        except Exception:  # noqa: BLE001 — the chat itself is already gone
+            logging.getLogger(__name__).warning("Could not forget memory of %s", conversation_id, exc_info=True)
     if not ok:
         raise HTTPException(status_code=404, detail="Conversation not found")
     return {"deleted": True}
