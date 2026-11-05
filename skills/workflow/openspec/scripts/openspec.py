@@ -183,10 +183,20 @@ def validate_change(cdir: Path) -> Report:
             report.errors.append(f"{cap}: RENAMED needs '- FROM: ### Requirement: Old' then '- TO: ### Requirement: New'")
         baseline = cdir.parents[1] / "specs" / cap / "spec.md"
         existing = split_requirements(baseline.read_text(encoding="utf-8")) if baseline.is_file() else {}
-        renamed = {m.group(2).strip() for m in RENAME_RE.finditer(found.get("RENAMED Requirements", ""))}
-        for m in RENAME_RE.finditer(found.get("RENAMED Requirements", "")):
-            if m.group(1).strip() not in existing:
-                report.errors.append(f"{cap}: RENAMED requirement '{m.group(1).strip()}' is not in the baseline")
+        pairs = [(m.group(1).strip(), m.group(2).strip()) for m in RENAME_RE.finditer(found.get("RENAMED Requirements", ""))]
+        renamed = {new for _, new in pairs}
+        sources = {old for old, _ in pairs}
+        for old, new in pairs:
+            if old not in existing:
+                report.errors.append(f"{cap}: RENAMED requirement '{old}' is not in the baseline")
+            # A destination may not overwrite a requirement that stays, nor be used twice.
+            if new in existing and new not in sources:
+                report.errors.append(f"{cap}: RENAMED destination '{new}' already exists in the baseline")
+        for new in renamed:
+            if sum(1 for _, n in pairs if n == new) > 1:
+                report.errors.append(f"{cap}: two requirements are RENAMED to '{new}'")
+        if len(sources) != len(pairs):
+            report.errors.append(f"{cap}: a requirement is RENAMED more than once")
         existing = {**existing, **dict.fromkeys(renamed, "")}
         for title in ("MODIFIED Requirements", "REMOVED Requirements"):
             for name in split_requirements(found.get(title, "")):

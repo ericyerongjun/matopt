@@ -224,6 +224,8 @@ async def test_create_automation_tool(tmp_path):
         ctx = ToolContext("c1", Workspace("c1", tmp_path / "ws"), emit, asyncio.Event())
         tool = CreateAutomationTool()
         assert tool.needs_approval and tool.side_effect_scope == "system"
+        from app.agent.approvals import approval_trigger
+        assert approval_trigger(tool, {"name": "x"})[0] == "needs_approval"
         result = await tool.run(ctx, name="Weekly reading", prompt="List new docs.", cron="0 9 * * 1",
                                 timezone="Asia/Shanghai")
         assert result.ok and "Mondays" not in result.output and "Asia/Shanghai" in result.output
@@ -399,3 +401,32 @@ async def test_runtime_starts_automation_runs_in_the_conversation(tmp_path):
     finally:
         db.close()
     assert {"create_automation", "list_automations", "delete_automation"} <= set(build_tools().names())
+
+
+def test_openspec_rejects_renames_onto_existing_requirements(tmp_path):
+    script = WORKFLOW / "openspec" / "scripts" / "openspec.py"
+    specs = tmp_path / "openspec" / "specs" / "board"
+    specs.mkdir(parents=True)
+    req = "### Requirement: {0}\nThe system SHALL {0}.\n\n#### Scenario: {0}\n- **WHEN** x\n- **THEN** y\n\n"
+    (specs / "spec.md").write_text("# board Specification\n\n## Requirements\n\n" + req.format("A") + req.format("B"))
+    _run(script, "new", "clash", "--capability", "board", cwd=tmp_path)
+    change = tmp_path / "openspec" / "changes" / "clash"
+    (change / "specs" / "board" / "spec.md").write_text(
+        "## RENAMED Requirements\n- FROM: ### Requirement: A\n- TO: ### Requirement: B\n")
+    (change / "tasks.md").write_text("- [x] 1.1 rename\n")
+    out = _run(script, "archive", "clash", cwd=tmp_path)
+    assert out.returncode == 1 and "already exists" in out.stdout
+    assert change.exists() and "Requirement: A" in (specs / "spec.md").read_text()
+
+
+def test_migrate_converter_disambiguates_long_colliding_names(tmp_path):
+    script = WORKFLOW / "migrate-to-skills" / "scripts" / "convert.py"
+    long = "x" * 70
+    for folder in (".cursor/commands", ".codex/prompts"):
+        (tmp_path / folder).mkdir(parents=True)
+        (tmp_path / folder / f"{long}.md").write_text("Do it.\n")
+    out = subprocess.run([sys.executable, str(script), "--root", str(tmp_path), "--out", str(tmp_path / "out")],
+                         capture_output=True, text=True, timeout=20)
+    assert out.returncode == 0
+    names = sorted(p.name for p in (tmp_path / "out").iterdir() if p.is_dir())
+    assert len(names) == 2 and all(len(n) <= 64 for n in names) and any(n.endswith("-2") for n in names)

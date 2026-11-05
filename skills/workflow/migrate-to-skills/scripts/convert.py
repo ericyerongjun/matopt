@@ -34,7 +34,9 @@ def yaml_str(text: str) -> str:
 def write_skill(out: Path, name: str, description: str, body: str, manual: bool, source: Path, taken: set) -> str:
     base, n = name, 2
     while name in taken:
-        name = f"{base}-{n}"[:64]
+        suffix = f"-{n}"
+        # Leave room for the suffix so truncation cannot reproduce a taken name.
+        name = base[:64 - len(suffix)].rstrip("-") + suffix
         n += 1
     taken.add(name)
     d = out / name

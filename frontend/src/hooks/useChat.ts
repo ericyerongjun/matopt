@@ -33,7 +33,9 @@ interface Subscription {
     assistantId: string;
     accepted: boolean;
 }
-const EMPTY_RUN_VIEW = { runId: null, approvals: [] as ApprovalRequest[], subagents: [] as SubagentEvent[] };
+/** How often an open, idle chat looks for runs started by the server (automations). */
+export const BACKGROUND_RUN_POLL_MS = 15_000;
+const EMPTY_RUN_VIEW ={ runId: null, approvals: [] as ApprovalRequest[], subagents: [] as SubagentEvent[] };
 function uid(prefix: string) { return `${prefix}${crypto.randomUUID()}`; }
 
 export function useChat(options: Options) {
@@ -190,6 +192,50 @@ export function useChat(options: Options) {
         });
         return () => abort.abort();
     }, [options.activeId, monitor, publish, unsubscribe]);
+
+    // Runs can also start without this tab: /loop and /automate schedule them on
+    // the server. While a chat is open and idle, look for a newer run now and
+    // then: attach to one that is active, or reload history after one finished.
+    const streamingRef = useRef(streaming);
+    streamingRef.current = streaming;
+    useEffect(() => {
+        const cid = options.activeId;
+        if (!cid) return;
+        const abort = new AbortController();
+        let seen: string | null | undefined;
+        let checking = false;
+        const idle = () => !abort.signal.aborted && !streamingRef.current && !preparing.current && optionsRef.current.activeId === cid;
+        const check = async () => {
+            if (checking || !idle() || (typeof document !== "undefined" && document.hidden)) return;
+            checking = true;
+            try {
+                const run = await latestRun(cid, abort.signal);
+                const first = seen === undefined;
+                const attached = current.current?.cid === cid ? current.current.state.runId : null;
+                const fresh = Boolean(run && run.id !== seen && run.id !== attached);
+                seen = run?.id ?? null;
+                if (!run || !fresh || !idle()) return;
+                const saved = await getConversation(cid, { signal: abort.signal });
+                if (!idle()) return;
+                if (["queued", "running", "paused"].includes(run.status)) {
+                    current.current?.abort.abort();
+                    const session: Subscription = { cid, abort: new AbortController(), accepted: true,
+                        assistantId: run.message_id || uid("m_"), messages: saved.messages ?? [],
+                        state: { ...emptyStreamState(), conversationId: cid, messageId: run.message_id, runId: run.id, paused: run.status === "paused" } };
+                    current.current = session; setStreaming(true); setPaused(run.status === "paused");
+                    publish(session);
+                    void monitor(session);
+                } else if (!first && saved.messages) {
+                    setOverlay({ cid, messages: saved.messages });
+                    optionsRef.current.setMessages(saved.messages);
+                    void optionsRef.current.refreshList(); optionsRef.current.onArtifacts?.();
+                }
+            } catch { /* A missed check is retried on the next tick. */ }
+            finally { checking = false; }
+        };
+        const timer = setInterval(() => void check(), BACKGROUND_RUN_POLL_MS);
+        return () => { abort.abort(); clearInterval(timer); };
+    }, [options.activeId, monitor, publish]);
 
     useEffect(() => () => { generation.current += 1; current.current?.abort.abort(); current.current = null; }, []);
 
