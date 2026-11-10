@@ -339,3 +339,16 @@ def test_python_tool_normalizes_fenced_code(ws):
         "code": "  x = 1\n  print(x)",
         "timeout": 30,
     }
+
+
+async def test_var_keyword_tools_receive_every_argument(tmp_path):
+    from app.agent.tools.base import Tool, ToolResult
+
+    class Collects(Tool):
+        name = "collects"
+
+        async def run(self, ctx, name: str, **kw):
+            return ToolResult(ok=True, output=f"{name}:{kw.get('cron')}")
+
+    result = await Collects()(object(), {"name": "n", "cron": "0 9 * * 1"})
+    assert result.ok and result.output == "n:0 9 * * 1"

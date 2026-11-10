@@ -13842,7 +13842,7 @@
     {
       "path": "frontend/src/components/MessageList.tsx",
       "mode": "host-adapter",
-      "expected_sha256": "a38b14cef9df1d5227342b58460ca4ccc5fd4d45c9d1a36f859a3b8240efd3cc",
+      "expected_sha256": "f587dd22498d578429aaa4e1fd7f3c70facdbf86e1a6ae5656bf477143a316ac",
       "sources": [],
       "notes": "MatOpt durable-history projection with public work, revisioned results, and native surfaces. Adds quoted follow-ups and an explicit scroll-to-bottom control while preserving reader scroll position, keyed rows, copying, disclosure and canonical output behavior. Follow-up chips render inline $...$ math with KaTeX. Answers have a Read aloud action. Answers carry the Folio neural-net mark. Answer mode badge and files-changed chip. Memoizes rows so settled turns skip stream frames, and announces run start and end in a polite live region."
     },
@@ -13863,7 +13863,7 @@
     {
       "path": "frontend/src/components/PlotRenderer.tsx",
       "mode": "host-adapter",
-      "expected_sha256": "4d8c7f8dea68ed2b4a4955015ac8e1c7348a6187a1ef34cd3edce6260eea43ed",
+      "expected_sha256": "b692d074b4ac7d5fc92f535c41ba9d0f198c1d9ed198478785a22d5498c88d68",
       "sources": [],
       "notes": "Original MatOpt Plotly scientific-fence renderer using native CSS defaults, explicit figure dimensions, supported Plots.resize observation, and default removal of sendChartToCloud. Explicit figure settings retain precedence. This is not copied ZCode chart code. Every figure source passes through localOnlyFigure, which removes layout and config keys that reach remote hosts."
     },
@@ -13891,7 +13891,7 @@
     {
       "path": "frontend/src/utils/markdownNormalize.ts",
       "mode": "host-adapter",
-      "expected_sha256": "2b8676837b7954e3d9de0fd27acc98bcc55806ff3d76774e4b946ce1d20320a3",
+      "expected_sha256": "030a8d3d553e683a8f1b271ba47c49d56661ae8c3a7e0b70ad8d2a957a0c520c",
       "sources": [],
       "notes": "Original MatOpt Markdown helper for prose tables, adjacent figures, and bare assignments/fractions. Existing math and inline-code spans and whole code fences are protected before bare-prose normalization. This is not a copied ZCode helper."
     },

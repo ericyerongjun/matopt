@@ -17,6 +17,9 @@ OUTPUT_LIMIT = 8_000
 ENTRY_LIMIT = 300
 
 # tool name -> (title, argument shown as the row subject, argument shown as input, input language)
+FAILED_TITLES = {"web_fetch": "Could not fetch", "web_search": "Could not search the web for",
+                 "read_file": "Could not read", "parse_document": "Could not read document",
+                 "write_file": "Could not write", "edit_file": "Could not edit"}
 ACTIONS: dict[str, tuple[str, Optional[str], Optional[str], Optional[str]]] = {
     "python": ("Ran Python", None, "code", "python"),
     "bash": ("Ran command", None, "command", "bash"),
@@ -113,6 +116,8 @@ class Transcript:
         if entry is None:
             return None
         entry["status"] = "done" if ok else "error"
+        if not ok and entry.get("tool") in FAILED_TITLES:
+            entry["title"] = FAILED_TITLES[entry["tool"]]
         if entry.get("tool") in OUTPUT_PRIVATE:
             return entry
         text = str(output or "") if ok else str(error or output or "The action failed.")

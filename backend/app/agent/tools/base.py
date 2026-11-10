@@ -162,8 +162,8 @@ class Tool(ABC):
         try:
             sig = inspect.signature(self.run)
             accepted = {k: v for k, v in arguments.items() if k in sig.parameters}
-            if "kwargs" in sig.parameters:
-                accepted = dict(arguments)
+            if any(p.kind is inspect.Parameter.VAR_KEYWORD for p in sig.parameters.values()):
+                accepted = {k: v for k, v in arguments.items() if k != "ctx"}
             missing = [
                 p.name for p in sig.parameters.values()
                 if p.default is inspect.Parameter.empty and p.name not in ("ctx", "kwargs")

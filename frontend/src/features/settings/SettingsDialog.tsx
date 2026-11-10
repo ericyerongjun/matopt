@@ -105,7 +105,7 @@ function SecuritySection({ settings }: { settings: Load<SettingsSnapshot> }) {
         <Status state={settings} what="Security settings" />
         {settings.data && !security && <p className="matopt-settings-note">This server does not report its security settings.</p>}
         {security && <dl className="matopt-facts">
-            <Fact label="Sandbox">{security.sandbox.mode}{security.sandbox.available ? ` · ${security.sandbox.backend}` : " · not available on this host"}</Fact>
+            <Fact label="Sandbox">{security.sandbox.mode}{security.sandbox.mode === "external" ? " · provided by the container" : security.sandbox.mode === "off" ? "" : security.sandbox.available ? ` · ${security.sandbox.backend}` : " · not available on this host"}</Fact>
             <Fact label="Network in sandbox">{security.sandbox.network}</Fact>
             <Fact label="Approvals">{reviewer[security.approvals_reviewer]}</Fact>
             <Fact label="Hooks">{security.hooks.enabled ? `On${security.hooks.events.length ? ` · ${security.hooks.events.join(", ")}` : ""}` : "Off"}

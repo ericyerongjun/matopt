@@ -1,6 +1,7 @@
 import React from "react";
 import { createRoot } from "react-dom/client";
 import App from "./MatOptApp";
+import { AppCrashNotice, ErrorBoundary } from "./components/AppErrorBoundary.tsx";
 import { loadLocaleMessages, ZCodeIntlProvider } from "./zcode/i18n/IntlProvider";
 import { TooltipProvider } from "./zcode/components/ui/tooltip";
 import { LucideProvider } from "lucide-react";
@@ -37,7 +38,7 @@ void redirectIfSignedOut();
 
 const render = () => createRoot(document.getElementById("root")!).render(
     <React.StrictMode>
-        <ZCodeIntlProvider initialLocale="en-US"><TooltipProvider><LucideProvider strokeWidth={1.5}><App /></LucideProvider></TooltipProvider></ZCodeIntlProvider>
+        <ErrorBoundary fallback={<AppCrashNotice />}><ZCodeIntlProvider initialLocale="en-US"><TooltipProvider><LucideProvider strokeWidth={1.5}><App /></LucideProvider></TooltipProvider></ZCodeIntlProvider></ErrorBoundary>
     </React.StrictMode>
 );
 // A failed catalog download must not leave a blank page; the provider retries after mounting.

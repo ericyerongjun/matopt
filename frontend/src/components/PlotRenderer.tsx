@@ -8,7 +8,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, lazy, Suspense, memo } from "react";
 import { mergeChartDefaults, plotlyDefaults, useChartTheme } from "./chartTheme.ts";
 import { observePlotResize } from "./plotResize.ts";
-import { localOnlyFigure } from "./plotFigure.ts";
+import { interopDefault, localOnlyFigure } from "./plotFigure.ts";
 import "./PlotRenderer.css";
 
 // Lazy-load Plotly to avoid bloating the initial bundle (~3MB)
@@ -16,7 +16,7 @@ let plotlyRuntime: typeof import("plotly.js/dist/plotly").default | null = null;
 const Plot = lazy(async () => {
     const [component, runtime] = await Promise.all([import("react-plotly.js"), import("plotly.js/dist/plotly")]);
     plotlyRuntime = runtime.default;
-    return { default: component.default };
+    return { default: interopDefault(component.default) };
 });
 
 interface Props {

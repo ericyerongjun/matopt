@@ -209,7 +209,7 @@ const MessageRow = memo(function MessageRow({ message, conversationId, streaming
                 return <span className="matopt-command-badge" key={`${command.kind}:${command.name}`} title={`/${command.name}`}><Icon size={16} aria-hidden="true" />{label}</span>;
             })}</div>}
             {quoted?.quotes.map((quote, index) => <blockquote key={index} className="matopt-quoted-passage whitespace-pre-wrap break-words">{quote.text}</blockquote>)}
-            {(quoted?.question || parsed.rest) && <p className="whitespace-pre-wrap break-words">{quoted ? quoted.question : parsed.rest}</p>}
+            {(quoted?.question || parsed.rest) && <p className="whitespace-pre-wrap break-words"><InlineMathText text={quoted ? quoted.question : parsed.rest} /></p>}
             {message.content.attachments?.length > 0 && <Attachments variant="inline" className="matopt-message-files">
                 {message.content.attachments.map((attachment) => {
                     const href = attachment.url || `/api/files/${message.conversation_id}/${attachment.path}`;

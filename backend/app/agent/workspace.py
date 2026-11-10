@@ -31,7 +31,8 @@ TEXT_EXT = {".txt", ".md", ".csv", ".json", ".tex", ".py", ".r", ".jl", ".yaml",
 INTERNAL_DIRS = {".ipynb_checkpoints", "__pycache__", ".git", ".matopt"}
 # HOME is the workspace, so macOS tools write their non-dot state there
 # (~/Library/Caches/com.apple.python, pip, Preferences). Internal only at the root.
-HOME_OS_DIRS = {"Library"}
+# load_skill also unpacks skills/<name>/ there so their scripts can run.
+HOME_OS_DIRS = {"Library", "skills"}
 INTERNAL_SUFFIXES = (".pyc", ".pyo")
 # Live notebook the kernel appends after every cell — not a user-facing artifact.
 SANDBOX_NOTEBOOK = "analysis.ipynb"

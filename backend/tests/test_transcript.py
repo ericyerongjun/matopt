@@ -13,7 +13,7 @@ def test_narration_precedes_its_step_actions_and_rows_carry_code_and_output():
     assert [e["kind"] for e in entries] == ["note", "action", "action"]
     py, read = entries[1], entries[2]
     assert (py["title"], py["input"], py["language"], py["output"], py["status"]) == ("Ran Python", "print(6*7)", "python", "42", "done")
-    assert (read["title"], read["subject"], read["status"], read["output"]) == ("Read", "uploads/data.csv", "error", "No such file")
+    assert (read["title"], read["subject"], read["status"], read["output"]) == ("Could not read", "uploads/data.csv", "error", "No such file")
 
 
 def test_bookkeeping_hidden_progress_as_note_and_delegated_output_private():
@@ -44,3 +44,12 @@ def test_run_channel_forwards_validated_transcript_entries_only():
     forwarded = project_public_event(Event("transcript", {"entry": {**entry, "secret": "x"}}))
     assert forwarded is not None and forwarded.data["entry"]["input"] == "print(1)" and "secret" not in forwarded.data["entry"]
     assert project_public_event(Event("transcript", {"entry": {"kind": "bogus"}})) is None
+
+
+def test_a_failed_fetch_is_not_titled_as_fetched():
+    t = Transcript()
+    t.action(1, "c1", "web_fetch", {"url": "https://example.org"})
+    t.result("c1", False, None, "blocked")
+    t.action(2, "c2", "web_fetch", {"url": "https://example.org"})
+    t.result("c2", True, "text", None)
+    assert [entry["title"] for entry in t.snapshot()] == ["Could not fetch", "Fetched"]

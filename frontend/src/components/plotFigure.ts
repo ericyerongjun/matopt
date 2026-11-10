@@ -23,3 +23,8 @@ export function localOnlyFigure<Figure extends { layout?: unknown; config?: unkn
         config: isBag(figure.config) ? without(figure.config, REMOTE_CONFIG_KEYS) : figure.config,
     };
 }
+
+/** A CommonJS package reaches the production bundle wrapped in one extra `default`. */
+export function interopDefault<T>(value: T | { default: T }): T {
+    return typeof value === "object" && value !== null && "default" in value ? (value as { default: T }).default : value as T;
+}

@@ -75,3 +75,14 @@ describe("normalizeAgentMarkdown", () => {
         ]) assert.equal(normalizeAgentMarkdown(source), source);
     });
 });
+
+it("keeps prices as text while real inline math is untouched", () => {
+    const prices = normalizeAgentMarkdown("Revenue was $59,770.61, and the top product made $12,000.");
+    assert.match(prices, /\\\$59,770\.61/);
+    assert.equal(normalizeAgentMarkdown("Let $x$ and $2$ be given."), "Let $x$ and $2$ be given.");
+});
+
+it("spells a literal dollar inside inline math so the span does not close early", () => {
+    const output = normalizeAgentMarkdown("The total $\\$59{,}770.61$, and more.");
+    assert.equal(output, "The total $\\text{\\textdollar}59{,}770.61$, and more.");
+});

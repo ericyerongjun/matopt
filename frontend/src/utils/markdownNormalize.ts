@@ -97,8 +97,11 @@ function wrapBareMath(text: string): string {
     let output = "", proseStart = 0;
     for (let cursor = 0; cursor < text.length;) {
         const end = protectedSpanEnd(text, cursor);
-        if (end !== null) {
-            output += wrapBareProse(text.slice(proseStart, cursor)) + text.slice(cursor, end);
+        if (end !== null && isPricePair(text, cursor, end)) {
+            output += `${wrapBareProse(text.slice(proseStart, cursor))}\\$`;
+            cursor = proseStart = cursor + 1;
+        } else if (end !== null) {
+            output += wrapBareProse(text.slice(proseStart, cursor)) + safeMathDollars(text.slice(cursor, end));
             cursor = proseStart = end;
         } else {
             // Escaped dollars/backticks do not open a protected span.
@@ -106,6 +109,16 @@ function wrapBareMath(text: string): string {
         }
     }
     return output + wrapBareProse(text.slice(proseStart));
+}
+
+/** The Markdown math parser ends a `$` span at `\\$`, so spell a literal dollar without the character. */
+function safeMathDollars(span: string): string {
+    return span.startsWith("$") && !span.startsWith("$$") ? span.replace(/\\\$/g, "\\text{\\textdollar}") : span;
+}
+
+/** Pandoc's rule: "$5 and $10" stays text, because math cannot close before a digit or after a space. */
+function isPricePair(text: string, start: number, end: number): boolean {
+    return text[start] === "$" && /\d/.test(text[start + 1] ?? "") && (/\d/.test(text[end] ?? "") || /\s/.test(text[end - 2] ?? ""));
 }
 
 function wrapBareProse(text: string): string {

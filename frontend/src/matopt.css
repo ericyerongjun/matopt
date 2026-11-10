@@ -141,6 +141,8 @@ html:has(.matopt-shell), body:has(.matopt-shell), #root:has(.matopt-shell) { ove
   .matopt-header-title { gap: 4px; }
   .matopt-header-title > button + button { display: none; }
   .matopt-header-actions > button { padding-inline: 7px; }
+  .matopt-composer-footer { align-items: flex-end; }
+  .matopt-composer-toolbar { display: flex; flex-wrap: wrap; align-items: center; row-gap: 4px; min-width: 0; }
   .matopt-model-trigger { max-width: 215px; }
   .matopt-model-name { max-width: 150px; }
   .matopt-model-effort { display: none; }
