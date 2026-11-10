@@ -54,7 +54,8 @@ AGENT_TOOLS = frozenset({"spawn_agent", "wait_agent", "send_message", "followup_
 # Never given to a child: they talk to the user, publish the turn's answer or
 # change the conversation's interactive state.
 PARENT_ONLY = AGENT_TOOLS | {"publish_result", "report_progress", "update_plan", "render_ui", "create_ui_app",
-                             "register_ui_action", "memory_note", "data_agent"}
+                             "register_ui_action", "memory_note", "data_agent",
+                             "create_automation", "delete_automation"}
 NICKNAMES = ("Ada", "Gauss", "Noether", "Euler", "Turing", "Hopper", "Riemann", "Fermat", "Hilbert",
              "Kovalevskaya", "Ramanujan", "Lovelace", "Germain", "Galois", "Cantor", "Poincaré")
 FINAL_STATUSES = frozenset({"completed", "errored", "interrupted", "closed"})

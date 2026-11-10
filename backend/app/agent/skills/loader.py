@@ -30,6 +30,10 @@ class Skill:
     metadata: dict[str, str] = field(default_factory=dict)
     allowed_tools: list[str] = field(default_factory=list)
     files: list[str] = field(default_factory=list)
+    # ``disable-model-invocation: true`` (Claude Code's spelling): the skill is
+    # a command the user runs with ``/name``. It stays in the catalog and
+    # ``load_skill`` still works, but the lexical router never auto-activates it.
+    manual: bool = False
 
     @property
     def skill_md(self) -> Path:
@@ -59,6 +63,10 @@ def _allowed_tools(raw: object) -> list[str]:
     if isinstance(raw, list):
         return [str(x).strip() for x in raw if str(x).strip()]
     return [p for p in str(raw).split() if p]
+
+
+def _truthy(value: object) -> bool:
+    return value is True or (isinstance(value, str) and value.strip().lower() in ("true", "yes", "1"))
 
 
 def _bundle_files(root: Path) -> list[str]:
@@ -102,6 +110,7 @@ def load_skill_dir(path: Path, source: str = "local") -> Skill:
         metadata=metadata,
         allowed_tools=_allowed_tools(meta.get("allowed-tools") or meta.get("allowed_tools")),
         files=_bundle_files(path),
+        manual=_truthy(meta.get("disable-model-invocation", meta.get("disable_model_invocation"))),
     )
 
 
@@ -168,4 +177,6 @@ def _source_label(directory: Path) -> str:
         return "matopt"
     if name == "data":
         return "data"
+    if name == "workflow":
+        return "workflow"
     return name

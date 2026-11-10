@@ -248,6 +248,9 @@ def approval_trigger(tool: Any, args: dict) -> Optional[tuple[str, str]]:
         return "unsandboxed", "No sandbox is active, so this code runs with the backend's full access."
     if getattr(tool, "destructive", False):
         return "destructive", "This tool declares itself destructive."
+    if tool.name == "create_automation":
+        # Scheduling is persistent and starts model work later, unattended.
+        return "needs_approval", "This schedules recurring agent work that runs later without you."
     if getattr(tool, "mcp_server", "") and not getattr(tool, "read_only", False):
         return "external", f"This acts on the external server '{tool.mcp_server}'."
     return None

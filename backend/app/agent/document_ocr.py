@@ -263,11 +263,15 @@ async def read_document(src: Path, plan: DocumentPlan, provider: LLMProvider, op
     page_notes: dict[int, str] = {}
     kinds: dict[int, str] = {}  # "vision" | "native"
     halted: dict[str, int] = {}
+    # A page whose model admission the run budget refuses stops new dispatches
+    # but lets pages already in flight finish (they were admitted and charged);
+    # the refusal is raised once they settle.
+    refused: dict[str, BudgetExhausted] = {}
     timed_out: list[int] = []
 
     async def read_page(number: int) -> None:
         async with gate:
-            if halted:
+            if halted or refused:
                 return
             if ctx.cancel.is_set():
                 raise DocumentCancelled("Document reading stopped.")
@@ -306,7 +310,11 @@ async def read_document(src: Path, plan: DocumentPlan, provider: LLMProvider, op
             # The admission callback checks configured spending limits before any
             # request begins. If it rejects, no failed provider call is invented.
             if recorder:
-                await recorder({**metadata, "status": "started"})
+                try:
+                    await recorder({**metadata, "status": "started"})
+                except BudgetExhausted as exc:
+                    refused.setdefault("budget", exc)
+                    return
             result = None
             try:
                 result = await cancellable(provider.complete(messages, options), ctx.cancel,
@@ -358,6 +366,8 @@ async def read_document(src: Path, plan: DocumentPlan, provider: LLMProvider, op
             task.cancel()
         await _await_owned(tasks)
         raise
+    if refused:
+        raise refused["budget"]
 
     notes = list(plan.notes) + [page_notes[n] for n in sorted(page_notes)]
     unread = [n for n in plan.pages if n not in sections]

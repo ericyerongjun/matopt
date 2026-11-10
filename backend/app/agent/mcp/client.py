@@ -19,7 +19,7 @@ import re
 from typing import Any, Optional
 
 from app.agent.events import ToolResult
-from app.agent.mcp.config import load_mcp_config
+from app.agent.mcp.config import expand_vars, load_mcp_config, secret_env
 from app.agent.mcp.results import convert_result, field, json_value
 from app.agent.tools.base import Tool, ToolContext, output_bound_bytes
 from app.agent.events import ev
@@ -30,7 +30,8 @@ logger = logging.getLogger(__name__)
 # Per-server keys MatOpt reads itself (Codex's ``McpServerConfig``,
 # ``config/src/mcp_types.rs``). They are stripped before the entry reaches
 # FastMCP, whose transport config does not know them.
-SERVER_POLICY_KEYS = ("enabled", "startup_timeout_sec", "tool_timeout_sec", "enabled_tools", "disabled_tools")
+SERVER_POLICY_KEYS = ("enabled", "startup_timeout_sec", "tool_timeout_sec", "enabled_tools", "disabled_tools",
+                      "x-matopt-connector")
 DEFAULT_STARTUP_TIMEOUT = 30.0
 # Chat Completions caps function names at 64 characters.
 MAX_TOOL_NAME = 64
@@ -160,8 +161,12 @@ class McpProxyTool(Tool):
 class McpHub:
     """Long-lived FastMCP client over the configured extra servers."""
 
-    def __init__(self, config_path: Optional[Any] = None, max_output_chars: int = 12_000):
+    def __init__(self, config_path: Optional[Any] = None, max_output_chars: int = 12_000,
+                 env_path: Optional[Any] = None):
         self.config_path = config_path
+        # ``${VAR}`` references in mcp.json resolve against this secrets file,
+        # then the process environment (app/agent/mcp/config.py).
+        self.env_path = env_path
         self.max_output_chars = max_output_chars
         self._clients: list[Any] = []
         self._tools: list[McpProxyTool] = []
@@ -226,11 +231,21 @@ class McpHub:
             return
         if self._clients:
             return
+        env = secret_env(self.env_path)
         for server, configuration in servers.items():
             client = None
             transport, policy = _server_policy(configuration)
             if policy.get("enabled") is False:
                 self._set_status(server, "disabled")
+                continue
+            transport, missing = expand_vars(transport, env)
+            if isinstance(transport, dict) and isinstance(transport.get("headers"), dict):
+                # An optional token left unset expands to "Bearer ": send no header at all.
+                transport["headers"] = {k: v for k, v in transport["headers"].items()
+                                        if not (isinstance(v, str) and v.strip() in ("", "Bearer", "Basic"))}
+            if missing:
+                # Never connect with an empty credential; name only the variables.
+                self._set_status(server, "failed", error="Set " + ", ".join(missing) + " to connect")
                 continue
             startup_timeout = _positive(policy.get("startup_timeout_sec"), DEFAULT_STARTUP_TIMEOUT)
             tool_timeout = _positive(policy.get("tool_timeout_sec"), None)

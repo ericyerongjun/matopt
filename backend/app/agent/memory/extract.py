@@ -101,11 +101,20 @@ def _tool_line(part: dict) -> str:
     return f"[tool {part.get('name', '?')}] {args}".rstrip()
 
 
-def render_conversation(db, cid: str, *, max_chars: int = MAX_TRANSCRIPT_CHARS) -> Transcript:
-    """The filtered, redacted transcript and the set of tools the conversation used."""
+def render_conversation(db, cid: str, *, max_chars: int = MAX_TRANSCRIPT_CHARS,
+                        session_notes: str = "") -> Transcript:
+    """The filtered, redacted transcript and the set of tools the conversation used.
+
+    ``session_notes`` — the chat's working-memory block (:mod:`.session`) — leads
+    the transcript: it is the model's own condensed record of goals, notation
+    and results, the hand-off from session memory to personal memory.
+    """
     tools: set[str] = set()
     external = False
     lines: list[str] = []
+    if session_notes.strip():
+        lines.append("SESSION NOTES (kept by the assistant during the chat):\n"
+                     + _clip(session_notes.strip(), MAX_MESSAGE_CHARS))
     user_turns = 0
     for message in db.list_messages(cid):
         content = message.get("content") or {}

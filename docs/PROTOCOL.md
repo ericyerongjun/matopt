@@ -180,7 +180,7 @@ commentary through an explicit contract; it never exposes provider reasoning.
 `GET /api/skills/{name}` → full `SKILL.md` body plus metadata.
 `GET /api/tools` → `{tools: [{name, description, kind, source}]}` for the composer `/` menu (hides skill loaders and the internal UI tools).
 
-Skill folders live in `skills/matopt/`, `skills/data/`, and `skills/anthropic/` (Agent Skills spec). Data-analysis work is split like Anthropic's catalog: `/data-eda`, `/data-report`, `/data-slides`, `/data-notebook`, `/data-agent`. The harness scores the user message and attachments, injects up to two matching `SKILL.md` bodies, and copies the folder into the conversation workspace at `skills/<name>/`. Docker images copy that tree to `/app/skills` (compose also bind-mounts it).
+Skill folders live in `skills/matopt/`, `skills/data/`, `skills/workflow/` and `skills/anthropic/` (Agent Skills spec). A skill whose frontmatter sets `disable-model-invocation: true` (the `skills/workflow/` commands such as `/openspec-propose`, `/review`, `/loop`) is never auto-activated; it runs only as `/name` or through `load_skill`. Data-analysis work is split like Anthropic's catalog: `/data-eda`, `/data-report`, `/data-slides`, `/data-notebook`, `/data-agent`. The harness scores the user message and attachments, injects up to two matching `SKILL.md` bodies, and copies the folder into the conversation workspace at `skills/<name>/`. Docker images copy that tree to `/app/skills` (compose also bind-mounts it).
 
 ## Data agent
 
@@ -211,7 +211,55 @@ The previous RestrictedPython eval loop is replaced by the conversation kernel, 
   `/.well-known/oauth-protected-resource/mcp/`) is set. stdio never needs it.
 - MCP Apps: `open_ui_app` renders a saved mini-app in hosts that support the
   `io.modelcontextprotocol/ui` extension. See [MCP-APPS-EVALUATION.md](MCP-APPS-EVALUATION.md).
-- Extra servers: repo-root `mcp.json` (`mcpServers` map, same shape as Claude Code).
+- Extra servers: repo-root `mcp.json` (`mcpServers` map, same shape as Claude Code). String values may
+  reference `${VAR}` / `${VAR:-default}`; values come from `<data_dir>/mcp.env` (0600, written by the
+  connector API) and then the process environment. A server with an unset variable is reported `failed`.
+- Other apps: `python -m app.agent.mcp.export <client> [--write] [--http URL]` prints (or merges, keeping
+  a `.bak`) the config for `claude-desktop`, `claude-code`, `cursor`, `vscode`, `windsurf`, `codex`,
+  `gemini` or `zed`.
+
+### Connectors
+
+One-click entries for well-known MCP servers (`app/agent/mcp/catalog.py`): Microsoft Learn, Context7,
+DeepWiki, Cloudflare and AWS docs, Hugging Face, Wolfram, MATLAB, Jupyter, arXiv, Zotero, W&B, GitHub,
+Linear, Sentry, Supabase, Stripe, Atlassian, Notion, Playwright, Chrome DevTools, filesystem, git,
+fetch, memory, Excel, Figma (desktop), Blender and the Docker MCP Toolkit. Writes need
+`SETTINGS_API_WRITABLE` and reconnect the hub immediately (no restart).
+
+| Method | Path | Body | Returns |
+|---|---|---|---|
+| GET | `/api/mcp/connectors` | | `{connectors: Connector[], enabled}` |
+| POST | `/api/mcp/connectors/{id}` | `{values?: {key: string}, secrets?: {key: string}}` | `{connector}`; secrets go to `mcp.env`, never `mcp.json` or a response |
+| PATCH | `/api/mcp/connectors/{id}` | `{enabled}` | `{connector}` |
+| DELETE | `/api/mcp/connectors/{id}` | | `{removed}` (also forgets its stored secrets) |
+| POST | `/api/mcp/reload` | | `{servers: status[]}` |
+| GET | `/api/mcp/clients` | | `{clients: [{id, name, path, note}]}` |
+| GET | `/api/mcp/clients/{id}?http=false` | | `{snippet, path, note, command}` |
+
+```ts
+interface Connector {
+  id: string; name: string; vendor: string; category: string; description: string; docs: string;
+  auth: "none" | "token" | "optional-token"; transport: "remote" | "local"; requires: string[];
+  inputs: {key: string; label: string; kind: "path" | "text" | "secret"; required: boolean; env?: string}[];
+  installed: boolean; available: boolean; missing: string[]; secrets: Record<string, boolean>;
+  enabled?: boolean; state?: "connected" | "failed" | "disabled" | "pending"; error?: string; tool_count?: number;
+}
+```
+
+## Automations
+
+Scheduled or watched agent turns behind `/loop` and `/automate` (`app/agent/automations.py`). The agent
+creates them with `create_automation` (needs approval; `every_minutes` or `cron` + IANA `timezone`; an
+optional `watch_path` / `watch_pattern` starts a turn only when a workspace file changes or matches).
+Each run is a normal run in its conversation; a busy conversation is retried a minute later. State:
+`<data_dir>/automations.json`. Deleting a conversation deletes its automations.
+
+| Method | Path | Body | Returns |
+|---|---|---|---|
+| GET | `/api/automations?conversation_id=` | | `{automations: Automation[]}` |
+| PATCH | `/api/automations/{id}` | `{enabled}` | `Automation` |
+| POST | `/api/automations/{id}/run` | | `Automation` (starts a run now) |
+| DELETE | `/api/automations/{id}` | | `{deleted: true}` |
 
 ## Files
 

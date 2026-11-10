@@ -34,7 +34,7 @@ USER matopt
 ENV DATA_DIR=/app/data \
     HOST=0.0.0.0 \
     SANDBOX_MODE=external \
-    SKILLS_DIRS=/app/skills/matopt,/app/skills/data,/app/skills/anthropic
+    SKILLS_DIRS=/app/skills/matopt,/app/skills/data,/app/skills/workflow,/app/skills/anthropic
 
 EXPOSE 8000
 

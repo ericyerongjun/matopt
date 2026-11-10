@@ -6,6 +6,7 @@ import asyncio
 import collections
 import logging
 import time
+from pathlib import Path
 from functools import lru_cache
 
 from app.agent.harness import AgentHarness
@@ -31,6 +32,7 @@ from app.agent.exec_rules import ExecPolicy
 from app.agent.tools.exec_sessions import BashPollTool
 from app.agent.tools.shell_tool import ShellTool
 from app.agent.subagents import subagent_tools
+from app.agent.automations import automation_tools
 from app.agent.intent import SwitchToOptTool
 from app.agent.tools.data_agent_tool import DataAgentTool
 from app.agent.tools.skill_tools import LoadSkillTool, SearchSkillsTool
@@ -61,16 +63,25 @@ class Runtime:
         self.skills = SkillRegistry.discover([*settings.skill_directories(), *self.plugins.skill_dirs()])
         self.tools = build_tools(self.skills)
         from app.agent.memory import MemoryService, set_memory_service
+        from app.agent.memory.session import SessionMemory, set_session_memory
         # Built here, not through get_memory_service(), which resolves the runtime.
         self.memories = MemoryService(settings, self.db, providers)
         set_memory_service(self.memories)
         if settings.memories_enabled:
             for tool in self.memories.tools():
                 self.tools.register(tool)
+        # Session memory shares the memory service's recall index.
+        self.session_memory = SessionMemory(settings, self.db, self.memories.index, self.memories)
+        set_session_memory(self.session_memory)
+        if settings.session_memory_enabled:
+            for tool in self.session_memory.tools():
+                self.tools.register(tool)
         self.mcp = McpHub(
             settings.resolved_mcp_config_path() if settings.mcp_enabled else None,
             max_output_chars=settings.tool_max_output_chars,
+            env_path=settings.resolved_mcp_env_path(),
         )
+        self._mcp_lock = asyncio.Lock()
         self.tool_router = ToolRouter()
         self.providers = providers
         self.executions = ToolExecutionService(
@@ -85,12 +96,21 @@ class Runtime:
             skills=self.skills, tool_router=self.tool_router, executions=self.executions,
         )
         self.runs = RunManager(self.db, self.harness)
+        self.automations = None
+        if settings.automations_enabled:
+            from app.agent.automations import AutomationService, AutomationStore, set_automation_service
+            self.automations = AutomationService(
+                AutomationStore(settings.automations_path or Path(settings.data_dir) / "automations.json"),
+                settings.workspace_dir, self._start_automation_run, is_busy=self.runs.is_running)
+            set_automation_service(self.automations)
 
     async def start(self) -> None:
         self.db.interrupt_running_subagents()
         await self.runs.recover()
         self.harness.ui.store.recover_pending()
         self.kernels.start_reaper()
+        if self.automations is not None:
+            self.automations.start()
         self._background = [asyncio.create_task(self._lag_loop(), name="event-loop-lag"),
                             asyncio.create_task(self._maintenance_loop(), name="maintenance")]
         self._started = True
@@ -98,12 +118,33 @@ class Runtime:
             self._memory_task = asyncio.create_task(self._memory_loop(), name="memories")
         if settings.mcp_enabled:
             from app.agent.mcp.resources import resource_tools
-            await self.mcp.start(reserved=set(self.tools.names()) | {"list_mcp_resources", "read_mcp_resource"},
-                                 extra_servers=self.plugins.mcp_servers())
             for t in resource_tools(self.mcp):
                 self.tools.register(t)
-            for t in self.mcp.tools():
-                self.tools.register(t)
+            await self._start_mcp()
+
+    async def _start_mcp(self) -> None:
+        mcp_names = {t.name for t in self.mcp.tools()}
+        reserved = {n for n in self.tools.names() if n not in mcp_names}
+        await self.mcp.start(reserved=reserved | {"list_mcp_resources", "read_mcp_resource"},
+                             extra_servers=self.plugins.mcp_servers())
+        for t in self.mcp.tools():
+            self.tools.register(t)
+
+    async def reload_mcp(self) -> list[dict]:
+        """Reconnect every MCP server after ``mcp.json`` changed, without a restart.
+
+        Calls already running on a server that is torn down fail with a
+        transport error; new turns see the new tool set.
+        """
+        if not settings.mcp_enabled:
+            return []
+        async with self._mcp_lock:
+            old = [t.name for t in self.mcp.tools()]
+            await self.mcp.stop()
+            for name in old:
+                self.tools.unregister(name)
+            await self._start_mcp()
+            return self.mcp.status()
 
     async def _memory_loop(self) -> None:
         """Codex runs memory passes in the background at startup; MatOpt also repeats hourly."""
@@ -158,7 +199,18 @@ class Runtime:
             "runs": {"active": self.runs.active_count, "stalled": self._stalled_runs},
         }
 
+    async def _start_automation_run(self, cid: str, text: str, row: dict) -> str | None:
+        from app.agent.harness import RunRequest
+        conv = self.db.get_conversation(cid)
+        if conv is None:
+            raise LookupError("conversation was deleted")
+        run = await self.runs.start(RunRequest(conversation_id=cid, text=text, provider_id=conv.get("provider"),
+                                               model_id=conv.get("model"), reasoning=conv.get("reasoning")))
+        return run.get("id")
+
     async def stop(self) -> None:
+        if self.automations is not None:
+            await self.automations.stop()
         for task in self._background:
             task.cancel()
         await asyncio.gather(*self._background, return_exceptions=True)
@@ -174,6 +226,7 @@ class Runtime:
         if shell is not None and hasattr(shell, "sessions"):
             await shell.sessions.shutdown()
         await self.kernels.shutdown_all()
+        self.memories.index.close()
         self.db.close()
         # Its database is closed now, so the next caller must get a new runtime.
         _cached_runtime.cache_clear()
@@ -217,6 +270,8 @@ def build_tools(skills: SkillRegistry | None = None) -> ToolRegistry:
         tools.append(WolframAlphaTool(settings.wolfram_app_id))
     if lean := LeanCheckTool.detect():
         tools.append(lean)
+    if settings.automations_enabled:
+        tools.extend(automation_tools())
     registry = ToolRegistry(tools)
     discovery = ToolRouter()
     registry.register(SearchToolsTool(registry, discovery))

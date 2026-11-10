@@ -124,3 +124,55 @@ test('a server without the settings API explains what is unavailable', async () 
   act(() => tab('Memories').click());
   assert.match(panel().textContent!, /Memories are not available on this server/);
 });
+
+const learn = { id: 'microsoft-learn', name: 'Microsoft Learn', vendor: 'Microsoft', category: 'Docs', description: 'Search Microsoft docs.', docs: 'https://learn.microsoft.com',
+  auth: 'none', inputs: [], requires: [], notes: '', tools: [], transport: 'remote', installed: false, available: true, missing: [], secrets: {} };
+const github = { ...learn, id: 'github', name: 'GitHub', vendor: 'GitHub', category: 'Development', description: 'Repos and PRs.', auth: 'token',
+  inputs: [{ key: 'token', label: 'Personal access token', kind: 'secret', required: true, env: 'GITHUB_PERSONAL_ACCESS_TOKEN' }], secrets: { GITHUB_PERSONAL_ACCESS_TOKEN: false } };
+
+test('connectors connect in one click, ask for secrets, and export MatOpt to other apps', async () => {
+  routes['get /mcp/connectors'] = () => ({ connectors: [learn, github] });
+  routes['post /mcp/connectors/microsoft-learn'] = () => ({ connector: { ...learn, installed: true, enabled: true, state: 'connected', tool_count: 3 } });
+  routes['post /mcp/connectors/github'] = () => ({ connector: { ...github, installed: true, enabled: true, state: 'connected', tool_count: 40 } });
+  routes['get /mcp/clients'] = () => ({ clients: [{ id: 'cursor', name: 'Cursor', path: '/home/u/.cursor/mcp.json', note: '' }] });
+  routes['get /mcp/clients/cursor'] = () => ({ client: 'cursor', name: 'Cursor', snippet: '{"mcpServers":{"matopt":{}}}', path: '/home/u/.cursor/mcp.json', note: '', command: 'python -m app.agent.mcp.export cursor --write' });
+  await mount(<SettingsDialog open onOpenChange={() => {}} initialSection="integrations" />);
+  const view = panel();
+  assert.match(view.textContent!, /Connect apps/); assert.match(view.textContent!, /Microsoft Learn/);
+  const connectButtons = () => [...view.querySelectorAll<HTMLButtonElement>('button')].filter((entry) => entry.textContent === 'Connect');
+  act(() => connectButtons()[0].click()); await settle();
+  const learnPost = requests.find((request) => request.url === '/mcp/connectors/microsoft-learn')!;
+  assert.deepEqual(JSON.parse(String(learnPost.data)), { values: {}, secrets: {} });
+  assert.match(view.textContent!, /3 tools/);
+  // GitHub needs a token: the button opens a form instead of connecting.
+  act(() => connectButtons()[0].click()); await settle();
+  assert.equal(requests.some((request) => request.url === '/mcp/connectors/github'), false);
+  const form = view.querySelector<HTMLFormElement>('form[aria-label="Connect GitHub"]')!;
+  const submit = button(form, 'Connect');
+  assert.equal(submit.disabled, true);
+  const token = form.querySelector<HTMLInputElement>('input[type=password]')!;
+  type(token, 'ghp_test');
+  act(() => submit.click()); await settle();
+  const ghPost = requests.find((request) => request.url === '/mcp/connectors/github')!;
+  assert.deepEqual(JSON.parse(String(ghPost.data)), { values: {}, secrets: { token: 'ghp_test' } });
+  const select = view.querySelector<HTMLSelectElement>('select')!;
+  act(() => { select.value = 'cursor'; select.dispatchEvent(new window.Event('change', { bubbles: true })); }); await settle();
+  assert.match(view.querySelector('pre')!.textContent!, /matopt/);
+  assert.match(view.textContent!, /\.cursor\/mcp\.json/);
+});
+
+test('automations list, pause and delete', async () => {
+  const row = { id: 'auto_1', name: 'Weekly reading', prompt: 'Find new docs.', conversation_id: 'c1', schedule_text: 'cron `0 9 * * 1` (Asia/Shanghai)',
+    watch: null, enabled: true, status: 'active', next_run_at: 1_800_000_000, last_run_at: null, run_count: 0, last_status: null };
+  routes['get /automations'] = () => ({ automations: [row] });
+  routes['patch /automations/auto_1'] = (config) => ({ ...row, enabled: JSON.parse(String(config.data)).enabled });
+  routes['delete /automations/auto_1'] = () => ({ deleted: true });
+  await mount(<SettingsDialog open onOpenChange={() => {}} initialSection="automations" />);
+  const view = panel();
+  assert.match(view.textContent!, /Weekly reading/); assert.match(view.textContent!, /Asia\/Shanghai/); assert.match(view.textContent!, /Active/);
+  act(() => view.querySelector<HTMLButtonElement>('[aria-label="Enable Weekly reading"]')!.click()); await settle();
+  assert.match(view.textContent!, /Paused/);
+  act(() => view.querySelector<HTMLButtonElement>('[aria-label="Delete Weekly reading"]')!.click()); await settle();
+  assert.ok(requests.some((request) => request.method === 'delete' && request.url === '/automations/auto_1'));
+  assert.doesNotMatch(view.textContent!, /Find new docs/);
+});

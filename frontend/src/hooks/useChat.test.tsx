@@ -512,3 +512,19 @@ test("a first send survives its own new chat becoming active", async () => {
   assert.equal(hook.streaming, true);
   assert.equal(hook.overlay?.cid, "chat-new");
 });
+
+test("an open idle chat attaches to a run the server started later (an automation)", async (t) => {
+  t.mock.timers.enable({ apis: ["setInterval"] });
+  let run: Record<string, unknown> | null = null;
+  const streams: string[] = [];
+  globalThis.fetch = async (url) => { streams.push(String(url)); return new Response(new ReadableStream({ start() {} })); };
+  apiClient.defaults.adapter = async (config) => ({ data: config.url?.endsWith("/run") ? { run } : { messages: savedMessages().slice(0, 1) },
+    config, headers: {}, status: 200, statusText: "OK" });
+  await act(async () => { render(); });
+  assert.equal(hook.streaming, false);
+  run = { id: "auto-run", conversation_id: "chat-1", message_id: "answer-1", status: "running" };
+  await act(async () => { t.mock.timers.tick(15_000); });
+  for (let i = 0; i < 5; i++) await act(async () => { await new Promise((resolve) => setImmediate(resolve)); });
+  assert.equal(hook.streaming, true);
+  assert.deepEqual(streams, ["/api/runs/auto-run/events?after=0"]);
+});
