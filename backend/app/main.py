@@ -6,13 +6,16 @@ import logging
 from contextlib import asynccontextmanager
 from pathlib import Path
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 
+from app.agent.workspace import WorkspaceError
 from app.api import api_router
 from app.config import settings
 from app.runtime import get_runtime
+from app.security import HttpBoundary, auth_router, check_bind
 
 logging.basicConfig(
     level=logging.DEBUG if settings.debug else logging.INFO,
@@ -40,6 +43,7 @@ async def lifespan(app: FastAPI):
 
 
 def create_app() -> FastAPI:
+    check_bind(settings)
     mcp_asgi = None
     if settings.mcp_enabled:
         try:
@@ -65,6 +69,8 @@ def create_app() -> FastAPI:
         description="Agentic assistant for mathematics, statistics, ML and CS: tool-calling harness with a persistent Python kernel, Agent Skills, and MCP sandbox.",
         lifespan=_lifespan,
     )
+    # Added first so it runs inside CORS: refusals still carry CORS headers.
+    app.add_middleware(HttpBoundary)
     app.add_middleware(
         CORSMiddleware,
         allow_origins=settings.cors_origins,
@@ -72,7 +78,12 @@ def create_app() -> FastAPI:
         allow_methods=["*"],
         allow_headers=["*"],
     )
+    app.include_router(auth_router)
     app.include_router(api_router)
+
+    @app.exception_handler(WorkspaceError)
+    async def invalid_workspace(_request: Request, exc: WorkspaceError):
+        return JSONResponse({"detail": str(exc)}, status_code=400)
 
     @app.middleware("http")
     async def html_isolation_headers(request, call_next):
@@ -86,7 +97,7 @@ def create_app() -> FastAPI:
             target_port = target.port or (443 if target.scheme == "https" else 80)
             if (target.scheme, target.hostname, target_port) == (request.url.scheme, request.url.hostname, request_port):
                 origin = "'none'"
-            response.headers["Content-Security-Policy"] = f"frame-src {origin} blob:; object-src 'none'; base-uri 'self'"
+            response.headers["Content-Security-Policy"] = f"frame-src {origin} blob:; img-src 'self' data: blob:; object-src 'none'; base-uri 'self'"
         return response
 
     if settings.data_agent_enabled:

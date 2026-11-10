@@ -18,6 +18,7 @@ from pathlib import Path
 from threading import RLock
 from typing import Any, Dict
 
+from app.config import settings as matopt_settings
 from data_agent_app.core.config import settings
 from data_agent_app.utils.text import strip_ansi_escape_codes
 
@@ -32,7 +33,10 @@ class LocalCodeExecutionService:
         self._locks: dict[str, RLock] = {}
 
     def workspace_for_session(self, session_id: str) -> Path:
-        workspace = Path(settings.LOCAL_WORKSPACE_ROOT).resolve() / str(session_id)
+        root = Path(settings.LOCAL_WORKSPACE_ROOT).resolve()
+        workspace = (root / str(session_id)).resolve()
+        if workspace.parent != root:
+            raise ValueError("Invalid session id")
         workspace.mkdir(parents=True, exist_ok=True)
         return workspace
 
@@ -44,6 +48,12 @@ class LocalCodeExecutionService:
         session_id: str = "default",
         cwd: str | Path | None = None,
     ) -> Dict[str, Any]:
+        if matopt_settings.sandbox_mode in ("workspace-write", "read-only"):
+            # This path runs in the backend process, outside the OS sandbox.
+            # Harness data-agent calls use the sandboxed kernel and never get here.
+            message = "Direct local execution is unavailable while SANDBOX_MODE is on."
+            return {"success": False, "stdout": "", "stderr": message, "error": message, "exit_code": -1,
+                    "execution_time": 0, "images": [], "generated_files": []}
         timeout = timeout or self.timeout
         workspace = Path(cwd).resolve() if cwd else self.workspace_for_session(session_id)
         workspace.mkdir(parents=True, exist_ok=True)

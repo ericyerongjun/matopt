@@ -37,6 +37,7 @@ INTERNAL_SUFFIXES = (".pyc", ".pyo")
 SANDBOX_NOTEBOOK = "analysis.ipynb"
 
 _SAFE_NAME = re.compile(r"[^A-Za-z0-9._\- ()\[\]+]")
+_SAFE_CONVERSATION_ID = re.compile(r"[A-Za-z0-9_-][A-Za-z0-9._-]{0,127}")
 
 
 class WorkspaceError(ValueError):
@@ -86,6 +87,9 @@ def safe_filename(name: str) -> str:
 
 class Workspace:
     def __init__(self, conversation_id: str, base_dir: Path):
+        # The id becomes a directory name, and delete() removes that directory.
+        if not _SAFE_CONVERSATION_ID.fullmatch(conversation_id):
+            raise WorkspaceError("Invalid conversation id")
         self.conversation_id = conversation_id
         self.root = (Path(base_dir) / conversation_id).resolve()
         for sub in ("uploads", "figures", "parsed"):

@@ -101,9 +101,15 @@ class Settings(BaseSettings):
     # ── App ──────────────────────────────────────────────────────────────
     app_name: str = "MatOpt"
     debug: bool = False
-    host: str = "0.0.0.0"
+    host: str = "127.0.0.1"
     port: int = 8000
     cors_origins: list[str] = ["http://localhost:5173", "http://localhost:3000", "http://127.0.0.1:5173"]
+    # The HTTP boundary (app/security.py). Loopback names and the CORS origins'
+    # hosts are always allowed; "*" turns the Host check off.
+    allowed_hosts: list[str] = []
+    api_auth_token: Optional[str] = None       # required to listen beyond loopback
+    # Only for a network that is already private, such as compose's loopback-published ports.
+    allow_unauthenticated_bind: bool = False
     data_dir: Path = BACKEND_DIR / "data"
     max_upload_size_mb: int = 200
     ui_native_enabled: bool = True
@@ -204,11 +210,11 @@ class Settings(BaseSettings):
 
     # ── Execution policy (ported from Codex; docs/CODEX-INTEGRATION.md) ─
     # OS sandbox around bash, lean and the Jupyter kernel (app/agent/sandbox.py).
-    # "off" runs unsandboxed (the historical behaviour); "workspace-write" lets
-    # children write only the workspace and temp; "read-only" writes nothing;
-    # "external" means the deployment already isolates (a container) and only
-    # the network setting is advertised to children.
-    sandbox_mode: Literal["off", "workspace-write", "read-only", "external"] = "off"
+    # "workspace-write" lets children write only the workspace and temp;
+    # "read-only" writes nothing; "off" runs unsandboxed; "external" means the
+    # deployment already isolates (a container) and only the network setting
+    # is advertised to children.
+    sandbox_mode: Literal["off", "workspace-write", "read-only", "external"] = "workspace-write"
     sandbox_network: bool = True               # outbound network inside the sandbox (pip, web data)
     sandbox_backend: Literal["auto", "seatbelt", "bwrap", "none"] = "auto"
     # Prefix rules for shell commands (app/agent/exec_rules.py). Empty uses the

@@ -21,7 +21,7 @@ OAUTH = {"mcp_oauth_issuer": "https://auth.example.com/", "mcp_oauth_jwks_uri": 
 
 
 def config(**overrides):
-    base = {"mcp_auth_token": None, "mcp_oauth_issuer": None, "mcp_oauth_jwks_uri": None, "mcp_oauth_audience": None,
+    base = {"mcp_auth_token": None, "api_auth_token": None, "mcp_oauth_issuer": None, "mcp_oauth_jwks_uri": None, "mcp_oauth_audience": None,
             "mcp_oauth_scopes": "", "mcp_public_url": None, "mcp_mount_path": "/mcp"}
     return SimpleNamespace(**{**base, **overrides})
 

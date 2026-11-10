@@ -145,10 +145,9 @@ async def delete_conversation(conversation_id: str):
     rt = get_runtime()
     await rt.runs.cancel_and_wait(conversation_id)
     await rt.kernels.shutdown(conversation_id)
-    ok = rt.db.delete_conversation(conversation_id)
-    rt.workspace(conversation_id).delete()
-    if not ok:
+    if not rt.db.delete_conversation(conversation_id):
         raise HTTPException(status_code=404, detail="Conversation not found")
+    rt.workspace(conversation_id).delete()
     return {"deleted": True}
 
 

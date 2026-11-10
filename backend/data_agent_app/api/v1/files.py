@@ -16,6 +16,7 @@ from urllib.parse import quote, unquote
 from urllib.parse import urlparse, parse_qs
 import re
 
+from app.agent.workspace import safe_filename
 from data_agent_app.api.deps import get_current_active_user, get_db
 from data_agent_app.core.hashid import decode_id
 from data_agent_app.models.models import User, UploadedFile
@@ -62,7 +63,9 @@ BLOCKED_UPLOAD_EXTENSIONS = {
     ".dmg", ".elf", ".exe", ".gadget", ".hta", ".jar", ".js", ".jse", ".lnk",
     ".msi", ".msp", ".pif", ".ps1", ".py", ".rb", ".reg", ".run", ".scr",
     ".sh", ".so", ".sys", ".vb", ".vbe", ".vbs", ".ws", ".wsf", ".zsh",
+    ".pth", ".pyc", ".pyo", ".pyz",
 }
+_SESSION_ID = re.compile(r"[A-Za-z0-9_-]{1,128}")
 
 
 def validate_upload_file(filename: str, file_size: int) -> None:
@@ -90,7 +93,11 @@ def is_internal_file_record(file_record: UploadedFile) -> bool:
 
 
 def is_allowed_oss_url(url: str) -> bool:
-    return any(domain in url for domain in ALLOWED_OSS_DOMAINS)
+    try:
+        parsed = urlparse(url)
+        return parsed.scheme in ("http", "https") and parsed.hostname in ALLOWED_OSS_DOMAINS
+    except ValueError:
+        return False
 
 
 def extract_oss_object_name(url_or_path: str) -> str:
@@ -262,19 +269,22 @@ async def upload_file(
             decoded = decode_id(conversation_id)
             if decoded is not None:
                 session_id = str(decoded)
-        
+            elif not _SESSION_ID.fullmatch(conversation_id):
+                raise HTTPException(status_code=400, detail="Invalid conversation id")
+
         # Read file content
         content = await file.read()
         file_size = len(content)
-        validate_upload_file(file.filename or "", file_size)
-        
+        stored_filename = safe_filename(file.filename or "")
+        validate_upload_file(stored_filename, file_size)
+
         if settings.FILE_STORAGE_MODE == "oss":
             # Upload to OSS
             oss_service = get_oss_service()
             object_name = get_oss_object_name(
-                "uploads", 
-                file.filename, 
-                current_user.id, 
+                "uploads",
+                stored_filename,
+                current_user.id,
                 session_id
             )
             
@@ -287,12 +297,9 @@ async def upload_file(
         else:
             # Local storage fallback
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-            if session_id:
-                safe_filename = f"{session_id}_{timestamp}_{file.filename}"
-            else:
-                safe_filename = f"{timestamp}_{file.filename}"
-            local_path = UPLOADS_DIR / safe_filename
-            
+            prefix = f"{session_id}_{timestamp}" if session_id else timestamp
+            local_path = UPLOADS_DIR / f"{prefix}_{stored_filename}"
+
             with open(local_path, "wb") as buffer:
                 buffer.write(content)
             file_path = str(local_path)
@@ -488,38 +495,6 @@ async def get_file_content(
                 'Content-Disposition': f'inline; filename="{filename}"'
             }
         )
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Internal error: {str(e)}")
-
-
-@router.get("/proxy")
-async def proxy_file(url: str):
-    """Proxy OSS files for browser display/download without direct client-to-OSS requests."""
-    import httpx
-
-    if not is_allowed_oss_url(url):
-        raise HTTPException(status_code=403, detail="Access denied: URL not in allowed list")
-
-    try:
-        if url.startswith("http://"):
-            url = url.replace("http://", "https://", 1)
-
-        async with httpx.AsyncClient(follow_redirects=True) as client:
-            response = await client.get(url, timeout=60.0)
-            response.raise_for_status()
-
-            content_type = response.headers.get("content-type", "application/octet-stream")
-            filename = url.split("/")[-1].split("?")[0]
-            return Response(
-                content=response.content,
-                media_type=content_type,
-                headers={
-                    "Content-Disposition": f'inline; filename="{filename}"',
-                    "Cache-Control": "public, max-age=300",
-                },
-            )
-    except httpx.HTTPError as e:
-        raise HTTPException(status_code=502, detail=f"Failed to fetch file: {str(e)}")
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Internal error: {str(e)}")
 

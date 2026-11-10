@@ -61,7 +61,7 @@ Landed, each with tests; the backend suite passes (659 tests).
 | Hooks | `hooks.py` | SessionStart, UserPromptSubmit, PreToolUse (deny / rewrite, re-validated), PostToolUse, Stop; exit 2 blocks; off by default |
 | AGENTS.md | `instructions.py` | operator scope in the system prompt, workspace scope in the turn context, 32 KiB cap, override files |
 | Exec rules | `exec_rules.py` | argv prefix rules, strictest wins, load-time examples, TOML extension; replaces the substring denylist |
-| OS sandbox | `sandbox.py` | Seatbelt / bubblewrap for bash, lean and the kernel; `SANDBOX_MODE` (default `off`); fails closed |
+| OS sandbox | `sandbox.py` | Seatbelt / bubblewrap for bash, lean and the kernel; `SANDBOX_MODE` (default `workspace-write`; containers use `external`); fails closed |
 | Turn diff | `turn_diff.py`, `GET /api/conversations/{id}/turns/{turn}/diff` | write/edit baselines, exec changes from a turn-start cache, deletions; `workspace/changes` session event |
 | Tolerant edits | `text_match.py`, `edit_file` | trailing / surrounding whitespace, Unicode punctuation; still unique |
 | Fuzzy file search | `find_files` tool | subsequence scoring, segment and file-name bonuses, smart case |
@@ -74,13 +74,17 @@ Known limits:
   tuning for NumPy, SciPy, Matplotlib and PyTorch. With network off, the
   kernel's loopback IOPub pipe cannot bind, so output written by forked
   subprocesses is not captured. Loopback stays closed on purpose: allowing it
-  would expose the backend's own API on localhost.
+  would expose the backend's own API on localhost. With network on, Seatbelt
+  closes only the backend's port and the dev/proxy ports from `CORS_ORIGINS`.
+  bubblewrap cannot filter by port, so on Linux use `API_AUTH_TOKEN` or
+  `SANDBOX_NETWORK=false` to keep sandboxed code away from the API.
 - bubblewrap needs unprivileged user namespaces, which Docker's default
   seccomp profile blocks. Inside the production container, use
   `SANDBOX_MODE=external` plus container hardening, or a custom seccomp
   profile. The bwrap argv is unit-tested only; it has not run on a Linux host.
 - `prompt` exec rules refuse, because there is no approval broker yet.
-- The data agent's standalone `local_code_execution.py` is not wrapped.
+- The data agent's standalone `local_code_execution.py` cannot be wrapped, so
+  it refuses to run while `SANDBOX_MODE` is `workspace-write` or `read-only`.
 - Live `tool_progress` deltas (the private terminal stream) are not redacted.
   Only the result the model sees is.
 

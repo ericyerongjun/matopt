@@ -10,8 +10,8 @@ roots, network on or off). This module is that policy for MatOpt's ``bash``,
 
 Modes (``settings.sandbox_mode``):
 
-``off``              no wrapper (the historical behaviour, and the default).
-``workspace-write``  children write only the workspace, the kernel's private
+``off``              no wrapper.
+``workspace-write``  (the default) children write only the workspace, the kernel's private
                      directory and the temp directory; reads of MatOpt's data
                      directory (other conversations, the database), its
                      ``.env`` and the backend user's credential folders are
@@ -47,6 +47,7 @@ import tempfile
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Literal, Optional, Sequence
+from urllib.parse import urlsplit
 
 SandboxMode = Literal["off", "workspace-write", "read-only", "external"]
 SEATBELT = "/usr/bin/sandbox-exec"
@@ -73,6 +74,10 @@ class SandboxPolicy:
     # code-mode tools socket (app/agent/kernel_tools.py). Listed by exact path
     # so the allowance survives if the blanket unix-socket rule is narrowed.
     unix_sockets: tuple[Path, ...] = ()
+    # Loopback ports serving MatOpt's own API, closed even with network on so a
+    # child cannot call the unsandboxed backend. Seatbelt only: bubblewrap can
+    # only drop all networking, so on Linux use API_AUTH_TOKEN or network off.
+    blocked_loopback_ports: tuple[int, ...] = ()
 
     @property
     def active(self) -> bool:
@@ -112,6 +117,17 @@ def select_backend(preference: str) -> str:
     return "none"
 
 
+def _backend_ports(settings: Any) -> tuple[int, ...]:
+    """The backend's port and the dev/proxy ports that forward to it."""
+    ports = {getattr(settings, "port", None)}
+    for origin in getattr(settings, "cors_origins", ()):
+        try:
+            ports.add(urlsplit(origin).port)
+        except ValueError:
+            continue
+    return tuple(sorted(int(port) for port in ports if port))
+
+
 def build_policy(settings: Any, workspace_root: Path, *, extra_writable: Sequence[Path] = (),
                  extra_readable: Sequence[Path] = ()) -> SandboxPolicy:
     mode = getattr(settings, "sandbox_mode", "off")
@@ -130,7 +146,8 @@ def build_policy(settings: Any, workspace_root: Path, *, extra_writable: Sequenc
     return SandboxPolicy(
         mode=mode, backend=select_backend(getattr(settings, "sandbox_backend", "auto")),
         writable_roots=tuple(dict.fromkeys(writable)), deny_read=tuple(dict.fromkeys(deny)),
-        allow_read=tuple(dict.fromkeys(allow)), network=bool(getattr(settings, "sandbox_network", True)))
+        allow_read=tuple(dict.fromkeys(allow)), network=bool(getattr(settings, "sandbox_network", True)),
+        blocked_loopback_ports=_backend_ports(settings))
 
 
 def _within(path: Path, parent: Path) -> bool:
@@ -170,6 +187,9 @@ def seatbelt_profile(policy: SandboxPolicy) -> str:
     # A writable root's own directory cannot be removed or renamed away.
     for root in policy.writable_roots:
         lines.append(f"(deny file-write-unlink (literal {_sbpl_string(root)}))")
+    if policy.network:
+        for port in policy.blocked_loopback_ports:
+            lines.append(f'(deny network-outbound (remote ip "localhost:{port}"))')
     if not policy.network:
         lines.append("(deny network-outbound)")
         lines.append("(deny network-bind)")

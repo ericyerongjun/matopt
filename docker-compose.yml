@@ -14,14 +14,19 @@ services:
     container_name: matopt-backend
     restart: unless-stopped
     env_file: ./backend/.env
+    # Published on this machine only: the API runs code. To expose MatOpt, set
+    # API_AUTH_TOKEN and ALLOWED_HOSTS first, then change these bindings.
     ports:
-      - "8000:8000"
+      - "127.0.0.1:8000:8000"
     volumes:
       - backend-data:/app/data
       - ./skills:/app/skills:ro
     environment:
       - DEBUG=false
       - HOST=0.0.0.0
+      - ALLOW_UNAUTHENTICATED_BIND=true
+      # bubblewrap cannot run under Docker's default seccomp profile.
+      - SANDBOX_MODE=external
       - PORT=8000
       - DATA_DIR=/app/data
       - SKILLS_DIRS=/app/skills/matopt,/app/skills/data,/app/skills/anthropic
@@ -42,7 +47,7 @@ services:
     container_name: matopt-frontend
     restart: unless-stopped
     ports:
-      - "3000:80"
+      - "127.0.0.1:3000:80"
     environment:
       UI_SANDBOX_ORIGIN: ${UI_SANDBOX_ORIGIN:-}
     depends_on:
@@ -58,7 +63,7 @@ services:
       dockerfile: frontend/sandbox/Dockerfile
     restart: unless-stopped
     ports:
-      - "3001:80"
+      - "127.0.0.1:3001:80"
 
 volumes:
   backend-data:

@@ -40,8 +40,10 @@ def build_mcp_auth(config):
         verifier = JWTVerifier(jwks_uri=config.mcp_oauth_jwks_uri, issuer=config.mcp_oauth_issuer,
                                audience=config.mcp_oauth_audience or base + "/", required_scopes=scopes)
         return RemoteAuthProvider(verifier, [config.mcp_oauth_issuer], base_url=base, resource_name="MatOpt kernel")
-    if config.mcp_auth_token:
-        if len(config.mcp_auth_token) < 16:
+    # API_AUTH_TOKEN covers /mcp too, so setting it can never leave this transport open.
+    token = config.mcp_auth_token or config.api_auth_token
+    if token:
+        if len(token) < 16:
             raise ValueError("MCP_AUTH_TOKEN must be at least 16 characters")
-        return StaticBearer(config.mcp_auth_token)
+        return StaticBearer(token)
     return None

@@ -15,7 +15,7 @@ function isolatedUiRuntime(origin?: string): Plugin {
             }
             server.middlewares.use((request, response, next) => {
                 const source = origin ? new URL(origin).origin : `http://${new URL(`http://${request.headers.host || "127.0.0.1:5173"}`).hostname}:5174`;
-                response.setHeader("Content-Security-Policy", `frame-src ${source} blob:; object-src 'none'; base-uri 'self'`);
+                response.setHeader("Content-Security-Policy", `frame-src ${source} blob:; img-src 'self' data: blob:; object-src 'none'; base-uri 'self'`);
                 next();
             });
         },

@@ -16,6 +16,7 @@ import "@fontsource/ibm-plex-mono/500.css";
 import "./zcode/styles.css";
 import "./matopt.css";
 import "./styles/design-tokens.css";
+import { redirectIfSignedOut } from "./services/auth";
 import { bootTheme } from "./utils/theme";
 import { bootUiFontSize, subscribeToUiFontSizeStorageChanges } from "./utils/uiFontSize";
 import { bootFontPreferences, subscribeToFontPreferenceStorageChanges } from "./utils/fontPreferences";
@@ -32,6 +33,7 @@ bootFontPreferences();
 // tab. Nothing here unmounts, so there is nothing to unsubscribe.
 subscribeToUiFontSizeStorageChanges();
 subscribeToFontPreferenceStorageChanges();
+void redirectIfSignedOut();
 
 createRoot(document.getElementById("root")!).render(
     <React.StrictMode>

@@ -31,6 +31,8 @@ RUN mkdir -p /app/data/workspaces /app/data/data_agent \
 USER matopt
 
 ENV DATA_DIR=/app/data \
+    HOST=0.0.0.0 \
+    SANDBOX_MODE=external \
     SKILLS_DIRS=/app/skills/matopt,/app/skills/data,/app/skills/anthropic
 
 EXPOSE 8000

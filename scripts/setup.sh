@@ -20,6 +20,10 @@ cd "$ROOT/backend"
 [ -f .env ] || cp .env.example .env
 mkdir -p data
 
+if [ "$(uname -s)" = "Linux" ] && ! command -v bwrap >/dev/null 2>&1; then
+  echo "bubblewrap is not installed, so agent code will refuse to run. Install it (apt install bubblewrap) or set SANDBOX_MODE=off in backend/.env." >&2
+fi
+
 cd "$ROOT/frontend"
 if command -v npm >/dev/null 2>&1; then npm ci; else echo "npm not found — install Node 22+ to build the frontend" >&2; fi
 

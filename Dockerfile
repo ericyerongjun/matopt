@@ -39,7 +39,11 @@ RUN mkdir -p /app/data/workspaces \
     && useradd -m matopt && chown -R matopt:matopt /app
 USER matopt
 
-ENV DATA_DIR=/app/data
+# Start with -e API_AUTH_TOKEN=<16+ characters>, or with
+# -e ALLOW_UNAUTHENTICATED_BIND=true -p 127.0.0.1:8000:8000 for this machine only.
+ENV DATA_DIR=/app/data \
+    HOST=0.0.0.0 \
+    SANDBOX_MODE=external
 
 EXPOSE 8000
 

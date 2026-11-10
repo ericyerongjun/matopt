@@ -45,6 +45,16 @@ text extraction remains available as a fallback. See
 [document reading and limits](backend/README.md#pdfs-screenshots-and-scanned-documents) for the
 configuration and supported formats.
 
+## Security defaults
+
+The API runs code, so the backend listens on `127.0.0.1` and refuses any other
+address unless `API_AUTH_TOKEN` (16+ characters) is set. Browsers then sign in
+at `/api/auth/login`, and `ALLOWED_HOSTS` must name the public host. Compose
+publishes its ports on this machine only. Agent code runs in an OS sandbox
+(`SANDBOX_MODE=workspace-write`): Seatbelt on macOS, bubblewrap on Linux, where
+it must be installed. Containers use `SANDBOX_MODE=external`, which relies on
+the container boundary.
+
 ## Voice tutor
 
 - **Talk:** hold **Right ⌥ Option** (browsers cannot see the fn/Globe key) or click the composer's mic. Speech is transcribed on the backend by Whisper (`small`, CPU) and placed in the composer; quick taps and Option+letter typing never record.
