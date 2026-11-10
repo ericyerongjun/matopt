@@ -1,3 +1,4 @@
+import logging
 import asyncio
 import json
 import re
@@ -14,6 +15,8 @@ from data_agent_app.services.code_execution_service import CodeExecutionService
 from data_agent_app.services.sandbox_file_manager import get_sandbox_file_manager, SANDBOX_SKILLS_DIR, SANDBOX_WORK_DIR
 from data_agent_app.core.config import settings
 from data_agent_app.services.local_code_execution import get_local_code_execution_service
+
+logger = logging.getLogger(__name__)
 
 
 class AgentService:
@@ -383,6 +386,7 @@ if '_image_paths' in globals() and _image_paths:
                 "error": result.get("error"),
                 "images": result.get("images", []),
                 "generated_files": result.get("generated_files", []),
+                "artifact_errors": result.get("artifact_errors", []),
             }
 
         if settings.CODE_EXECUTION_MODE == "local":
@@ -415,6 +419,7 @@ if '_image_paths' in globals() and _image_paths:
                 "error": result.get("error"),
                 "images": result.get("images", []),
                 "generated_files": result.get("generated_files", []),
+                "artifact_errors": result.get("artifact_errors", []),
             }
         
         # Ensure workspace directory exists in sandbox
@@ -491,6 +496,7 @@ if '_image_paths' in globals() and _image_paths:
             "error": result.get("error"),
             "images": result.get("images", []),
             "generated_files": result.get("generated_files", []),
+            "artifact_errors": result.get("artifact_errors", []),
             "kernel_restarted": kernel_restarted,
         }
     
@@ -550,6 +556,7 @@ if '_image_paths' in globals() and _image_paths:
                 "stderr": stderr,
                 "error": result.get("error"),
                 "generated_files": result.get("generated_files", []),
+                "artifact_errors": result.get("artifact_errors", []),
             }
         
         # Security: whitelist allowed commands
@@ -587,6 +594,7 @@ if '_image_paths' in globals() and _image_paths:
         recovered_latex_pdf = (
             command_name in {"pdflatex", "xelatex"}
             and not result.get("success", False)
+            and not result.get("artifact_errors")
             and generated_pdf
             and latex_wrote_pdf
         )
@@ -604,7 +612,8 @@ if '_image_paths' in globals() and _image_paths:
             "stdout": stdout,
             "stderr": stderr,
             "error": result.get("error"),
-            "generated_files": result.get("generated_files", [])
+            "generated_files": result.get("generated_files", []),
+            "artifact_errors": result.get("artifact_errors", []),
         }
     
     def is_visible_generated_file(self, path: str) -> bool:
@@ -676,7 +685,7 @@ if '_image_paths' in globals() and _image_paths:
                     continue
             return snapshot
         except Exception as e:
-            print(f"Failed to snapshot workspace files: {e}")
+            logger.warning("Failed to snapshot workspace files: %s", e)
 
         return {}
 
@@ -697,7 +706,8 @@ if '_image_paths' in globals() and _image_paths:
         or output is truncated by the execution backend."""
         if not user_id or not db:
             return
-        
+
+        failed: List[str] = []
         try:
             # Parse stdout to find files generated in THIS execution
             stdout = result.get('stdout', '')
@@ -739,10 +749,10 @@ if '_image_paths' in globals() and _image_paths:
             }
             
             if not current_execution_files:
-                print("No files generated in current execution")
+                logger.debug("No files generated in current execution")
                 return
             
-            print(f"Files generated in current execution: {current_execution_files}")
+            logger.debug("Files generated in current execution: %s", current_execution_files)
             
             # Only process files generated in this execution
             uploaded_files = []
@@ -759,18 +769,18 @@ if '_image_paths' in globals() and _image_paths:
                 if not sandbox_path or sandbox_path.startswith('.'):
                     continue
                 if sandbox_path.startswith(("http://", "https://", "/api/")):
-                    print(f"Skipping non-sandbox generated file reference: {sandbox_path}")
+                    logger.debug("Skipping non-sandbox generated file reference: %s", sandbox_path)
                     continue
                 normalized_path = sandbox_path.replace("\\", "/")
                 if settings.CODE_EXECUTION_MODE != "local" and not normalized_path.startswith(f"{SANDBOX_WORK_DIR}/"):
-                    print(f"Skipping file outside sandbox workspace: {sandbox_path}")
+                    logger.debug("Skipping file outside sandbox workspace: %s", sandbox_path)
                     continue
                 if (
                     sandbox_path == SANDBOX_SKILLS_DIR
                     or sandbox_path.startswith(f"{SANDBOX_SKILLS_DIR}/")
                     or "/.skills/" in normalized_path
                 ):
-                    print(f"Skipping internal skill file: {sandbox_path}")
+                    logger.debug("Skipping internal skill file: %s", sandbox_path)
                     continue
                 
                 filename = sandbox_path.split('/')[-1]
@@ -779,7 +789,7 @@ if '_image_paths' in globals() and _image_paths:
                 
                 # Skip original uploaded files (user input files)
                 if filename in uploaded_file_names:
-                    print(f"Skipping original uploaded file: {filename}")
+                    logger.debug("Skipping original uploaded file: %s", filename)
                     continue
                 
                 # Skip common non-generated files
@@ -802,7 +812,7 @@ if '_image_paths' in globals() and _image_paths:
                 elif ext in ['.py', '.js', '.ts', '.java', '.cpp', '.c', '.h', '.go', '.rs']:
                     file_type = 'code'
                 
-                print(f"Processing file: {filename} (type: {file_type}) from {sandbox_path}")
+                logger.debug("Processing file: %s (type: %s) from %s", filename, file_type, sandbox_path)
                 
                 # Upload all non-uploaded files
                 # Retry logic for upload
@@ -820,9 +830,8 @@ if '_image_paths' in globals() and _image_paths:
                         if oss_url:
                             break
                     except Exception as e:
-                        print(f"Upload attempt {attempt + 1} failed for {filename}: {e}")
+                        logger.warning("Upload attempt %s failed for %s: %s", attempt + 1, filename, e)
                         if attempt < 2:
-                            import asyncio
                             await asyncio.sleep(0.5)
                 
                 if oss_url:
@@ -835,11 +844,12 @@ if '_image_paths' in globals() and _image_paths:
                             "type": file_type
                         })
                         uploaded_oss_urls.add(oss_url)
-                        print(f"Uploaded {filename} ({file_type}) to {oss_url}")
+                        logger.debug("Uploaded %s (%s) to %s", filename, file_type, oss_url)
                     else:
-                        print(f"Skipping duplicate upload: {filename}")
+                        logger.debug("Skipping duplicate upload: %s", filename)
                 else:
-                    print(f"Failed to upload {filename} after 3 attempts")
+                    logger.warning("Failed to upload %s after 3 attempts", filename)
+                    failed.append(filename)
             
             # Add uploaded files to result
             if uploaded_files:
@@ -853,12 +863,29 @@ if '_image_paths' in globals() and _image_paths:
                 for f in uploaded_files:
                     if f["type"] == "image" and f["oss_url"] not in result["images"]:
                         result["images"].append(f["oss_url"])
-                        print(f"Added image URL: {f['oss_url']}")
+                        logger.debug("Added image URL: %s", f['oss_url'])
                         
         except Exception as e:
-            print(f"Failed to scan and upload files: {e}")
-            import traceback
-            traceback.print_exc()
+            logger.exception("Failed to scan and upload files: %s", e)
+            failed.append(f"(the output scan stopped early: {type(e).__name__})")
+        if failed:
+            self._report_unsaved_files(result, failed)
+
+    @staticmethod
+    def _report_unsaved_files(result: Dict[str, Any], failed: List[str]) -> None:
+        """Turn a run whose outputs were not saved into a visible failure.
+
+        The code itself may have succeeded, but a file the user was meant to
+        receive is missing, so the step must not read as a success. Every
+        caller builds its reply from ``stdout``, hence the notice goes there.
+        """
+        notice = ("[ARTIFACT_ERROR] The code ran, but these output files could not be saved and are not "
+                  "available to the user: " + ", ".join(failed) + ". Do not report them as delivered.")
+        result["artifact_errors"] = list(failed)
+        result["success"] = False
+        result["error"] = result.get("error") or notice
+        stdout = result.get("stdout") or ""
+        result["stdout"] = f"{stdout.rstrip()}\n{notice}" if stdout.strip() else notice
     
     async def _read_file(self, input_data: Dict[str, Any]) -> Dict[str, Any]:
         """Read file contents from OpenSandbox."""
@@ -1331,271 +1358,8 @@ print(json.dumps({{"matches": matches, "count": len(matches)}}, ensure_ascii=Fal
             "todos": normalized
         }
     
-    def get_session_files(self, session_id: str) -> List[str]:
-        """Get list of files in a session."""
-        return self.session_files.get(session_id, [])
-    
     def set_session(self, session_id: str):
         """Set current session ID."""
         self.current_session_id = session_id
         if session_id not in self.session_files:
             self.session_files[session_id] = []
-    
-    def get_tool_definitions(self) -> list:
-        """Get tool definitions for LLM."""
-        tools = [
-            {
-                "type": "function",
-                "function": {
-                    "name": "execute_python",
-                    "description": f"""🎯 PRIMARY TOOL for Python data analysis.
-
-WORKING DIRECTORY: the current conversation's local workspace.
-Uploaded files are automatically synced there. Use the exact paths shown in the available-files prompt.
-
-Generated files (charts, exports) are automatically captured and displayed in Files.
-
-USE THIS FOR:
-- Loading and analyzing CSV, Excel, JSON files
-- Data cleaning, transformation, aggregation
-- Creating visualizations with matplotlib, seaborn
-- Statistical analysis with pandas, numpy, scipy
-- Machine learning with scikit-learn
-- Any Python code execution
-
-VARIABLES PERSIST between calls in the same session!
-Example: Load data in step 1, analyze in step 2, visualize in step 3.
-
-ALWAYS use plt.savefig() to save charts, NOT plt.show():
-  plt.savefig('chart.png')""",
-                    "parameters": {
-                        "type": "object",
-                        "properties": {
-                            "code": {
-                                "type": "string",
-                                "description": "Python code to execute. Use plt.savefig() for charts. Variables persist between calls."
-                            },
-                            "session_id": {
-                                "type": "string",
-                                "description": "Session ID for variable persistence (use conversation_id)"
-                            }
-                        },
-                        "required": ["code", "session_id"]
-                    }
-                }
-            },
-            {
-                "type": "function",
-                "function": {
-                    "name": "execute_shell",
-                    "description": f"""Execute shell commands for analysis and report generation.
-
-IMPORTANT: Use 'python3' instead of 'python', and 'python3 -m pip' instead of 'pip'.
-First use preinstalled packages. If installation is essential, use one simple command like `/opt/python/versions/cpython-3.11.14-linux-x86_64-gnu/bin/python3 -m pip install package-name --break-system-packages --no-cache-dir`.
-Do NOT use apt-get, sudo, pip3, tlmgr, shell chaining with ;/||/&&, pipes, or redirection such as 2>&1.
-Examples:
-- /opt/python/versions/cpython-3.11.14-linux-x86_64-gnu/bin/python3 -m pip install python-pptx --break-system-packages --no-cache-dir
-- python3 script.py
-- ls
-- pdflatex -interaction=nonstopmode -halt-on-error report.tex
-- xelatex -interaction=nonstopmode -halt-on-error report.tex
-
-LaTeX is available if installed on the host. For English PDF reports, write a .tex file first, then compile it with pdflatex via this tool. For Chinese or mixed Chinese/English reports, use xelatex with xeCJK/ctex and Noto CJK fonts. Do not use tlmgr at runtime. For long reports or formal PDF reports, read .skills/latex_skill.md first and follow its template. Run the compiler twice if the document uses references or a table of contents.
-For PPT, presentation, slides, or deck requests, read .skills/ppt_skill.md first. Prefer editable .pptx with python-pptx unless the user explicitly asks for PDF slides.
-""",
-                    "parameters": {
-                        "type": "object",
-                        "properties": {
-                            "command": {
-                                "type": "string",
-                                "description": "Shell command to execute"
-                            },
-                            "session_id": {
-                                "type": "string",
-                                "description": "Session ID for workspace isolation"
-                            }
-                        },
-                        "required": ["command", "session_id"]
-                    }
-                }
-            },
-            {
-                "type": "function",
-                "function": {
-                    "name": "read_file",
-                    "description": "Read contents of a text file from the local workspace. Use for: reading code files, logs, generated reports.",
-                    "parameters": {
-                        "type": "object",
-                        "properties": {
-                            "path": {
-                                "type": "string",
-                                "description": "File path relative to the local workspace, or an absolute path inside it"
-                            },
-                            "session_id": {
-                                "type": "string",
-                                "description": "Session ID for workspace isolation"
-                            }
-                        },
-                        "required": ["path", "session_id"]
-                    }
-                }
-            },
-            {
-                "type": "function",
-                "function": {
-                    "name": "write_file",
-                    "description": "Write text content to a file in the local workspace. Use for: saving reports, exporting data as CSV/JSON, writing code files.",
-                    "parameters": {
-                        "type": "object",
-                        "properties": {
-                            "path": {
-                                "type": "string",
-                                "description": "File path relative to the local workspace, or an absolute path inside it"
-                            },
-                            "content": {
-                                "type": "string",
-                                "description": "Text content to write"
-                            },
-                            "session_id": {
-                                "type": "string",
-                                "description": "Session ID for workspace isolation"
-                            }
-                        },
-                        "required": ["path", "content", "session_id"]
-                    }
-                }
-            },
-            {
-                "type": "function",
-                "function": {
-                    "name": "edit_file",
-                    "description": "Edit an existing text file by replacing a specific string. Use for: modifying code, updating configuration files.",
-                    "parameters": {
-                        "type": "object",
-                        "properties": {
-                            "path": {
-                                "type": "string",
-                                "description": "File path relative to the local workspace, or an absolute path inside it"
-                            },
-                            "old_string": {
-                                "type": "string",
-                                "description": "Exact text to find and replace"
-                            },
-                            "new_string": {
-                                "type": "string",
-                                "description": "Replacement text"
-                            },
-                            "session_id": {
-                                "type": "string",
-                                "description": "Session ID for workspace isolation"
-                            }
-                        },
-                        "required": ["path", "old_string", "new_string", "session_id"]
-                    }
-                }
-            },
-            {
-                "type": "function",
-                "function": {
-                    "name": "glob_files",
-                    "description": "Find files in the local workspace using a glob pattern. Use before reading unknown file names or locating generated artifacts.",
-                    "parameters": {
-                        "type": "object",
-                        "properties": {
-                            "pattern": {
-                                "type": "string",
-                                "description": "Glob pattern, e.g. *.csv, **/*.png, report*.md"
-                            },
-                            "path": {
-                                "type": "string",
-                                "description": "Directory or file to search. Defaults to the local workspace."
-                            },
-                            "max_results": {
-                                "type": "integer",
-                                "description": "Maximum number of matches to return, capped at 500"
-                            },
-                            "session_id": {
-                                "type": "string",
-                                "description": "Session ID for workspace isolation"
-                            }
-                        },
-                        "required": ["pattern", "session_id"]
-                    }
-                }
-            },
-            {
-                "type": "function",
-                "function": {
-                    "name": "grep_files",
-                    "description": "Search text file contents in the local workspace. Use to inspect code, logs, reports, CSV headers, or generated text.",
-                    "parameters": {
-                        "type": "object",
-                        "properties": {
-                            "pattern": {
-                                "type": "string",
-                                "description": "Regex or literal text to search for"
-                            },
-                            "path": {
-                                "type": "string",
-                                "description": "File or directory to search. Defaults to the local workspace."
-                            },
-                            "include_glob": {
-                                "type": "string",
-                                "description": "Only search matching file names, e.g. *.py or *.md"
-                            },
-                            "case_sensitive": {
-                                "type": "boolean",
-                                "description": "Whether matching is case-sensitive"
-                            },
-                            "max_results": {
-                                "type": "integer",
-                                "description": "Maximum number of matches to return, capped at 500"
-                            },
-                            "session_id": {
-                                "type": "string",
-                                "description": "Session ID for workspace isolation"
-                            }
-                        },
-                        "required": ["pattern", "session_id"]
-                    }
-                }
-            },
-            {
-                "type": "function",
-                "function": {
-                    "name": "update_todo",
-                    "description": "Create or update a concise todo list for long multi-step analysis. Use only when the task likely needs 5+ meaningful steps; otherwise proceed directly.",
-                    "parameters": {
-                        "type": "object",
-                        "properties": {
-                            "todos": {
-                                "type": "array",
-                                "description": "Todo items with content and status",
-                                "items": {
-                                    "type": "object",
-                                    "properties": {
-                                        "content": {
-                                            "type": "string",
-                                            "description": "Task description"
-                                        },
-                                        "status": {
-                                            "type": "string",
-                                            "enum": ["pending", "in_progress", "completed"],
-                                            "description": "Task status"
-                                        }
-                                    },
-                                    "required": ["content", "status"]
-                                }
-                            },
-                            "session_id": {
-                                "type": "string",
-                                "description": "Session ID for todo isolation"
-                            }
-                        },
-                        "required": ["todos", "session_id"]
-                    }
-                }
-            }
-        ]
-        
-        return tools

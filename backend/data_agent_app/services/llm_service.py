@@ -1,11 +1,17 @@
+import asyncio
+import logging
 import openai
 import json
 from contextlib import aclosing
-from typing import List, Dict, Any, AsyncGenerator
+from typing import List, Dict, Any, AsyncGenerator, Optional
 from data_agent_app.core.config import settings
+from app.config import settings as app_settings
 from app.llm.catalog import MAX_OUTPUT_TOKENS, MODEL_ID, PROVIDER_ID, canonical_model
+from app.llm.retry import backoff_delay, classify
 from app.agent.budget import BudgetExhausted
-from app.agent.data_agent_bridge import controlled_items, model_attempt
+from app.agent.data_agent_bridge import controlled_items, get_data_agent_exec_context, model_attempt
+
+logger = logging.getLogger(__name__)
 
 
 class LLMService:
@@ -23,6 +29,23 @@ class LLMService:
     def _client_for_model(self, model: str):
         normalized_model = self._normalize_model(model)
         return self.client, normalized_model
+
+    @staticmethod
+    def _retry_delay(exc: Exception, retry: int) -> Optional[float]:
+        """Seconds before retry number ``retry``, or None when ``exc`` must surface."""
+        decision = classify(exc)
+        if not decision.retryable or retry > app_settings.llm_max_retries:
+            return None
+        return backoff_delay(retry, app_settings.llm_retry_base_delay, decision.retry_after)
+
+    @staticmethod
+    async def _pause(delay: float) -> None:
+        """Wait out a backoff; a bound run can still be stopped or hit its deadline."""
+        ctx = get_data_agent_exec_context()
+        if ctx is not None:
+            await ctx.wait(lambda: asyncio.sleep(delay))
+        else:
+            await asyncio.sleep(delay)
 
     def _get_delta_extra_text(self, delta: Any, *field_names: str) -> str:
         """Read provider-specific streaming fields from OpenAI SDK objects."""
@@ -331,9 +354,27 @@ class LLMService:
                 "extra_body": {"thinking": {"type": "enabled"}},
             }
 
-            async with aclosing(self._stream_completion(client, create_kwargs)) as completion:
-                async for item in completion:
-                    yield item
+            retry = 0
+            while True:
+                # Reasoning is private and replaced by the next attempt's. Text
+                # and tool calls are already with the caller, so a failure after
+                # them cannot be retried without repeating them.
+                delivered = False
+                try:
+                    async with aclosing(self._stream_completion(client, create_kwargs)) as completion:
+                        async for item in completion:
+                            delivered = delivered or item["type"] in ("delta", "tool_call")
+                            yield item
+                    return
+                except BudgetExhausted:
+                    raise
+                except Exception as exc:
+                    retry += 1
+                    delay = None if delivered else self._retry_delay(exc, retry)
+                    if delay is None:
+                        raise
+                    logger.warning("Transient data-agent model error, retry %d in %.2fs: %s", retry, delay, exc)
+                    await self._pause(delay)
 
         except BudgetExhausted:
             raise
@@ -372,7 +413,11 @@ class LLMService:
                         # from an unfinished response. The usage receipt may be
                         # in a later, choices-empty chunk, so drain it first.
                         incomplete_reason = finish_reason
-                    if finish_reason in {"error", "aborted", "insufficient_system_resource"}:
+                    if finish_reason == "insufficient_system_resource":
+                        # Transient by DeepSeek's definition, so it joins the retry path.
+                        attempt.provider_finished = True
+                        raise RuntimeError(f"DeepSeek ended the stream with {finish_reason}")
+                    if finish_reason in {"error", "aborted"}:
                         attempt.outcome = "error"
                         attempt.provider_finished = True
                         yield {"type": "error", "content": f"DeepSeek ended the stream with {finish_reason}",
@@ -476,18 +521,30 @@ class LLMService:
             if type(max_tokens) is not int or not 1 <= max_tokens <= MAX_OUTPUT_TOKENS:
                 raise ValueError(f"max_tokens must be between 1 and {MAX_OUTPUT_TOKENS}.")
 
-            async with model_attempt(provider=PROVIDER_ID, model=provider_model) as attempt:
-                response = await attempt.wait(lambda: client.chat.completions.create(
-                    model=provider_model,
-                    messages=messages,
-                    temperature=temperature,
-                    max_tokens=max_tokens,
-                    reasoning_effort="none",
-                    extra_body={"thinking": {"type": "disabled"}},
-                ))
-                attempt.provider_finished = True
-                attempt.observe_usage(getattr(response, "usage", None))
-                return response.choices[0].message.content
+            retry = 0
+            while True:
+                try:
+                    async with model_attempt(provider=PROVIDER_ID, model=provider_model) as attempt:
+                        response = await attempt.wait(lambda: client.chat.completions.create(
+                            model=provider_model,
+                            messages=messages,
+                            temperature=temperature,
+                            max_tokens=max_tokens,
+                            reasoning_effort="none",
+                            extra_body={"thinking": {"type": "disabled"}},
+                        ))
+                        attempt.provider_finished = True
+                        attempt.observe_usage(getattr(response, "usage", None))
+                        return response.choices[0].message.content
+                except BudgetExhausted:
+                    raise
+                except Exception as exc:
+                    retry += 1
+                    delay = self._retry_delay(exc, retry)
+                    if delay is None:
+                        raise
+                    logger.warning("Transient data-agent model error, retry %d in %.2fs: %s", retry, delay, exc)
+                    await self._pause(delay)
         except BudgetExhausted:
             raise
         except Exception as e:

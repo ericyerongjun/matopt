@@ -1,3 +1,4 @@
+import logging
 from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks, Query
 from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
@@ -19,6 +20,8 @@ from data_agent_app.services.report_service import ReportService
 from data_agent_app.services.llm_service import LLMService
 from data_agent_app.services.pdf_service import PDFService
 from data_agent_app.api.v1.files import BackgroundTask, build_proxy_object_url, extract_oss_object_name, package_markdown_bytes, read_content_from_reference
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 notebook_service = NotebookService()
@@ -80,7 +83,7 @@ async def get_latest_session_markdown_report(db: Session, user_id: int, session_
             markdown_text = markdown_bytes.decode("utf-8", errors="replace")
             return markdown_text, file.original_name or f"data_agent_report_{session_id}.md"
         except Exception as e:
-            print(f"Failed to read existing markdown report {file.original_name}: {e}")
+            logger.warning("Failed to read existing markdown report %s: %s", file.original_name, e)
 
     return None
 
@@ -312,8 +315,7 @@ async def export_report(
                 media_type="application/pdf"
             )
         except Exception as e:
-            import traceback
-            print(f"PDF generation error: {e}\n{traceback.format_exc()}")
+            logger.exception("PDF generation error: %s", e)
             # Fallback to markdown if PDF fails
             filename = f"data_agent_report_{real_id}_{timestamp}.md"
             filepath = EXPORTS_DIR / filename
@@ -343,8 +345,7 @@ async def export_report(
                 media_type="application/pdf"
             )
         except Exception as e:
-            import traceback
-            print(f"Slides PDF generation error: {e}\n{traceback.format_exc()}")
+            logger.exception("Slides PDF generation error: %s", e)
             # Fallback to regular PDF if slides fails
             try:
                 filename = f"data_agent_report_{real_id}_{timestamp}.pdf"

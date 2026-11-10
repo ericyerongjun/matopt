@@ -5,6 +5,7 @@ This module ensures files are available in the sandbox environment for analysis,
 and uploads generated files back to OSS for frontend access.
 """
 
+import logging
 import os
 import asyncio
 import base64
@@ -20,6 +21,8 @@ from sqlalchemy.orm import Session
 
 from data_agent_app.core.config import settings
 from data_agent_app.models.models import UploadedFile
+
+logger = logging.getLogger(__name__)
 
 
 SANDBOX_WORK_DIR = "/tmp/workspace"
@@ -145,7 +148,7 @@ class SandboxFileManager:
                 )
             await session.sandbox.files.write_files(entries)
         except Exception as e:
-            print(f"[SYNC] Failed to write skill files to sandbox: {e}")
+            logger.warning("[SYNC] Failed to write skill files to sandbox: %s", e)
 
     async def prepare_workspace_for_session(self, session_id: str, sandbox_session_id: str) -> None:
         """Ensure a user-scoped sandbox only exposes files for the active conversation."""
@@ -200,7 +203,7 @@ class SandboxFileManager:
             UploadedFile.user_id == user_id,
             or_(*filters),
         ).all()
-        print(f"[SYNC] Found {len(db_files)} files to sync for session {session_id}")
+        logger.info("[SYNC] Found %s files to sync for session %s", len(db_files), session_id)
 
         if self._is_local_mode():
             workspace = self._local_workspace(session_id)
@@ -211,7 +214,7 @@ class SandboxFileManager:
             for db_file in db_files:
                 source_path = Path(db_file.file_path)
                 if not source_path.exists():
-                    print(f"[SYNC] Local file missing, skipping: {source_path}")
+                    logger.warning("[SYNC] Local file missing, skipping: %s", source_path)
                     continue
                 safe_filename = re.sub(r"[^A-Za-z0-9._ -]", "_", db_file.original_name or source_path.name)
                 target_path = workspace / safe_filename
@@ -224,7 +227,7 @@ class SandboxFileManager:
                     "oss_url": str(target_path),
                     "generated": False,
                 })
-            print(f"[SYNC] Completed local sync: {len(synced)} files")
+            logger.info("[SYNC] Completed local sync: %s files", len(synced))
             return synced
         
         # Initialize session tracking
@@ -232,24 +235,24 @@ class SandboxFileManager:
             self._synced_files[session_id] = {}
         
         # Create workspace directory in sandbox
-        print(f"[SYNC] Step 1: Getting sandbox service...")
+        logger.debug("[SYNC] Step 1: Getting sandbox service...")
         t0 = time.time()
         from data_agent_app.services.opensandbox_service import get_opensandbox_service
         opensandbox = get_opensandbox_service()
-        print(f"[SYNC] Step 1 done: {time.time()-t0:.2f}s")
+        logger.debug("[SYNC] Step 1 done: %.2fs", time.time()-t0)
         
-        print(f"[SYNC] Step 2: Creating workspace directory...")
+        logger.debug("[SYNC] Step 2: Creating workspace directory...")
         t0 = time.time()
         mkdir_result = await opensandbox.execute_shell(f"mkdir -p {SANDBOX_WORK_DIR}", sandbox_session_id, timeout=20)
         if not mkdir_result.get("success"):
-            print(f"[SYNC] Workspace setup failed, recreating sandbox session: {mkdir_result.get('stderr', '')}")
+            logger.warning("[SYNC] Workspace setup failed, recreating sandbox session: %s", mkdir_result.get('stderr', ''))
             await opensandbox.cleanup_session(sandbox_session_id)
             self._synced_files[session_id] = {}
             mkdir_result = await opensandbox.execute_shell(f"mkdir -p {SANDBOX_WORK_DIR}", sandbox_session_id, timeout=30)
         if not mkdir_result.get("success"):
-            print(f"[SYNC] ERROR: Failed to create workspace: {mkdir_result.get('stderr', '')}")
+            logger.error("[SYNC] Failed to create workspace: %s", mkdir_result.get('stderr', ''))
             return synced
-        print(f"[SYNC] Step 2 done: {time.time()-t0:.2f}s")
+        logger.debug("[SYNC] Step 2 done: %.2fs", time.time()-t0)
 
         await self._ensure_skills(opensandbox, sandbox_session_id)
 
@@ -258,7 +261,7 @@ class SandboxFileManager:
             opensandbox.get_session_generation(sandbox_session_id),
         )
         if self._sync_cache_generation.get(session_id) != cache_generation:
-            print(f"[SYNC] Sandbox generation changed for session {session_id}; forcing file resync")
+            logger.info("[SYNC] Sandbox generation changed for session %s; forcing file resync", session_id)
             self._synced_files[session_id] = {}
             self._sync_cache_generation[session_id] = cache_generation
 
@@ -269,7 +272,7 @@ class SandboxFileManager:
             sandbox_path, is_generated_artifact = self._sandbox_restore_path(db_file, user_id, session_id)
             filename = sandbox_path.rsplit("/", 1)[-1]
             cache_key = db_file.filename if is_generated_artifact else filename
-            print(f"[SYNC] Processing file: {filename}")
+            logger.debug("[SYNC] Processing file: %s", filename)
             
             # Skip if already synced
             if cache_key in self._synced_files[session_id]:
@@ -280,7 +283,7 @@ class SandboxFileManager:
                     timeout=10,
                 )
                 if check_result.get("success"):
-                    print(f"[SYNC] File already synced, skipping")
+                    logger.debug("[SYNC] File already synced, skipping")
                     synced.append({
                         "filename": filename,
                         "sandbox_path": sandbox_path,
@@ -289,12 +292,12 @@ class SandboxFileManager:
                     })
                     continue
 
-                print(f"[SYNC] Cached file missing in sandbox, resyncing: {filename}")
+                logger.info("[SYNC] Cached file missing in sandbox, resyncing: %s", filename)
                 self._synced_files[session_id].pop(cache_key, None)
             
             # Download from OSS to memory
             try:
-                print(f"[SYNC] Step 3: Downloading from OSS...")
+                logger.debug("[SYNC] Step 3: Downloading from OSS...")
                 t0 = time.time()
                 if db_file.file_path.startswith("http"):
                     # It's an OSS URL, extract object name
@@ -304,7 +307,7 @@ class SandboxFileManager:
                     # Local file, read directly
                     with open(db_file.file_path, 'rb') as f:
                         file_data = f.read()
-                print(f"[SYNC] Step 3 done: {time.time()-t0:.2f}s, size={len(file_data)} bytes")
+                logger.debug("[SYNC] Step 3 done: %.2fs, size=%s bytes", time.time()-t0, len(file_data))
                 
                 # Write to sandbox using OpenSandbox files API (fastest method)
                 from opensandbox.models import WriteEntry
@@ -312,7 +315,7 @@ class SandboxFileManager:
                 if parent_dir:
                     await opensandbox.execute_shell(f"mkdir -p {shlex.quote(parent_dir)}", sandbox_session_id, timeout=20)
                 
-                print(f"[SYNC] Step 4: Writing to sandbox...")
+                logger.debug("[SYNC] Step 4: Writing to sandbox...")
                 t0 = time.time()
                 # Use OpenSandbox files API - much faster than Python execute
                 # Need to get session first to access sandbox
@@ -326,7 +329,7 @@ class SandboxFileManager:
                     ])
                 except UnicodeDecodeError:
                     # Binary file - use base64 via Python execute
-                    print(f"[SYNC] Binary file detected, using Python fallback...")
+                    logger.debug("[SYNC] Binary file detected, using Python fallback...")
                     import base64
                     encoded = base64.b64encode(file_data).decode('utf-8')
                     write_code = f'''
@@ -338,7 +341,7 @@ with open('{sandbox_path}', 'wb') as f:
                     result = await opensandbox.execute_python(write_code, sandbox_session_id, timeout=120)
                     if not result.get('success'):
                         raise Exception(f"Failed to write binary file: {result.get('stderr', 'Unknown error')}")
-                print(f"[SYNC] Step 4 done: {time.time()-t0:.2f}s")
+                logger.debug("[SYNC] Step 4 done: %.2fs", time.time()-t0)
                 
                 self._synced_files[session_id][cache_key] = sandbox_path
                 synced.append({
@@ -347,76 +350,14 @@ with open('{sandbox_path}', 'wb') as f:
                     "oss_url": db_file.file_path,
                     "generated": is_generated_artifact,
                 })
-                print(f"[SYNC] File {filename} synced successfully")
+                logger.info("[SYNC] File %s synced successfully", filename)
                 
             except Exception as e:
-                print(f"[SYNC] ERROR: Failed to sync file {filename}: {e}")
-                import traceback
-                traceback.print_exc()
+                logger.exception("[SYNC] Failed to sync file %s: %s", filename, e)
                 continue
         
-        print(f"[SYNC] Completed: {len(synced)} files synced")
+        logger.info("[SYNC] Completed: %s files synced", len(synced))
         return synced
-    
-    async def download_file_to_sandbox(
-        self,
-        session_id: str,
-        file_url: str,
-        filename: str,
-        sandbox_session_id: str = None,
-    ) -> Optional[str]:
-        """
-        Download a file from OSS URL to sandbox.
-        
-        Returns:
-            Sandbox path if successful, None otherwise
-        """
-        try:
-            from data_agent_app.services.opensandbox_service import get_opensandbox_service
-            opensandbox = get_opensandbox_service()
-            sandbox_session_id = sandbox_session_id or session_id
-            
-            # Download from OSS
-            if file_url.startswith("http"):
-                object_name = extract_oss_object_name(file_url)
-                file_data = await self._get_oss_service().download_file(object_name)
-            else:
-                with open(file_url, 'rb') as f:
-                    file_data = f.read()
-            
-            # Write to sandbox using shell command for binary files
-            import base64
-            encoded = base64.b64encode(file_data).decode('utf-8')
-            sandbox_path = f"{SANDBOX_WORK_DIR}/{filename}"
-            
-            # Create directory first
-            await opensandbox.execute_shell(f"mkdir -p {SANDBOX_WORK_DIR}", sandbox_session_id)
-            
-            # Write file using base64 decoding
-            write_cmd = f"echo '{encoded}' | base64 -d > '{sandbox_path}'"
-            result = await opensandbox.execute_shell(write_cmd, sandbox_session_id)
-            
-            if not result["success"]:
-                # Fallback: try text mode for text files
-                try:
-                    text_content = file_data.decode('utf-8')
-                    await opensandbox.write_file(sandbox_path, text_content, sandbox_session_id)
-                except:
-                    print(f"Failed to write file to sandbox: {result['stderr']}")
-                    return None
-            
-            # Track synced file
-            if session_id not in self._synced_files:
-                self._synced_files[session_id] = {}
-            self._synced_files[session_id][filename] = sandbox_path
-            
-            return sandbox_path
-            
-        except Exception as e:
-            print(f"Failed to download file to sandbox: {e}")
-            import traceback
-            traceback.print_exc()
-            return None
     
     async def upload_generated_file(
         self,
@@ -443,13 +384,13 @@ with open('{sandbox_path}', 'wb') as f:
                 try:
                     source_path.relative_to(workspace)
                 except ValueError:
-                    print(f"Skipping file outside local workspace: {source_path}")
+                    logger.warning("Skipping file outside local workspace: %s", source_path)
                     return None
                 if not source_path.exists() or not source_path.is_file():
-                    print(f"Generated local file not found: {source_path}")
+                    logger.warning("Generated local file not found: %s", source_path)
                     return None
                 if source_path == self._local_skills_dir(session_id) or self._local_skills_dir(session_id) in source_path.parents:
-                    print(f"Skipping internal skill file upload: {source_path}")
+                    logger.debug("Skipping internal skill file upload: %s", source_path)
                     return None
 
                 relative_path = source_path.relative_to(workspace).as_posix()
@@ -481,7 +422,7 @@ with open('{sandbox_path}', 'wb') as f:
                     db.commit()
                 except Exception as db_e:
                     db.rollback()
-                    print(f"Database error (non-fatal): {db_e}")
+                    logger.warning("Database error (non-fatal): %s", db_e)
                 return local_url
 
             normalized_sandbox_path = sandbox_path.replace("\\", "/")
@@ -489,7 +430,7 @@ with open('{sandbox_path}', 'wb') as f:
                 normalized_sandbox_path == SANDBOX_SKILLS_DIR
                 or normalized_sandbox_path.startswith(f"{SANDBOX_SKILLS_DIR}/")
             ):
-                print(f"Skipping internal skill file upload: {sandbox_path}")
+                logger.debug("Skipping internal skill file upload: %s", sandbox_path)
                 return None
 
             from data_agent_app.services.opensandbox_service import get_opensandbox_service
@@ -507,7 +448,7 @@ with open('{sandbox_path}', 'wb') as f:
                 max_output_length=100_000_000,
             )
             if not result.get('success'):
-                print(f"Failed to read file from sandbox: {result.get('stderr')}")
+                logger.warning("Failed to read file from sandbox: %s", result.get('stderr'))
                 return None
             
             # Decode base64 to bytes
@@ -522,8 +463,8 @@ with open('{sandbox_path}', 'wb') as f:
                 # Try with validate=False first (more lenient)
                 file_data = base64.b64decode(b64_data, validate=False)
             except Exception as e:
-                print(f"Base64 decode error for {filename}: {e}")
-                print(f"Base64 length: {len(b64_data)}, first 100 chars: {b64_data[:100]}")
+                logger.warning("Base64 decode error for %s: %s", filename, e)
+                logger.debug("Base64 length: %s, first 100 chars: %s", len(b64_data), b64_data[:100])
                 # Try alternative: read directly from sandbox
                 try:
                     # Try to read file using Python in sandbox
@@ -537,15 +478,15 @@ with open('{sandbox_path}', 'wb') as f:
                         if padding_needed != 4:
                             b64_data += '=' * padding_needed
                         file_data = base64.b64decode(b64_data, validate=False)
-                        print(f"Fallback read succeeded for {filename}")
+                        logger.debug("Fallback read succeeded for %s", filename)
                     else:
                         return None
                 except Exception as e2:
-                    print(f"Fallback read also failed for {filename}: {e2}")
+                    logger.warning("Fallback read also failed for %s: %s", filename, e2)
                     return None
 
             if filename.lower().endswith(".pdf") and not file_data.startswith(b"%PDF"):
-                print(f"Decoded PDF does not start with %PDF, refusing corrupt upload: {filename}")
+                logger.warning("Decoded PDF does not start with %%PDF, refusing corrupt upload: %s", filename)
                 return None
             
             # Upload to OSS
@@ -567,12 +508,12 @@ with open('{sandbox_path}', 'wb') as f:
                         upload_verified = True
                         break
                 except Exception as exists_e:
-                    print(f"OSS existence check failed for {object_name} (attempt {attempt + 1}): {exists_e}")
+                    logger.warning("OSS existence check failed for %s (attempt %s): %s", object_name, attempt + 1, exists_e)
                 if attempt < 2:
                     await asyncio.sleep(0.5 * (attempt + 1))
 
             if not upload_verified:
-                print(f"OSS upload verification failed for {object_name}; skipping DB save")
+                logger.warning("OSS upload verification failed for %s; skipping DB save", object_name)
                 return None
             
             # Generate signed URL for long-term access (10 years expiry)
@@ -594,7 +535,7 @@ with open('{sandbox_path}', 'wb') as f:
                     existing.file_path = oss_url
                     existing.file_size = len(file_data)
                     db.commit()
-                    print(f"Updated existing file in database: {filename}")
+                    logger.debug("Updated existing file in database: %s", filename)
                 else:
                     # Create new record
                     uploaded_file = UploadedFile(
@@ -608,18 +549,16 @@ with open('{sandbox_path}', 'wb') as f:
                     )
                     db.add(uploaded_file)
                     db.commit()
-                    print(f"Saved to database: {filename} -> {object_name}")
+                    logger.debug("Saved to database: %s -> %s", filename, object_name)
             except Exception as db_e:
                 db.rollback()
-                print(f"Database error (non-fatal): {db_e}")
+                logger.warning("Database error (non-fatal): %s", db_e)
                 # Still return URL even if DB save fails
             
             return oss_url
             
         except Exception as e:
-            print(f"Failed to upload generated file: {e}")
-            import traceback
-            traceback.print_exc()
+            logger.exception("Failed to upload generated file: %s", e)
             return None
     
     def _guess_mime_type(self, filename: str) -> str:
@@ -641,12 +580,6 @@ with open('{sandbox_path}', 'wb') as f:
             '.ipynb': 'application/json',
         }
         return mime_types.get(ext, 'application/octet-stream')
-    
-    def get_file_sandbox_path(self, session_id: str, filename: str) -> Optional[str]:
-        """Get the sandbox path for a synced file."""
-        if session_id in self._synced_files:
-            return self._synced_files[session_id].get(filename)
-        return None
     
     def get_all_synced_files(self, session_id: str) -> Dict[str, str]:
         """Get all synced files for a session."""

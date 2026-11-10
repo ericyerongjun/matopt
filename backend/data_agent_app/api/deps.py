@@ -4,7 +4,6 @@ from data_agent_app.core.database import get_db
 from data_agent_app.core.security import get_password_hash
 from data_agent_app.core.config import settings
 from data_agent_app.models.models import User
-from typing import Optional
 
 
 def get_current_user(
@@ -24,12 +23,6 @@ def get_current_user(
         db.commit()
         db.refresh(user)
     return user
-
-
-def get_current_user_optional(
-    db: Session = Depends(get_db),
-) -> Optional[User]:
-    return get_current_user(db=db)
 
 
 def get_current_active_user(current_user: User = Depends(get_current_user)) -> User:

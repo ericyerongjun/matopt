@@ -1,5 +1,6 @@
 """File management API endpoints with OSS support."""
 
+import logging
 from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks, UploadFile, File as FastAPIFile, Form, Query
 from fastapi.responses import FileResponse, RedirectResponse, Response
 from starlette.background import BackgroundTask
@@ -22,6 +23,8 @@ from data_agent_app.core.hashid import decode_id
 from data_agent_app.models.models import User, UploadedFile
 from data_agent_app.core.config import settings
 from app.security import file_headers
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -114,20 +117,6 @@ def extract_oss_object_name(url_or_path: str) -> str:
     return unquote(object_name)
 
 
-def oss_path_belongs_to_user(object_name: str, user_id: int) -> bool:
-    """Ensure the requested OSS object path matches the authenticated user namespace."""
-    parts = [part for part in object_name.split("/") if part]
-    if len(parts) < 2:
-        return False
-
-    try:
-        owner_id = int(parts[1])
-    except ValueError:
-        return False
-
-    return owner_id == user_id
-
-
 def is_allowed_oss_object_path(object_name: str) -> bool:
     return any(object_name.startswith(prefix) for prefix in ALLOWED_OSS_PREFIXES)
 
@@ -167,7 +156,7 @@ async def repair_missing_generated_file_from_sandbox(
         if await oss_service.file_exists(object_name):
             return True
     except Exception as e:
-        print(f"Failed checking OSS object {object_name}: {e}")
+        logger.warning("Failed checking OSS object %s: %s", object_name, e)
         return True
 
     parts = object_name.split("/")
@@ -192,10 +181,10 @@ async def repair_missing_generated_file_from_sandbox(
             sandbox_session_id=f"user-{user_id}",
         )
         if repaired_url:
-            print(f"Repaired missing OSS object from sandbox: {object_name}")
+            logger.info("Repaired missing OSS object from sandbox: %s", object_name)
             return True
     except Exception as e:
-        print(f"Failed repairing missing generated file {object_name}: {e}")
+        logger.warning("Failed repairing missing generated file %s: %s", object_name, e)
 
     return False
 
@@ -259,9 +248,7 @@ async def upload_file(
     current_user: User = Depends(get_current_active_user)
 ):
     """Upload a file to OSS or local storage."""
-    import logging
-    logger = logging.getLogger(__name__)
-    logger.info(f"Upload request - conversation_id: {conversation_id}, file: {file.filename}")
+    logger.info("Upload request - conversation_id: %s, file: %s", conversation_id, file.filename)
     
     try:
         # Decode hash_id to int for internal session tracking
@@ -334,7 +321,7 @@ async def upload_file(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Upload failed: {str(e)}")
+        logger.exception("Upload failed")
         raise HTTPException(status_code=500, detail=f"Upload failed: {str(e)}")
     finally:
         await file.close()
@@ -409,7 +396,7 @@ async def list_session_files(
                 db,
             )
             if not repaired_or_exists:
-                print(f"Skipping missing generated file without sandbox backup: {f.filename}")
+                logger.warning("Skipping missing generated file without sandbox backup: %s", f.filename)
                 continue
 
         # Determine category based on file path and mime type
@@ -553,7 +540,7 @@ async def proxy_object_file(
                             headers={**file_headers(media_type, filename), "Cache-Control": "public, max-age=300"},
                         )
                 except Exception as repair_e:
-                    print(f"Failed to repair missing proxy object {object_name}: {repair_e}")
+                    logger.warning("Failed to repair missing proxy object %s: %s", object_name, repair_e)
 
         status_code = 404 if "NoSuchKey" in str(e) else 502
         raise HTTPException(status_code=status_code, detail=f"Failed to fetch file: {str(e)}")
@@ -594,7 +581,7 @@ async def create_package(
                         response.raise_for_status()
                         zf.writestr(f.original_name, response.content)
             except Exception as e:
-                print(f"Failed to add {f.original_name}: {e}")
+                logger.warning("Failed to add %s: %s", f.original_name, e)
     
     return FileResponse(
         path=str(zip_path),

@@ -1,5 +1,6 @@
 """PDF export service with embedded images using fpdf2."""
 
+import logging
 import base64
 import html
 import mimetypes
@@ -13,6 +14,8 @@ from PIL import Image
 import io
 import requests
 from data_agent_app.core.config import settings
+
+logger = logging.getLogger(__name__)
 
 
 class PDFService:
@@ -45,7 +48,7 @@ class PDFService:
             self._markdown_to_pdf_weasyprint(markdown_content, conversation_title, output_path)
             return output_path
         except Exception as e:
-            print(f"WeasyPrint PDF generation failed, falling back to fpdf2: {e}")
+            logger.warning("WeasyPrint PDF generation failed, falling back to fpdf2: %s", e)
 
         pdf = MarkdownPDF(conversation_title)
         pdf.add_page()
@@ -655,7 +658,7 @@ class PDFService:
             encoded = base64.b64encode(image_bytes).decode("ascii")
             return f"data:{media_type};base64,{encoded}"
         except Exception as e:
-            print(f"Error inlining PDF image {src}: {e}")
+            logger.warning("Error inlining PDF image %s: %s", src, e)
             return None
 
     def _read_image_reference(self, src: str) -> tuple[bytes | None, str | None]:
@@ -1054,40 +1057,6 @@ class PDFService:
         pdf.set_font('DejaVu', '', 11)
         pdf.ln(3)
     
-    def _render_inline_formatting(self, pdf: 'MarkdownPDF', text: str):
-        """Render text with inline formatting (bold, italic, code)."""
-        # Split by formatting patterns
-        parts = re.split(r'(\*\*\*.*?\*\*\*|\*\*.*?\*\*|\*.*?\*|`.*?`)', text)
-        
-        for part in parts:
-            if not part:
-                continue
-            
-            # Bold + Italic
-            if part.startswith('***') and part.endswith('***'):
-                pdf.set_style('BI')
-                pdf.write(5, part[3:-3])
-                pdf.set_style('')
-            # Bold
-            elif part.startswith('**') and part.endswith('**'):
-                pdf.set_style('B')
-                pdf.write(5, part[2:-2])
-                pdf.set_style('')
-            # Italic
-            elif part.startswith('*') and part.endswith('*'):
-                pdf.set_style('I')
-                pdf.write(5, part[1:-1])
-                pdf.set_style('')
-            # Inline code
-            elif part.startswith('`') and part.endswith('`'):
-                pdf.set_font('DejaVuMono', '', 9)
-                pdf.set_text_color(200, 50, 50)  # Red color for code
-                pdf.write(5, ' ' + part[1:-1] + ' ')
-                pdf.set_text_color(0, 0, 0)
-                pdf.set_font('DejaVu', '', 11)
-            else:
-                pdf.write(5, part)
-    
     def _embed_image(self, pdf: 'MarkdownPDF', img_src: str, alt_text: str):
         """Embed an image into the PDF."""
         original_src = img_src
@@ -1099,19 +1068,19 @@ class PDFService:
                 response.raise_for_status()
                 image_bytes = response.content
             except Exception as e:
-                print(f"Error downloading proxy image {img_src}: {e}")
+                logger.warning("Error downloading proxy image %s: %s", img_src, e)
         elif img_src.startswith('http://') or img_src.startswith('https://'):
             try:
                 response = requests.get(img_src, timeout=30)
                 response.raise_for_status()
                 image_bytes = response.content
             except Exception as e:
-                print(f"Error downloading remote image {img_src}: {e}")
+                logger.warning("Error downloading remote image %s: %s", img_src, e)
         elif img_src.startswith('data:image/'):
             try:
                 image_bytes = base64.b64decode(img_src.split(',', 1)[1])
             except Exception as e:
-                print(f"Error decoding data image: {e}")
+                logger.warning("Error decoding data image: %s", e)
 
         # Handle different local path formats
         if img_src.startswith('/'):
@@ -1176,7 +1145,7 @@ class PDFService:
                 pdf.set_y(pdf.get_y() + img_height + 5)
                 
         except Exception as e:
-            print(f"Error embedding image {original_src}: {e}")
+            logger.warning("Error embedding image %s: %s", original_src, e)
             pdf.set_text_color(150, 150, 150)
             pdf.cell(0, 5, f'[Error loading image: {alt_text or original_src}]')
             pdf.set_text_color(0, 0, 0)

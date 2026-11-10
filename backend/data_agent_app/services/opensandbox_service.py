@@ -1,5 +1,6 @@
 """OpenSandbox code execution service for secure code execution."""
 
+import logging
 import asyncio
 import os
 import time
@@ -11,6 +12,8 @@ from functools import partial
 
 from data_agent_app.core.config import settings
 from data_agent_app.services.oss_service import get_oss_service
+
+logger = logging.getLogger(__name__)
 
 # Import OpenSandbox SDK
 try:
@@ -65,14 +68,14 @@ class NotebookSession:
 
         if settings.SANDBOX_PREINSTALLED_PACKAGES:
             self.packages_installed = True
-            print("[PACKAGES] Using preinstalled packages from sandbox image")
+            logger.debug("[PACKAGES] Using preinstalled packages from sandbox image")
             return True
         
         if self.packages_installed:
-            print(f"[PACKAGES] Already installed, skipping")
+            logger.debug("[PACKAGES] Already installed, skipping")
             return True
         
-        print(f"[PACKAGES] Step 1: Checking if pandas is available...")
+        logger.debug("[PACKAGES] Step 1: Checking if pandas is available...")
         t0 = time.time()
         try:
             check_result = await self.interpreter.codes.run(
@@ -83,15 +86,15 @@ class NotebookSession:
             # If pandas is available, mark as installed
             if any('pandas_available' in (log.text if hasattr(log, 'text') else str(log)) 
                    for log in (check_result.logs.stdout if check_result.logs else [])):
-                print(f"[PACKAGES] Step 1 done: {time.time()-t0:.2f}s - pandas already available")
+                logger.debug("[PACKAGES] Step 1 done: %.2fs - pandas already available", time.time()-t0)
                 self.packages_installed = True
                 return True
-            print(f"[PACKAGES] Step 1 done: {time.time()-t0:.2f}s - pandas not found")
+            logger.debug("[PACKAGES] Step 1 done: %.2fs - pandas not found", time.time()-t0)
         except Exception as e:
-            print(f"[PACKAGES] Step 1 failed: {e}")
+            logger.warning("[PACKAGES] Step 1 failed: %s", e)
         
         # Install packages using the Python interpreter directly
-        print(f"[PACKAGES] Step 2: Installing packages {PRE_INSTALLED_PACKAGES}...")
+        logger.debug("[PACKAGES] Step 2: Installing packages %s...", PRE_INSTALLED_PACKAGES)
         t0 = time.time()
         try:
             # Use python -m pip to install packages with --break-system-packages
@@ -115,9 +118,9 @@ print("Return code:", result.returncode)
                 install_code,
                 language=SupportedLanguage.PYTHON,
             )
-            print(f"[PACKAGES] Step 2 done: {time.time()-t0:.2f}s")
+            logger.debug("[PACKAGES] Step 2 done: %.2fs", time.time()-t0)
             
-            print(f"[PACKAGES] Step 3: Verifying installation...")
+            logger.debug("[PACKAGES] Step 3: Verifying installation...")
             t0 = time.time()
             # Check if installation was successful by trying to import pandas again
             check_result = await self.interpreter.codes.run(
@@ -127,17 +130,15 @@ print("Return code:", result.returncode)
             
             if any('pandas_installed' in (log.text if hasattr(log, 'text') else str(log))
                    for log in (check_result.logs.stdout if check_result.logs else [])):
-                print(f"[PACKAGES] Step 3 done: {time.time()-t0:.2f}s - installation successful")
+                logger.debug("[PACKAGES] Step 3 done: %.2fs - installation successful", time.time()-t0)
                 self.packages_installed = True
                 return True
             else:
-                print(f"[PACKAGES] ERROR: Installation verification failed")
+                logger.error("[PACKAGES] Installation verification failed")
                 return False
                 
         except Exception as e:
-            print(f"[PACKAGES] ERROR: Failed to install packages: {e}")
-            import traceback
-            traceback.print_exc()
+            logger.exception("[PACKAGES] Failed to install packages: %s", e)
             return False
 
 
@@ -182,7 +183,7 @@ class OpenSandboxService:
                 )
                 return True
             except Exception as e:
-                print(f"Health check failed for session {session.session_id} (attempt {attempt + 1}/2): {e}")
+                logger.warning("Health check failed for session %s (attempt %s/2): %s", session.session_id, attempt + 1, e)
                 if attempt == 0:
                     await asyncio.sleep(0.25)
         return False
@@ -204,7 +205,7 @@ class OpenSandboxService:
         # like a container TTL, not an idle timeout. App-level idle cleanup is
         # handled by cleanup_idle_sessions().
         container_timeout = getattr(settings, 'SANDBOX_CONTAINER_TIMEOUT_MINUTES', 1440)
-        print(f"Creating new sandbox session: {session_id} (container TTL: {container_timeout} minutes)")
+        logger.info("Creating new sandbox session: %s (container TTL: %s minutes)", session_id, container_timeout)
         sandbox = await Sandbox.create(
             self.sandbox_image,
             entrypoint=["/opt/opensandbox/code-interpreter.sh"],
@@ -357,7 +358,7 @@ class OpenSandboxService:
             ])
             
             if is_connection_error:
-                print(f"Connection lost for session {session_id}, cleaning up dead session...")
+                logger.warning("Connection lost for session %s, cleaning up dead session...", session_id)
                 # Clean up the dead session
                 await self.cleanup_session(session_id)
             generation_after = self.get_session_generation(session_id)
@@ -500,7 +501,7 @@ class OpenSandboxService:
             ])
 
             if is_connection_error:
-                print(f"Shell connection lost for session {session_id}, cleaning up dead session...")
+                logger.warning("Shell connection lost for session %s, cleaning up dead session...", session_id)
                 await self.cleanup_session(session_id)
             generation_after = self.get_session_generation(session_id)
 
@@ -587,7 +588,7 @@ class OpenSandboxService:
             stdout, stderr = await list_proc.communicate()
             if list_proc.returncode != 0:
                 message = stderr.decode("utf-8", errors="replace").strip()
-                print(f"Sandbox orphan cleanup skipped: docker ps failed: {message}")
+                logger.warning("Sandbox orphan cleanup skipped: docker ps failed: %s", message)
                 return
 
             container_ids = []
@@ -611,14 +612,14 @@ class OpenSandboxService:
             )
             _, stop_stderr = await stop_proc.communicate()
             if stop_proc.returncode == 0:
-                print(f"Stopped {len(container_ids)} orphan sandbox container(s) on startup")
+                logger.info("Stopped %s orphan sandbox container(s) on startup", len(container_ids))
             else:
                 message = stop_stderr.decode("utf-8", errors="replace").strip()
-                print(f"Sandbox orphan cleanup failed: docker stop failed: {message}")
+                logger.warning("Sandbox orphan cleanup failed: docker stop failed: %s", message)
         except FileNotFoundError:
-            print("Sandbox orphan cleanup skipped: docker command not found")
+            logger.warning("Sandbox orphan cleanup skipped: docker command not found")
         except Exception as exc:
-            print(f"Sandbox orphan cleanup failed: {exc}")
+            logger.warning("Sandbox orphan cleanup failed: %s", exc)
 
     async def cleanup_idle_sessions(self):
         """Clean up sessions idle longer than SANDBOX_IDLE_TIMEOUT_MINUTES."""
@@ -627,7 +628,7 @@ class OpenSandboxService:
         for session_id, session in list(self._sessions.items()):
             idle_for = now - session.last_used_at
             if idle_for >= idle_timeout:
-                print(f"Cleaning up idle sandbox session {session_id} after {idle_for:.0f}s")
+                logger.info("Cleaning up idle sandbox session %s after %.0fs", session_id, idle_for)
                 await self.cleanup_session(session_id)
 
 

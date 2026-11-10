@@ -1,3 +1,4 @@
+import logging
 from data_agent_app.core.config import settings
 import json
 import base64
@@ -7,6 +8,8 @@ from typing import List, Dict, Any, Optional
 from datetime import datetime
 from pathlib import Path
 from urllib.parse import parse_qs, unquote, urlparse
+
+logger = logging.getLogger(__name__)
 
 
 class NotebookService:
@@ -241,7 +244,7 @@ class NotebookService:
                 "output_type": "display_data"
             }
         except Exception as e:
-            print(f"Error embedding notebook image {ref}: {e}")
+            logger.warning("Error embedding notebook image %s: %s", ref, e)
             return None
 
     def _read_image_reference(self, ref: str) -> tuple[bytes | None, str | None]:

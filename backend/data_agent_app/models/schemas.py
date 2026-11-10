@@ -1,5 +1,5 @@
 from pydantic import BaseModel, EmailStr
-from typing import Optional, List, Dict, Any
+from typing import Optional, List
 from datetime import datetime
 
 
@@ -29,10 +29,6 @@ class MessageBase(BaseModel):
     content: str
     tool_calls: Optional[str] = None
     tool_call_id: Optional[str] = None
-
-
-class MessageCreate(MessageBase):
-    conversation_id: Optional[int] = None
 
 
 class MessageResponse(MessageBase):
@@ -85,39 +81,3 @@ class ChatRequest(BaseModel):
     files: Optional[List[int]] = None  # List of uploaded file IDs
     analysis_mode: Optional[str] = None
     language: Optional[str] = None
-
-
-class ChatStreamResponse(BaseModel):
-    type: str  # "delta", "tool_call", "done", "error"
-    content: Optional[str] = None
-    tool_name: Optional[str] = None
-    tool_input: Optional[Dict[str, Any]] = None
-    tool_output: Optional[str] = None
-
-
-# File schemas
-class FileUploadResponse(BaseModel):
-    id: int
-    filename: str
-    original_name: str
-    file_size: int
-    mime_type: str
-    created_at: datetime
-    
-    class Config:
-        from_attributes = True
-
-
-# Code execution schemas
-class CodeExecutionRequest(BaseModel):
-    code: str
-    language: str = "python"
-    timeout: Optional[int] = 60
-
-
-class CodeExecutionResponse(BaseModel):
-    success: bool
-    stdout: str
-    stderr: str
-    exit_code: int
-    execution_time: float

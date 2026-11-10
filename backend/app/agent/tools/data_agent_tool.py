@@ -358,6 +358,9 @@ class DataAgentTool(Tool):
                 output += "\n\nCompleted tool receipts (response incomplete):\n" + json.dumps(
                     completed_tool_results, ensure_ascii=False, default=str,
                 )
+            unsaved = sorted({name for item in completed_tool_results for name in item["result"].get("artifact_errors") or []})
+            if unsaved:
+                output += "\n\nOutput files that could not be saved: " + ", ".join(unsaved)
             if artifacts:
                 listing = "\n".join(f"- {a.path}" for a in artifacts[:40] if a.path)
                 if listing:
@@ -370,6 +373,7 @@ class DataAgentTool(Tool):
                 artifacts=artifacts,
                 meta={
                     "data_agent_conversation_id": hash_id,
+                    "unsaved_files": unsaved,
                     "files_forwarded": len(file_ids),
                     "artifact_count": len(artifacts),
                     "autonomous": bool(autonomous),

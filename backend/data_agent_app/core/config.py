@@ -22,11 +22,6 @@ class Settings(BaseSettings):
     LOCAL_USER_EMAIL: str = "local@data-agent.local"
     LOCAL_USER_NAME: str = "Local User"
     
-    # Legacy auth utility defaults. Local mode does not require these in .env.
-    SECRET_KEY: str = "your-super-secret-key-change-in-production"
-    ALGORITHM: str = "HS256"
-    ACCESS_TOKEN_EXPIRE_MINUTES: int = 10080  # 7 days
-    
     # Share MatOpt's single DeepSeek V4.1 Flash route and credentials.
     DEEPSEEK_API_KEY: str = ""
     DEEPSEEK_BASE_URL: str = "https://api.deepseek.com"

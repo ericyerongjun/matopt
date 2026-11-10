@@ -1,3 +1,4 @@
+import logging
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
@@ -25,6 +26,8 @@ from app.llm.catalog import PROVIDER_ID
 from app.academic_guidance import with_academic_guidance
 from app.agent.budget import BudgetExhausted
 from app.agent.data_agent_bridge import get_data_agent_exec_context, reap_tasks
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 llm_service = LLMService()
@@ -814,7 +817,7 @@ When you receive an error from tool execution:
                         if chunk.get("usage"):
                             llm_usage = chunk["usage"]
                         llm_stream_error = chunk.get("content", "LLM stream error")
-                        print(f"LLM stream error after {len(all_tool_results)} tool result(s): {llm_stream_error}")
+                        logger.warning("LLM stream error after %s tool result(s): %s", len(all_tool_results), llm_stream_error)
                         incomplete = chunk.get("incomplete") is True
                         incomplete_reason = chunk.get("finish_reason") if incomplete else None
                         friendly_error = (
@@ -1201,10 +1204,8 @@ When you receive an error from tool execution:
                 
     except BudgetExhausted:
         raise
-    except Exception as e:
-        import traceback
-        error_msg = f"{str(e)}\n{traceback.format_exc()}"
-        print(f"Stream error: {error_msg}")
+    except Exception:
+        logger.exception("Data agent stream failed")
         yield f"data: {json.dumps({'type': 'error', 'content': user_facing_model_error(request.language)})}\n\n"
         yield f"data: {json.dumps({'type': 'done'})}\n\n"
 
