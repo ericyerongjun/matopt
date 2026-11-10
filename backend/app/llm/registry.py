@@ -20,12 +20,13 @@ class ProviderRegistry:
 
     @staticmethod
     def api_key(provider_id: str) -> Optional[str]:
-        return settings.deepseek_api_key if provider_id == PROVIDER_ID else None
+        spec = PROVIDERS.get(provider_id)
+        return getattr(settings, spec.env_key.lower(), None) if spec is not None else None
 
     @staticmethod
     def base_url(provider_id: str) -> Optional[str]:
         spec = PROVIDERS[provider_id]
-        return settings.deepseek_base_url or spec.default_base_url
+        return getattr(settings, f"{provider_id}_base_url", None) or spec.default_base_url
 
     def is_configured(self, provider_id: str) -> bool:
         return bool(self.api_key(provider_id))
@@ -44,8 +45,8 @@ class ProviderRegistry:
         return spec, spec.default_model
 
     def get(self, provider_id: str) -> OpenAICompatProvider:
-        if provider_id != PROVIDER_ID:
-            raise ValueError("Only the DeepSeek provider can be dispatched.")
+        if provider_id not in PROVIDERS:
+            raise ValueError(f"Provider {provider_id!r} is not in the catalog.")
         inst = self._instances.get(provider_id)
         if inst is None:
             spec = PROVIDERS[provider_id]

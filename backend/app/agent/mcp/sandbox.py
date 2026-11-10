@@ -243,7 +243,7 @@ class McpSandbox:
             ctx = ToolContext(conversation_id, rt.workspace(conversation_id), emit, cancel,
                               call_id=new_id("mcp_"), state=state, kernels=rt.kernels,
                               settings=rt.executions.settings)
-            restore_execution_state(ctx, session.events)
+            restore_execution_state(ctx, session.events_view)
             result = await rt.executions.dispatch(tool, ctx, arguments,
                                                   receipt=SessionExecutionReceipt(session))
             return _protocol_result(result, ctx)

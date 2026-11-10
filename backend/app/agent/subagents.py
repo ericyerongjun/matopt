@@ -263,6 +263,7 @@ class SubAgentManager:
         child_state.provider_id = parent_state.provider_id
         child_state.is_subagent = True
         child_state.spend_log = parent_state.session
+        child_state.context_window = parent_state.context_window
         # Followups rerun the same agent, so the prefix also counts runs.
         agent.runs += 1
         child_state.admission_prefix = f"{agent.id}.{agent.runs}"

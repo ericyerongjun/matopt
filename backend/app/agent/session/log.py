@@ -56,6 +56,11 @@ class SessionLog:
         return self._events[-1]["seq"] if self._events else None
 
     @property
+    def last_event(self) -> dict | None:
+        """A private copy of the newest event, without copying the rest of the log."""
+        return snapshot_json(self._events[-1]) if self._events else None
+
+    @property
     def has_surface(self) -> bool:
         return bool(self._validator.nodes)
 

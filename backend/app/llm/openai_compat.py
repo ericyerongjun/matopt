@@ -1,5 +1,5 @@
 """
-OpenAI SDK adapter for the single DeepSeek V4.1 Flash route.
+OpenAI SDK adapter for the routes in the catalog (today only DeepSeek V4.1 Flash).
 The SDK is a wire client; it does not make OpenAI a selectable provider.
 """
 
@@ -11,15 +11,15 @@ from typing import AsyncIterator, Optional
 from openai import AsyncOpenAI, NOT_GIVEN
 
 from app.llm.base import ChatOptions, CompletionResult, LLMProvider, StreamDelta, ToolCallDelta
-from app.llm.catalog import MODEL_ID, PROVIDER_ID, MAX_OUTPUT_TOKENS, ModelSpec, ProviderSpec, reasoning_params
+from app.llm.catalog import ModelSpec, ProviderSpec, in_catalog, reasoning_params
 
 logger = logging.getLogger(__name__)
 
 
 class OpenAICompatProvider(LLMProvider):
     def __init__(self, spec: ProviderSpec, api_key: str, base_url: Optional[str], timeout: float = 600.0):
-        if spec.id != PROVIDER_ID or tuple(m.id for m in spec.models) != (MODEL_ID,):
-            raise ValueError("Only DeepSeek V4.1 Flash (deepseek-flash) can be dispatched.")
+        if not in_catalog(spec):
+            raise ValueError("Only providers in the catalog can be dispatched.")
         self.spec = spec
         self.id = spec.id
         self.replay_reasoning = spec.replay_reasoning
@@ -33,12 +33,13 @@ class OpenAICompatProvider(LLMProvider):
     def _request_params(self, options: ChatOptions) -> tuple[dict, dict]:
         # Check at the final dispatch boundary as well as in the registry, so
         # auxiliary calls and direct adapter users cannot send another model.
-        if options.model != MODEL_ID:
-            raise ValueError("Only deepseek-flash can be dispatched; resolve old saved selections through the registry first.")
-        kwargs, extra = reasoning_params(self.spec, self.model_spec(options.model), options.reasoning)
+        model = self.model_spec(options.model)
+        if model is None:
+            raise ValueError(f"{options.model!r} is not in the catalog; resolve old saved selections through the registry first.")
+        kwargs, extra = reasoning_params(self.spec, model, options.reasoning)
         if options.max_tokens is not None:
-            if type(options.max_tokens) is not int or not 1 <= options.max_tokens <= MAX_OUTPUT_TOKENS:
-                raise ValueError(f"max_tokens must be between 1 and {MAX_OUTPUT_TOKENS}.")
+            if type(options.max_tokens) is not int or not 1 <= options.max_tokens <= model.max_output:
+                raise ValueError(f"max_tokens must be between 1 and {model.max_output}.")
             kwargs["max_tokens"] = options.max_tokens
         if options.temperature is not None and kwargs["reasoning_effort"] == "none":
             kwargs["temperature"] = options.temperature

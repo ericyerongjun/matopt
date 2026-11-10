@@ -110,12 +110,21 @@ PROVIDERS = {
 }
 
 
+def in_catalog(spec: ProviderSpec) -> bool:
+    """Whether this is a catalog entry; the catalog alone decides what can be dispatched."""
+    return PROVIDERS.get(spec.id) == spec
+
+
+def default_model_spec() -> ModelSpec:
+    return PROVIDERS[PROVIDER_ID].default_model
+
+
 def reasoning_params(provider: ProviderSpec, model: Optional[ModelSpec], level: Optional[str]) -> tuple[dict, dict]:
     """Return the official Chat Completions kwargs and SDK extra body."""
-    if provider.id != PROVIDER_ID or model is None or model.id != MODEL_ID:
-        raise ValueError("Only DeepSeek V4.1 Flash (deepseek-flash) can be dispatched.")
+    if not in_catalog(provider) or model is None or provider.model(model.id) != model:
+        raise ValueError("Only models in the catalog can be dispatched.")
     lvl = canonical_reasoning(level)
-    if lvl not in LEVELS:
+    if lvl not in model.reasoning_levels:
         raise ValueError(f"Unsupported reasoning level: {level!r}. Use off, low, high or max.")
     return (
         {"reasoning_effort": "none" if lvl == "off" else lvl},

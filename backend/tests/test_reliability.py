@@ -678,6 +678,120 @@ async def test_cost_cap_applies_to_children(tmp_path):
         db.close()
 
 
+class ChildUsesTool(FakeProvider):
+    """The parent delegates once; its child calls `child_tool`, then reports."""
+
+    def __init__(self):
+        super().__init__([])
+        self.parent_steps = 0
+
+    async def stream(self, messages, tools, options):
+        if "You are Ada" in (messages[0].get("content") or ""):
+            done = any(m.get("role") == "tool" for m in messages)
+            self.script = [{"text": "child result"}] if done else [{"tool": "child_tool", "args": {"value": "x"}}]
+        else:
+            self.parent_steps += 1
+            self.script = [{"tool": "spawn_agent", "args": {"task_name": "one", "message": "Go.", "role": "default"}}] \
+                if self.parent_steps == 1 else [{"text": "parent done"}]
+        async for delta in super().stream(messages, tools, options):
+            yield delta
+
+
+class ChildTool(Tool):
+    name = "child_tool"
+    description = "Echo a value."
+    parameters = {"type": "object", "properties": {"value": {"type": "string"}}}
+
+    async def run(self, ctx, value="", **_):
+        return ToolResult(ok=True, output=f"echo {value}")
+
+
+@pytest.mark.asyncio
+async def test_child_tool_calls_survive_in_the_parent_log_without_touching_usage(tmp_path):
+    from app.agent.session.telemetry import _group_turns, project_usage
+
+    harness, db, cid = subagent_rig(tmp_path)
+    harness.providers = FakeRegistry(ChildUsesTool())
+    harness.tools.register(ChildTool())
+    try:
+        await run_turn(harness, cid, "Delegate this.")
+        await harness.wait_side_tasks()
+        events = db.list_session_events(cid)
+        validate_events(events)
+        call = next(e for e in events if e["type"] == "subagent/tool-call")
+        result = next(e for e in events if e["type"] == "subagent/tool-result")
+        assert call["data"]["normalized_arguments"] == {"value": "x"} and call["data"]["callId"] == result["data"]["callId"]
+        assert result["data"]["ok"] is True and result["data"]["output"] == "echo x"
+        assert call["ignorable"] is True and call["seq"] < result["seq"]
+        assert call["data"]["agent"].startswith("agent_") and "turn" not in call["data"]
+        assert not any(e["type"].startswith("subagent/") for rows in _group_turns(events).values() for e in rows)
+        assert project_usage(events)["coverage"]["attempts"] >= 4
+    finally:
+        await harness.shutdown()
+        db.close()
+
+
+@pytest.mark.asyncio
+async def test_child_tool_record_cannot_fail_the_child(tmp_path):
+    from app.agent.harness import TurnState, _book_child_tool
+
+    log = started_log()
+    state = TurnState()
+    state.spend_log, state.turn, state.step = log, 1, 1
+    before = log.last_seq
+    await _book_child_tool(state, "subagent/tool-result", {"meta": {"bad": object()}})
+    assert log.last_seq == before
+
+
+# ── provider catalog ────────────────────────────────────────────────────
+
+def test_dispatch_is_decided_by_the_catalog(monkeypatch):
+    from dataclasses import replace
+
+    from app.llm import catalog
+    from app.llm.base import ChatOptions as Options
+    from app.llm.openai_compat import OpenAICompatProvider
+    from app.llm.registry import ProviderRegistry
+
+    base = catalog.PROVIDERS["deepseek"]
+    model = replace(base.default_model, id="other-model", max_output=100)
+    other = replace(base, id="other", env_key="OTHER_API_KEY", default_base_url="https://other.invalid/v1", models=(model,))
+    with pytest.raises(ValueError):
+        OpenAICompatProvider(other, "k", None)
+    monkeypatch.setitem(catalog.PROVIDERS, "other", other)
+    monkeypatch.setattr("app.llm.registry.settings", SimpleNamespace(other_api_key="k", llm_timeout=5.0))
+    registry = ProviderRegistry()
+    assert registry.api_key("other") == "k" and registry.base_url("other") == "https://other.invalid/v1"
+    provider = registry.get("other")
+    assert provider.id == "other" and str(provider.client.base_url).startswith("https://other.invalid")
+    assert provider._request_params(Options(model="other-model", max_tokens=100))[0]["max_tokens"] == 100
+    with pytest.raises(ValueError):
+        provider._request_params(Options(model="other-model", max_tokens=101))
+    with pytest.raises(ValueError):
+        provider._request_params(Options(model="deepseek-flash"))
+
+
+def test_context_limits_come_from_the_model_spec(tmp_path):
+    from app.llm.catalog import default_model_spec
+
+    harness, db, _ = make_harness(tmp_path, FakeProvider([]))
+    try:
+        reserve = max(harness.settings.context_reserve_tokens, harness.settings.max_output_tokens or 0)
+        assert harness._context_limits(200_000)[1] == 200_000 - reserve
+        assert harness._context_limits()[1] == default_model_spec().context_window - reserve
+    finally:
+        db.close()
+
+
+def test_last_event_is_a_private_copy():
+    log = started_log()
+    event = log.last_event
+    assert event == log.events[-1]
+    event["data"]["turn"] = 99
+    assert log.events[-1]["data"]["turn"] == 1
+    assert SessionLog().last_event is None
+
+
 # ── notebook ────────────────────────────────────────────────────────────
 
 def cell_result(stdout="out"):

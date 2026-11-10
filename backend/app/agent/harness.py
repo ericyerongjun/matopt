@@ -24,8 +24,8 @@ import logging
 import re
 import time
 from collections import OrderedDict
-from dataclasses import dataclass, field
-from typing import Any, AsyncIterator, Awaitable, Callable, Optional
+from dataclasses import dataclass
+from typing import AsyncIterator, Awaitable, Callable, Optional
 
 from app.agent.datasets import datasets_block
 from app.agent.events import Event, ToolResult, ev, keepalive
@@ -35,16 +35,18 @@ from app.agent.guardian import GuardianCircuitBreaker
 from app.agent.hooks import MAX_STOP_BLOCKS, HookEngine
 from app.agent.instructions import operator_instructions, workspace_instructions
 from app.agent.intent import MAT_EXCLUDED, IntentDecision, decide, mode_prompt
-from app.agent import compaction, otel
-from app.agent.transcript import Transcript
+from app.agent import compaction
 from app.agent.turn_diff import TurnDiffTracker
+from app.agent.turn_finalizer import TurnFinalizer
+from app.agent.turn_projection import TurnProjector
+from app.agent.turn_state import (  # noqa: F401 - callers import the turn types from the harness
+    BudgetExceeded, ContextOverflow, EmitFn, HookBlocked, RunRequest, SteerNote, SteeringPending, Stopped, TurnState,
+)
 from app.agent.budget import BudgetExhausted, RunBudget
 from app.agent.activity import PublicActivity
 from app.agent.results import ResultPublisher
 from app.agent.session import SessionLog, derive_messages
 from app.agent.session.derive import fold_surface
-from app.agent.session.events import snapshot_json
-from app.agent.session.stream import AssistantStreamAccumulator
 from app.agent.prompts import (
     FAILURE_NUDGE,
     FINAL_STEP_NUDGE,
@@ -56,10 +58,11 @@ from app.agent.prompts import (
     build_system_prompt,
     build_turn_context,
 )
+from app.agent.model_attempt import ModelAttempt, _controlled_deltas  # noqa: F401 - still importable from here
 from app.agent.monitor import next_step_options
 from app.log_context import bind_log_context
-from app.agent.loop_policy import FullReadEvidence, Operation, OperationGuard, Outcome
-from app.agent.presentation import public_content, public_work, tool_label
+from app.agent.loop_policy import FullReadEvidence, Operation, Outcome
+from app.agent.presentation import public_content
 from app.agent.scheduler import schedule_calls
 from app.agent.skills.loader import SkillRegistry
 from app.agent.skills.slash import default_slash_prompt, split_slash_commands
@@ -70,139 +73,17 @@ from app.agent.tools.router import ToolRouter
 from app.agent.tools.read_state import latest_read, parse_read_state_metadata
 from app.agent.workspace import Workspace
 from app.llm.base import ChatOptions, LLMProvider, ToolCallSpec
-from app.llm.catalog import CONTEXT_WINDOW, canonical_reasoning
-from app.llm.retry import IncompleteStream, backoff_delay, classify, failure_category
+from app.llm.catalog import canonical_reasoning, default_model_spec
+from app.llm.retry import failure_category
 from app.storage.db import Database, new_id
 
 logger = logging.getLogger(__name__)
-
-EmitFn = Callable[[Event], Awaitable[None]]
-
-
-class Stopped(Exception):
-    """Raised inside the loop when the user cancelled the run."""
-
-
-class BudgetExceeded(BudgetExhausted):
-    """Observed spend cannot admit another configured provider dispatch."""
-
-    def __init__(self, message: str):
-        super().__init__("observed_spend", limit=None, used=None, detail=message)
-
-
-class ContextOverflow(Exception):
-    """The provider rejected the request as longer than its context window.
-
-    Raised only when nothing was streamed, so the step can compact and be
-    dispatched again (Codex's ``ContextWindowExceeded`` recovery).
-    """
-
-
-class HookBlocked(RuntimeError):
-    """A prompt hook refused the request; its reason is written for the user."""
-
-
-class SteeringPending(Exception):
-    """Return from an isolated verifier to the worker owning user instructions."""
-
-
-@dataclass
-class RunRequest:
-    conversation_id: Optional[str]
-    text: str
-    attachments: list[dict] = field(default_factory=list)   # [{name, path, url, size}]
-    provider_id: Optional[str] = None
-    model_id: Optional[str] = None
-    reasoning: Optional[str] = None
-    verify: bool = False
-    temperature: Optional[float] = None
-    skills: list[str] = field(default_factory=list)
-    tools: list[str] = field(default_factory=list)
-    web_search: bool = True
-    ui_version: Optional[int] = None
-    strict_final: bool = False  # verify the exact answer text before releasing it
-    run_id: Optional[str] = None
-    language: Optional[str] = None  # reply language chosen in the UI (app.speech.LANGUAGES code)
-    mode: Optional[str] = None      # "auto" | "mat" (chat and explain) | "opt" (work on files); app/agent/intent.py
-
-
-@dataclass
-class SteerNote:
-    text: str
-    skills: list[str] = field(default_factory=list)
-    tools: list[str] = field(default_factory=list)
-
 
 REPEAT_LIMIT = 3
 SOFT_SUCCESS_TOOLS = frozenset({
     "list_files", "read_file", "grep", "bash", "web_search", "web_fetch",
     "update_plan", "search_skills", "load_skill", "report_progress", "publish_result",
 })
-
-
-@dataclass
-class TurnState:
-    parts: list[dict] = field(default_factory=list)
-    usage: dict = field(default_factory=dict)
-    llm_calls: int = 0
-    tool_calls: int = 0
-    phase: str = "answer"
-    plan: list = field(default_factory=list)
-    failure_counts: dict[str, int] = field(default_factory=dict)
-    blocked_tools: set[str] = field(default_factory=set)
-    operation_guard: OperationGuard = field(default_factory=OperationGuard)
-    repeat_nudge_sent: bool = False
-    # Steers applied *during* this turn, in arrival order. They are persisted
-    # only after the assistant message so stored order reflects when they
-    # actually happened; see `_drain_steer`.
-    applied_steers: list[dict] = field(default_factory=list)
-    unapplied_steers: list[dict] = field(default_factory=list)
-    work_steps: int = 0
-    work_step_limit: int = 0
-    session: Optional[SessionLog] = None
-    turn: int = 0
-    step: int = 0
-    provider_id: str = ""
-    end_reason: Optional[str] = None
-    ui_compiler: Any = None
-    ui_fallbacks: dict[str, dict] = field(default_factory=dict)
-    final_text: str = ""
-    final_ready: bool = False
-    notice: Optional[str] = None
-    output_generation: int = 0
-    publish_outputs: bool = True
-    last_finish_reason: Optional[str] = None
-    last_prompt_tokens: Optional[int] = None
-    # Length of the history the last usage report covered. Tokens appended
-    # since are estimated on top of it (Codex's get_total_token_usage).
-    last_usage_len: Optional[int] = None
-    overflow_compactions: int = 0
-    stop_hook_blocks: int = 0
-    mode: Any = None              # IntentDecision (app/agent/intent.py)
-    # Sub-agents (app/agent/subagents.py): a child's state is marked so it
-    # never takes the user's steers or runs Stop hooks; ``mailbox`` delivers
-    # sub-agent reports to a parent, or the parent's messages to a child.
-    is_subagent: bool = False
-    # Budget admission ids are unique per run; a child agent shares the run's
-    # budget and its turn number, so it needs its own prefix.
-    admission_prefix: str = "native"
-    model_dispatches: int = 0
-    mailbox: Optional[Callable[[list], bool]] = None
-    # A sub-agent has no session of its own; its spend is booked to the parent's.
-    spend_log: Optional[SessionLog] = None
-    subagents: Any = None
-    transcript: Transcript = field(default_factory=Transcript)
-    answer_truncated: bool = False
-    work: dict = field(default_factory=lambda: {"status": "running", "tool_count": 0,
-        "verification": {"status": "not_requested", "rounds": 0}, "steps": []})
-    work_tools: dict[str, str] = field(default_factory=dict)
-    activity: Any = None
-    final_started: bool = False
-    final_streaming: bool = False
-    context: Any = None
-    result_publisher: Any = None
-    run_budget: RunBudget | None = None
-    verification_checks: int = 0
 
 
 @dataclass(frozen=True)
@@ -639,156 +520,21 @@ class AgentHarness:
         original_emit = emit
         state.activity = PublicActivity(message_id, state.work, original_emit, enabled=not internal_events)
 
-        async def update_work(label: str | None = None, item_status: str = "running") -> None:
-            if label is not None:
-                if label != "Working":
-                    for step in state.work["steps"]:
-                        if step["label"] == "Working" and step["status"] == "running":
-                            step["status"] = "complete"
-                step = next((s for s in state.work["steps"] if s["label"] == label), None)
-                if step is None:
-                    state.work["steps"].append({"label": label, "status": item_status})
-                else:
-                    step["status"] = item_status
-            if not internal_events:
-                await original_emit(ev("work", work=public_work(state.work)))
-
-        async def durable_emit(event: Event) -> None:
-            if state.phase != "verify" and event.type in {"transcript_note", "tool_call_ready", "tool_result"}:
-                if event.type == "transcript_note":
-                    entry = state.transcript.note(event.data["step"], event.data["text"])
-                elif event.type == "tool_call_ready":
-                    entry = state.transcript.action(state.step, event.data["id"],
-                        event.data.get("resolved_name") or event.data.get("name", ""), event.data.get("arguments"))
-                else:
-                    entry = state.transcript.result(event.data["id"], event.data.get("ok"),
-                                                    event.data.get("output"), event.data.get("error"))
-                if entry is not None and not internal_events and not req.strict_final:
-                    await original_emit(ev("transcript", entry=dict(entry)))
-                if event.type == "transcript_note":
-                    return
-            kinds = {"plan": "plan/write", "skills": "skill/activated", "phase": "phase/change",
-                     "verification": "verification"}
-            if state.session is not None and event.type in kinds:
-                state.session.append(kinds[event.type], {"turn": state.turn, "step": state.step, **event.data})
-            if event.type == "monitor":
-                state.parts.append({"type": "monitor", **event.data})
-            if event.type == "ui_error":
-                sid = str(event.data.get("surface_id", ""))
-                fallback = event.data.get("fallback")
-                if isinstance(fallback, str) and fallback.strip() and self.ui.store.get(cid, sid) is None:
-                    part = state.ui_fallbacks.get(sid)
-                    if part is None:
-                        part = {"type": "text", "text": fallback}
-                        state.ui_fallbacks[sid] = part
-                        state.parts.append(part)
-                    else:
-                        part["text"] = fallback
-                    if state.session is not None:
-                        state.session.append("ui/fallback", {"turn": state.turn, "step": state.step,
-                            "message_id": message_id, "surface_id": sid, "fallback": fallback}, ignorable=True)
-                        await state.session.flush()
-            if event.type == "ui_commit":
-                surface = event.data["surface"]
-                repaired = state.ui_fallbacks.pop(surface["id"], None)
-                if repaired is not None:
-                    state.parts[:] = [p for p in state.parts if p is not repaired]
-                existing = next((p for p in state.parts if p.get("type") == "ui" and p["surface"]["id"] == surface["id"]), None)
-                if existing is None:
-                    state.parts.append({"type": "ui", "surface": surface, "phase": state.phase,
-                                        "publication": state.output_generation})
-                else:
-                    existing["surface"] = surface
-                    existing["phase"] = state.phase
-                    existing["publication"] = state.output_generation
-                if state.session is not None:
-                    checkpoint = state.session.append("ui/surface", {"turn": state.turn, "step": state.step,
-                        "message_id": message_id, "surface_id": surface["id"], "revision": surface["revision"],
-                        "fallback": surface["fallback"]}, ignorable=True)
-                    await state.session.flush()
-                    event.seq = checkpoint["seq"]
-            if event.type == "message_start":
-                await original_emit(event)
-                await state.activity.set_phase("work")
-                await state.activity.progress("I’m working on your request.")
-                await update_work("Working")
-                return
-            if event.type == "tool_call_ready":
-                if (event.data.get("resolved_name") or event.data.get("name")) in {"report_progress", "publish_result"}:
-                    if internal_events:
-                        await original_emit(event)
-                    return
-                key = f"{state.step}:{event.data['id']}"
-                state.work_tools[key] = tool_label(event.data.get("name", ""))
-                state.work["tool_count"] = len(state.work_tools)
-                await state.activity.queued(state.step, event.data["id"], event.data.get("resolved_name") or event.data.get("name", ""), event.data.get("arguments"))
-                await update_work(state.work_tools[key])
-            elif event.type == "tool_running":
-                await state.activity.running(state.step, event.data["id"])
-            elif event.type == "tool_activity_progress":
-                await state.activity.measured(state.step, event.data["id"], event.data.get("progress", {}))
-            elif event.type == "tool_result":
-                key = f"{state.step}:{event.data['id']}"
-                await state.activity.result(state.step, event.data["id"], event.data.get("name", ""),
-                    event.data.get("ok"), event.data.get("meta") or {}, event.data.get("artifacts") or [])
-                if key in state.work_tools:
-                    await update_work(state.work_tools[key], "complete" if event.data.get("ok") else "error")
-            elif event.type == "phase":
-                if event.data.get("phase") == "revise" and state.result_publisher:
-                    await state.result_publisher.supersede()
-                if event.data.get("phase") == "verify" and state.activity.phase != "check":
-                    await state.activity.set_phase("check")
-                await state.activity.progress("Checking the results." if event.data.get("phase") == "verify" else "Correcting an issue found during the checks.")
-                await update_work("Checking answer" if event.data.get("phase") == "verify" else "Correcting answer")
-            elif event.type == "verification":
-                verdict = event.data.get("verdict")
-                await state.activity.item(f"{message_id}:phase:check", summary={
-                    "correct": "The selected checks passed.", "incorrect": "A check found an issue.",
-                    "uncertain": "The checks were inconclusive."}.get(verdict, "The checks could not finish."))
-                await update_work("Checking answer", "complete")
-            elif event.type == "public_progress" and state.phase != "verify":
-                await state.activity.progress(event.data.get("text", ""))
-            elif event.type == "plan" and state.phase != "verify":
-                await state.activity.plan(event.data.get("steps") or [])
-            elif event.type == "run_state":
-                await state.activity.progress("Paused at a safe boundary." if event.data.get("status") == "paused" else "Resuming work.")
-            elif event.type == "steer_applied":
-                if state.result_publisher:
-                    await state.result_publisher.supersede()
-                await state.activity.progress("Your instruction has been applied to the ongoing task.")
-            if event.type == "text_delta" and state.final_streaming:
-                # Keep the already-public prefix when Stop, a deadline or a
-                # provider error interrupts final writing. Private worker and
-                # strict-mode drafts never enter this publication boundary.
-                state.final_text += event.data.get("delta", "")
-            if internal_events:
-                await original_emit(event)
-            elif event.type in {"conversation", "usage", "steer_applied", "run_state"}:
-                await original_emit(event)
-            elif event.type in {"subagent", "approval_request", "approval_resolved", "guardian_review", "mode"}:
-                # Public lifecycle facts; runs.project_public_event allowlists their fields.
-                await original_emit(event)
-            elif event.type == "text_delta" and state.final_streaming:
-                await original_emit(event)
-            elif event.type in {"ui_start", "ui_patch", "ui_commit", "ui_error"} and state.phase != "verify" and not req.strict_final:
-                # The compiler emits validated native prefixes; mini-apps are
-                # published by the service only once complete and committed.
-                await original_emit(event)
-            elif event.type == "error" and not claimed:
-                await original_emit(ev("error", message="The answer could not be completed. Please try again."))
-
-        emit = durable_emit
+        projector = TurnProjector(self, state, cid=cid, message_id=message_id, strict_final=req.strict_final,
+                                  internal_events=internal_events, publish=original_emit)
+        emit = projector.emit
         try:
             spec, model = self.providers.resolve(req.provider_id, req.model_id)
             provider = self.providers.get(spec.id)
             state.provider_id = spec.id
+            state.context_window = model.context_window
             requested_level = canonical_reasoning(req.reasoning)
             level = requested_level if requested_level in model.reasoning_levels else model.default_reasoning
             conv = self.db.get_conversation(cid) if cid else None
             if conv is None:
                 conv = self.db.create_conversation(title=_heuristic_title(req.text), provider=spec.id,
                                                    model=model.id, reasoning=level, conversation_id=cid or None)
-                cid = conv["id"]
+                projector.cid = cid = conv["id"]
             if cid in self._active:
                 await emit(ev("error", message="A run is already in progress for this conversation."))
                 return
@@ -796,7 +542,7 @@ class AgentHarness:
             self._active[cid] = cancel
             self._steer[cid] = asyncio.Queue()
             self._paused[cid] = asyncio.Event()
-            claimed = True
+            projector.claimed = claimed = True
             # Deliver manager controls queued before this producer acquired the
             # conversation, before even a fast response can close admission.
             if on_claim is not None:
@@ -809,7 +555,7 @@ class AgentHarness:
                     state.session.set_system({"role": "system", "content": ""})
                     # Old UI rows never had an exact provider request or timed
                     # usage. Record the imported replay honestly as a seed.
-                    for message in self._replay(prior_messages, provider):
+                    for message in self._replay(prior_messages, provider, context_window=model.context_window):
                         state.session.append_message(message, source="legacy", legacy=True)
                     for message in prior_messages:
                         state.session.append_ui_message(message["role"], message["content"], message["id"])
@@ -983,7 +729,7 @@ class AgentHarness:
                 events = state.session.events_view
                 history = _provider_replay(derive_messages(events), provider, events)
             else:
-                history = [system, *self._replay(prior_messages, provider), turn_context,
+                history = [system, *self._replay(prior_messages, provider, context_window=model.context_window), turn_context,
                            {"role": "user", "content": _user_content(req.text, req.attachments)}]
             _compact_ui_history(history)
             if getattr(self.settings, "subagents_enabled", False):
@@ -1065,7 +811,7 @@ class AgentHarness:
             state.final_ready = True
             if not state.final_started:
                 await state.activity.set_phase("final")
-            await update_work("Preparing final answer")
+            await projector.update_work("Preparing final answer")
             choices = next_step_options(ctx.state.get("plan") or state.plan, final_text)
             if choices:
                 state.parts.append({"type": "options", "items": choices})
@@ -1098,85 +844,8 @@ class AgentHarness:
                 state.notice = "The run ended before applying your latest instruction. Your instruction was saved; start a new turn to continue."
             try:
                 if claimed:
-                    state.work["status"] = status
-                    state.work["tool_count"] = len(state.activity.calls)
-                    await state.activity.finish(status)
-                    state.transcript.stop_running()
-                    for step in state.work["steps"]:
-                        if step["status"] == "running":
-                            step["status"] = "complete" if status == "complete" else "error"
-                    if state.subagents is not None:
-                        await state.subagents.close_all()
-                    tracked = ctx.state.get("turn_diff") if ctx else None
-                    changes = await asyncio.to_thread(tracked.render) if tracked is not None else {"files": []}
-                    content = {
-                        "parts": state.parts, "model": options.model if options else conv.get("model"),
-                        "provider": state.provider_id, "reasoning": options.reasoning if options else conv.get("reasoning"),
-                        "usage": state.usage, "status": status, "plan": ctx.state.get("plan", []) if ctx else [],
-                        "stats": {"llm_calls": state.llm_calls, "tool_calls": state.tool_calls,
-                                  "verification_checks": state.verification_checks},
-                        "presentation": "final", "final_text": state.final_text, "final_ready": state.final_ready,
-                        "transcript": state.transcript.snapshot(),
-                        "work": public_work(state.work),
-                        "output_generation": state.output_generation, "publish_outputs": state.publish_outputs,
-                        "strict_final": req.strict_final,
-                        "budget": state.run_budget.snapshot(),
-                    }
-                    if state.notice:
-                        content["notice"] = state.notice
-                    if state.turn:
-                        content["turn"] = state.turn
-                    if state.mode is not None:
-                        content["mode"] = state.mode.public()
-                    if changes["files"]:
-                        # The file list only; the diff text is served by the turn diff endpoint.
-                        content["changes"] = {"turn": state.turn, "files": changes["files"]}
-                    if state.session is not None and state.turn:
-                        state.session.close_open_step("aborted" if status == "stopped" else "error")
-                        state.session.append_ui_message("assistant", content, message_id)
-                        self._persist_steers(cid, state)
-                        reason = state.end_reason or ("completed" if status == "complete" else "aborted" if status == "stopped" else "error")
-                        if changes["files"]:
-                            state.session.append("workspace/changes", {"turn": state.turn, **changes})
-                        state.session.append("turn/end", {"turn": state.turn, "reason": {"kind": reason}})
-                        await state.session.flush()
-                        try:
-                            otel.export_turn(cid, state.session.events_view, state.turn)
-                        except Exception:  # noqa: BLE001 - telemetry must never fail a turn
-                            logger.warning("OpenTelemetry export failed", exc_info=True)
-                    elif state.session is None:
-                        self.db.add_message(cid, "assistant", content, message_id=message_id)
-                        self._persist_steers(cid, state)
-                    checkpoint_seq = state.session.last_seq if state.session else None
-                    presentation = public_content(content)
-                    if not internal_events:
-                        await original_emit(ev("work", work=presentation["work"]))
-                        if changes["files"] and state.turn:
-                            await original_emit(ev("workspace_changes", turn=state.turn, files=changes["files"]))
-                        if not state.final_started:
-                            await original_emit(ev("final_start", message_id=message_id, mode="buffered"))
-                        # These are chunks of the checked, buffered answer. No
-                        # additional generation or simulated token timing occurs.
-                        for part in presentation["parts"]:
-                            if part["type"] == "text" and not state.final_started:
-                                for offset in range(0, len(part["text"]), 4096):
-                                    await original_emit(ev("text_delta", delta=part["text"][offset:offset + 4096]))
-                            elif part["type"] == "ui":
-                                await original_emit(ev("ui_commit", surface=part["surface"]))
-                            elif part["type"] == "artifact":
-                                await original_emit(ev("artifact", artifact=part["artifact"]))
-                            elif part["type"] == "options":
-                                await original_emit(ev("options", items=part["items"]))
-                    await original_emit(ev("message_end", message_id=message_id, status=status,
-                                           content=content if internal_events else presentation, seq=checkpoint_seq))
-                    if status == "stopped":
-                        await original_emit(ev("stopped", conversation_id=cid, message_id=message_id, seq=checkpoint_seq))
-                    elif status == "complete":
-                        await original_emit(ev("done", conversation_id=cid, message_id=message_id, seq=checkpoint_seq))
-                    elif not internal_events:
-                        await original_emit(ev("error", message=state.notice or "The answer could not be completed. Please try again.",
-                                               public_message=state.notice, conversation_id=cid, message_id=message_id,
-                                               seq=checkpoint_seq))
+                    await TurnFinalizer(self, state, req, cid, message_id, internal_events, original_emit, conv,
+                                        ctx=ctx, options=options).finish(status)
             finally:
                 if claimed:
                     self._active.pop(cid, None)
@@ -1566,7 +1235,7 @@ class AgentHarness:
                 ),
             })
 
-    def _replay(self, messages: list[dict], provider: LLMProvider) -> list[dict]:
+    def _replay(self, messages: list[dict], provider: LLMProvider, *, context_window: int | None = None) -> list[dict]:
         """Rebuild LLM history from stored messages; recent turns keep full tool detail."""
         out: list[dict] = []
         assistant_idx = [i for i, m in enumerate(messages) if m["role"] == "assistant"]
@@ -1584,7 +1253,7 @@ class AgentHarness:
                     reasoning = "".join(part.get("text", "") for part in parts if part.get("type") == "reasoning")
                     out.append(provider.assistant_message(_collapse_parts(parts), reasoning, []))
         # Trim very long histories from the front (keep the last turns).
-        budget = self._context_limits()[0]
+        budget = self._context_limits(context_window)[0]
         while len(out) > 4 and sum(len(json.dumps(m, ensure_ascii=False)) for m in out) > budget:
             out.pop(0)
             while out and out[0]["role"] != "user":
@@ -1736,250 +1405,7 @@ class AgentHarness:
 
     async def _stream_llm(self, provider, options, history, schemas, emit: EmitFn, state: TurnState, cancel: asyncio.Event):
         """One step, with each actual dispatch durably recorded as an attempt."""
-        # Freeze every component before dispatch; adapters receive detached data.
-        frozen_history = snapshot_json(history)
-        frozen_schemas = snapshot_json(schemas) if schemas else None
-        frozen_options = snapshot_json(dataclasses.asdict(options))
-        config = {"provider": state.provider_id or provider.id, **frozen_options}
-        attempts = 0
-        while True:
-            ledger = state.session if state.session is not None else state.spend_log
-            if ledger is not None:
-                from app.agent.session.telemetry import budget_error
-                budget_message = budget_error(ledger.events_view, state.turn, self.settings)
-                if budget_message:
-                    raise BudgetExceeded(budget_message)
-            attempts += 1
-            # The admission id counts every dispatch in this state, not just this
-            # call's attempts: a step re-dispatched after context-overflow
-            # compaction must not reuse the id the rejected request spent.
-            state.model_dispatches += 1
-            budget = state.run_budget
-            admission_id = f"{state.admission_prefix}:{state.turn}:{state.step}:{state.model_dispatches}"
-            if budget is not None:
-                admission = budget.admit_model(admission_id, source="native:" + state.phase,
-                    provider=state.provider_id or provider.id, model=options.model,
-                    final=state.final_streaming)
-                if not admission.is_new:
-                    raise RuntimeError("A model attempt cannot be dispatched twice.")
-            state.llm_calls += 1
-            text_parts: list[str] = []
-            reasoning_parts: list[str] = []
-            pending: dict[int, dict] = {}
-            stream = AssistantStreamAccumulator()
-            started = time.time()
-            first_token = None
-            usage = None
-            finish_reason = None
-            attempt_recorded = False
-            budget_outcome = "error"
-            public_output = False  # once visible, a second attempt would duplicate it
-            delta_stream = None
-            if state.session is not None:
-                state.session.sync_history(frozen_history, turn=state.turn, step=state.step, phase=state.phase)
-                header = {"config": config}
-                if frozen_schemas:
-                    header["tools"] = frozen_schemas
-                state.session.append("request/header", {"turn": state.turn, "step": state.step,
-                    "attempt": attempts, "header": header, "reason": "dispatch"})
-                state.session.append("request/context", {"turn": state.turn, "step": state.step,
-                    "provider": state.provider_id or provider.id, "model": options.model, "phase": state.phase})
-                request = state.session.current_request()
-                if request != {"messages": frozen_history, "tools": frozen_schemas, "config": config}:
-                    raise AssertionError("Model-visible request differs from the durable session log")
-                await state.session.flush()
-
-            def attempt_data() -> dict:
-                now = time.time()
-                data = {"turn": state.turn, "step": state.step, "attempt": attempts, "phase": state.phase,
-                        "provider": state.provider_id or provider.id, "model": options.model,
-                        "reasoning": options.reasoning, "stream": stream.finish(), "started_at": started,
-                        "completed_at": now, "duration_ms": (now - started) * 1000}
-                if first_token is not None:
-                    data["first_token_at"] = first_token
-                    data["ttft_ms"] = (first_token - started) * 1000
-                if usage is not None:
-                    data["usage"] = usage
-                return data
-
-            async def book_child_attempt(data: dict, outcome: str, error: dict | None = None) -> None:
-                """A sub-agent's attempt, in the parent's log so cost caps and usage see it."""
-                if state.spend_log is None:
-                    return
-                state.spend_log.append("llm/side-task", {
-                    "task": "subagent", "task_id": admission_id, "status": outcome, "turn": state.turn, "step": state.step,
-                    "provider": data["provider"], "model": data["model"], "started_at": data["started_at"],
-                    "completed_at": data["completed_at"], "duration_ms": data["duration_ms"], "usage": data.get("usage"),
-                    **({"error": error} if error else {})})
-                await state.spend_log.flush()
-
-            try:
-                source = provider.stream(snapshot_json(frozen_history), snapshot_json(frozen_schemas),
-                                         ChatOptions(**snapshot_json(frozen_options)))
-                delta_stream = _controlled_deltas(source, cancel, budget)
-                async for delta in delta_stream:
-                    if cancel.is_set():
-                        break
-                    if state.final_streaming and state.context is not None:
-                        await self._control_boundary(state.context, emit)
-                    timestamp = time.time()
-                    if delta.kind in ("text", "reasoning", "tool_call") and first_token is None:
-                        first_token = timestamp
-                    if delta.kind == "text":
-                        stream.push(timestamp, {"type": "text-delta", "index": 0, "text": delta.text})
-                        text_parts.append(delta.text)
-                        public_output = public_output or state.final_streaming
-                        await emit(ev("text_delta", delta=delta.text))
-                    elif delta.kind == "reasoning":
-                        stream.push(timestamp, {"type": "reasoning-delta", "index": 0, "text": delta.text})
-                        reasoning_parts.append(delta.text)
-                        await emit(ev("reasoning_delta", delta=delta.text))
-                    elif delta.kind == "tool_call" and delta.tool_call is not None:
-                        tc = delta.tool_call
-                        slot = pending.get(tc.index)
-                        if slot is None:
-                            slot = {"id": tc.id or f"call_{state.llm_calls}_{tc.index}", "name": tc.name or "", "arguments": ""}
-                            pending[tc.index] = slot
-                            await emit(ev("tool_call_start", id=slot["id"], name=slot["name"]))
-                        else:
-                            if tc.id and tc.id != slot["id"]:
-                                slot["id"] = tc.id
-                            if tc.name and not slot["name"]:
-                                slot["name"] = tc.name
-                                await emit(ev("tool_call_start", id=slot["id"], name=slot["name"]))
-                        chunk = {"type": "tool-call-delta", "index": tc.index, "id": tc.id or "",
-                                 "argumentsDelta": tc.arguments or ""}
-                        if tc.name is not None:
-                            chunk["name"] = tc.name
-                        stream.push(timestamp, chunk)
-                        if tc.arguments:
-                            slot["arguments"] += tc.arguments
-                            await emit(ev("tool_call_delta", id=slot["id"], delta=tc.arguments))
-                            if state.ui_compiler is not None:
-                                preview = state.ui_compiler.feed(slot["name"], slot["id"], slot["arguments"])
-                                if preview is not None:
-                                    public_output = True
-                                    await emit(preview)
-                    elif delta.kind == "usage" and delta.usage is not None:
-                        # Samples are cumulative for one attempt: the last one
-                        # replaces earlier samples rather than being summed.
-                        usage = snapshot_json(delta.usage)
-                        stream.push(timestamp, {"type": "usage", "usage": usage})
-                        await emit(ev("usage", **usage))
-                    elif delta.kind == "finish":
-                        finish_reason = delta.finish_reason
-                        stream.push(timestamp, {"type": "finish", "reason": finish_reason})
-                if finish_reason in {"error", "aborted", "insufficient_system_resource"}:
-                    raise RuntimeError(f"Provider ended the stream with {finish_reason}")
-                if finish_reason is None and not cancel.is_set():
-                    raise IncompleteStream("The model stream ended without a finish reason.")
-                if finish_reason in {"length", "max_tokens", "max-tokens"}:
-                    state.end_reason = "max-tokens"
-                state.last_finish_reason = finish_reason
-                calls = [ToolCallSpec(id=value["id"], name=value["name"], arguments=value["arguments"])
-                         for _, value in sorted(pending.items())]
-                text, reasoning = "".join(text_parts), "".join(reasoning_parts)
-                budget_outcome = "aborted" if cancel.is_set() else "completed"
-                data = attempt_data()
-                if cancel.is_set():
-                    data["interrupted"] = True
-                if state.session is not None:
-                    if text or reasoning or calls or not cancel.is_set():
-                        state.session.append("assistant/message", {**data,
-                            "message": provider.assistant_message(text, reasoning, calls),
-                            "text": text, "reasoning_content": reasoning,
-                            "finish_reason": finish_reason}, surface_op="append")
-                    else:
-                        state.session.append("assistant/attempt", {**data, "status": "aborted"})
-                    attempt_recorded = True
-                    await state.session.flush()
-                elif state.spend_log is not None:
-                    attempt_recorded = True
-                    await book_child_attempt(data, budget_outcome)
-                if usage is not None:
-                    for key, value in usage.items():
-                        if type(value) in (int, float):
-                            state.usage[key] = state.usage.get(key, 0) + value
-                    if type(usage.get("prompt_tokens")) is int:
-                        state.last_prompt_tokens = usage["prompt_tokens"]
-                        state.last_usage_len = len(frozen_history)
-                if attempts > 1 and state.activity is not None:
-                    await state.activity.item(f"{state.activity.id}:retry:{state.step}", status="completed",
-                                              summary="The model connection recovered.")
-                return text, reasoning, calls
-            except BaseException as exc:
-                if attempt_recorded:
-                    # A storage/checkpoint failure after the completed attempt
-                    # must not invent a second billed provider attempt.
-                    raise
-                budget_outcome = "aborted" if isinstance(exc, (asyncio.CancelledError, Stopped, BudgetExhausted)) else "error"
-                data = attempt_data()
-                data.update(status=budget_outcome,
-                            error={"name": type(exc).__name__, "message": str(exc)})
-                if state.session is not None:
-                    if isinstance(exc, asyncio.CancelledError) and (text_parts or reasoning_parts or pending):
-                        text, reasoning = "".join(text_parts), "".join(reasoning_parts)
-                        calls = [ToolCallSpec(id=value["id"], name=value["name"], arguments=value["arguments"])
-                                 for _, value in sorted(pending.items()) if value["name"]]
-                        state.session.append("assistant/message", {**data, "interrupted": True,
-                            "message": provider.assistant_message(text, reasoning, calls),
-                            "text": text, "reasoning_content": reasoning}, surface_op="append")
-                        if reasoning:
-                            state.parts.append({"type": "reasoning", "text": reasoning, "phase": state.phase})
-                        if text:
-                            state.parts.append({"type": "text", "text": text, "phase": state.phase})
-                    else:
-                        state.session.append("assistant/attempt", data)
-                    await state.session.flush()
-                else:
-                    await book_child_attempt(data, budget_outcome, data["error"])
-                if usage is not None:
-                    for key, value in usage.items():
-                        if type(value) in (int, float):
-                            state.usage[key] = state.usage.get(key, 0) + value
-                decision = classify(exc) if isinstance(exc, Exception) else None
-                untouched = not text_parts and not reasoning_parts and not pending and not cancel.is_set()
-                if (decision is not None and decision.context_overflow and untouched
-                        and not isinstance(exc, (BudgetExhausted, Stopped))):
-                    raise ContextOverflow(str(exc)) from exc
-                max_retries = int(getattr(self.settings, "llm_max_retries", 4))
-                # Partial worker output is private and was never added to the
-                # history, so it can be dropped and the step sent again.
-                if (decision is not None and not isinstance(exc, (BudgetExhausted, Stopped)) and attempts <= max_retries
-                        and decision.retryable and not public_output and not cancel.is_set()):
-                    delay = backoff_delay(attempts, float(getattr(self.settings, "llm_retry_base_delay", 0.2)),
-                                          decision.retry_after)
-                    logger.warning("Transient LLM error, retrying in %.2fs: %s", delay, exc)
-                    if state.session is not None:
-                        state.session.append("llm/retry", {"turn": state.turn, "step": state.step,
-                            "retry": attempts, "delay_ms": int(delay * 1000), "failure": data["error"]})
-                        await state.session.flush()
-                    await emit(ev("status", message="Model connection hiccup, retrying…"))
-                    if state.activity is not None:
-                        await state.activity.item(f"{state.activity.id}:retry:{state.step}", kind="control",
-                            parent_id=f"{state.activity.id}:phase:{state.activity.phase}",
-                            label="Retrying model connection", purpose="Recover a connection that failed before producing output",
-                            status="running", attempt=attempts + 1)
-                        await state.activity.progress("The model connection was interrupted before producing output. Retrying.")
-                    # A stop during the backoff ends the wait, not just the next attempt.
-                    try:
-                        await asyncio.wait_for(cancel.wait(), timeout=delay)
-                    except asyncio.TimeoutError:
-                        pass
-                    if cancel.is_set():
-                        raise Stopped()
-                    if state.session is not None:
-                        state.session.append("llm/retry-started", {"turn": state.turn, "step": state.step,
-                                                              "retry": attempts})
-                    continue
-                raise
-            finally:
-                try:
-                    if delta_stream is not None:
-                        await delta_stream.aclose()
-                finally:
-                    if budget is not None:
-                        budget.settle_model(admission_id, usage=usage, outcome=budget_outcome)
+        return await ModelAttempt(self, provider, options, history, schemas, emit, state, cancel).run()
 
     async def _execute_calls(self, calls: list[ToolCallSpec], tools: ToolRegistry, ctx: ToolContext, emit: EmitFn, state: TurnState) -> list[ToolResult]:
         operation_policy = getattr(self.settings, "loop_policy", "operation") == "operation"
@@ -2004,6 +1430,9 @@ class AgentHarness:
                 # Checkpoint raw arguments and call identity before any tool
                 # body can produce a side effect.
                 await state.session.flush()
+            else:
+                await _book_child_tool(state, "subagent/tool-call", {"callId": call.id, "name": call.name,
+                    "resolved_name": resolved_name, "normalized_arguments": nc.payload})
             if not operation_policy and resolved_name in state.blocked_tools:
                 res = ToolResult(
                     ok=False,
@@ -2062,6 +1491,9 @@ class AgentHarness:
                     "message": LLMProvider.tool_message(nc.call.id, nc.call.name, _tool_message_text(res)),
                     **res.to_dict()}, surface_op="append")
                 result_seq = durable_result["seq"]
+            else:
+                await _book_child_tool(state, "subagent/tool-result", {"callId": nc.call.id, "name": nc.call.name,
+                                                                       **res.to_dict()})
             return ev("tool_result", id=nc.call.id, name=nc.call.name, ok=res.ok, output=res.output, error=res.error,
                       artifacts=[a.to_dict() for a in res.artifacts], meta=res.meta, seq=result_seq)
 
@@ -2224,7 +1656,7 @@ class AgentHarness:
         past the window by itself — earlier steps of the current turn are
         summarised too.
         """
-        budget, token_limit = self._context_limits()
+        budget, token_limit = self._context_limits(state.context_window)
         size = _history_size(history)
         near_window = _estimated_prompt_tokens(history, state) > token_limit * 0.95
         if size <= budget and not near_window and not force:
@@ -2256,10 +1688,10 @@ class AgentHarness:
         # A summary of the whole past can still exceed a small budget.
         return _trim_live_history(history, budget) or compacted
 
-    def _context_limits(self) -> tuple[int, int]:
+    def _context_limits(self, context_window: int | None = None) -> tuple[int, int]:
         """(history character budget, prompt token limit) for the model's context window."""
         reserve = max(self.settings.context_reserve_tokens, self.settings.max_output_tokens or 0)
-        tokens = CONTEXT_WINDOW - reserve
+        tokens = (context_window or default_model_spec().context_window) - reserve
         return self.settings.history_char_budget or tokens * 3, tokens
 
     async def _summarize_span(self, provider, options: ChatOptions, span: list[dict], state: TurnState) -> str:
@@ -2339,41 +1771,22 @@ class AgentHarness:
 
 # ── helpers ─────────────────────────────────────────────────────────────
 
-async def _controlled_deltas(source, cancel: asyncio.Event, budget: RunBudget | None):
-    """Wait for actual provider deltas while Stop/deadline can interrupt silence."""
-    iterator = source.__aiter__()
-    stopped = asyncio.create_task(cancel.wait())
-    pending = None
+async def _book_child_tool(state: TurnState, kind: str, data: dict) -> None:
+    """Keep a sub-agent's tool call in the parent's log, where it survives a crash.
+
+    Ignorable and keyed by ``parent_turn``, so it is a record only: it stays
+    out of the model's history, recovery state, usage and cost. A call with no
+    matching result is one that was running when the process stopped.
+    """
+    if state.spend_log is None:
+        return
     try:
-        while True:
-            if cancel.is_set():
-                raise Stopped()
-            timeout = budget.remaining_timeout() if budget is not None else None
-            if pending is None:
-                pending = asyncio.create_task(anext(iterator))
-            done, _ = await asyncio.wait({pending, stopped}, timeout=timeout, return_when=asyncio.FIRST_COMPLETED)
-            if stopped in done or cancel.is_set():
-                raise Stopped()
-            if pending not in done:
-                # Recheck through the shared clock so the reason and accounting
-                # are identical to admission at every other work boundary.
-                budget.remaining_timeout()
-                continue
-            try:
-                yield pending.result()
-            except StopAsyncIteration:
-                return
-            finally:
-                pending = None
-    finally:
-        waits = [task for task in (pending, stopped) if task is not None]
-        for task in waits:
-            if not task.done():
-                task.cancel()
-        await asyncio.gather(*waits, return_exceptions=True)
-        close = getattr(iterator, "aclose", None)
-        if close is not None:
-            await close()
+        state.spend_log.append(kind, {"agent": state.admission_prefix, "parent_turn": state.turn, "step": state.step,
+                                      "phase": state.phase, **data}, ignorable=True)
+    except (TypeError, ValueError):  # bookkeeping must not fail the agent
+        logger.warning("Could not record a sub-agent tool event", exc_info=True)
+        return
+    await state.spend_log.flush()
 
 
 def _current_published_results(parts: list[dict]) -> list[dict]:
