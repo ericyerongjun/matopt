@@ -156,7 +156,7 @@ python-dotenv==1.2.4
 python-multipart==0.0.32
 python-pptx==1.0.2
 PyYAML==6.0.3
-pyzmq==27.2.0
+pyzmq==27.3.0
 referencing==0.37.0
 regex==2026.9.29
 requests==2.34.2
