@@ -50,7 +50,6 @@ pillow>=11.1
 # ── Data agent (backend/data_agent_app at /api/v1) ──
 sqlalchemy>=2.0.36
 hashids>=1.3.1
-python-jose[cryptography]>=3.3.0
 bcrypt>=4.0.1
 python-pptx>=1.0.2
 fpdf2>=2.8.3

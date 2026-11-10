@@ -9,21 +9,51 @@ through the streaming harness.
 
 ## Quick start
 
-Use Node.js 22+ for the frontend and Python 3.11+ for the backend.
+You need Node.js 22+, Python 3.11+ and a DeepSeek API key.
+
+**1. Add your key** (first time only):
 
 ```bash
-cp backend/.env.example backend/.env   # then add DEEPSEEK_API_KEY
-./scripts/setup.sh
-# terminal 1
-cd backend && .venv/bin/python main.py
-# terminal 2
-cd frontend && npm run dev
+cp backend/.env.example backend/.env
 ```
 
-Open http://localhost:5173. Docker: `docker compose up --build` (http://localhost:3000).
-Development also starts an isolated mini-app runtime on port 5174; Compose
-serves it on port 3001. Both the frontend and backend must be restarted after
-updating. [Interactive UI setup and architecture](docs/INTELLIGENT-UI.md).
+Then set `DEEPSEEK_API_KEY=` in `backend/.env`.
+
+**2. Start everything:**
+
+```bash
+./scripts/start.sh
+```
+
+The first run installs the dependencies, which takes a few minutes. After that
+it starts the backend and frontend, waits until they answer, and opens
+http://localhost:5173. Press Ctrl-C to stop both services.
+
+### Before a demo
+
+1. Run `./scripts/start.sh` once ahead of time on a good connection. The first
+   start installs the dependencies and downloads about 800 MB of speech models
+   in the background.
+2. Stop it and start it again right before presenting. It is ready in seconds.
+3. Present from the machine running MatOpt, because it only accepts connections
+   from that machine.
+
+| If you see | Do this |
+| --- | --- |
+| `add your key to backend/.env` | Set `DEEPSEEK_API_KEY=` in `backend/.env`. |
+| `port 8000 is already in use` | Stop the other program, often an earlier MatOpt. |
+| `Refusing to listen on 0.0.0.0` | You started `main.py` directly with an older `.env`. Set `HOST=127.0.0.1` there, or use `./scripts/start.sh`. |
+| A tool says the sandbox is unavailable (Linux) | Run `sudo apt install bubblewrap`, or set `SANDBOX_MODE=off` in `backend/.env`. |
+
+### Other ways to run it
+
+**Docker:** `docker compose up --build`, then open http://localhost:3000. The
+mini-app runtime is on port 3001.
+
+**Two terminals, for development:** run `./scripts/setup.sh` once, then
+`cd backend && .venv/bin/python main.py` and `cd frontend && npm run dev`. The
+frontend also starts an isolated mini-app runtime on port 5174. Restart both
+services after updating. [Interactive UI setup and architecture](docs/INTELLIGENT-UI.md).
 
 The only live model is **DeepSeek V4.1 Flash**, using API ID `deepseek-flash`
 for the harness, verification, auxiliary requests and the data agent. Thinking effort

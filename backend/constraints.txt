@@ -35,7 +35,6 @@ defusedxml==0.7.1
 dlinfo==2.0.0
 dnspython==2.9.0
 docstring_parser==0.18.0
-ecdsa==0.19.2
 email-validator==2.3.0
 espeakng-loader==0.2.4
 et_xmlfile==2.0.0
@@ -136,7 +135,6 @@ psutil==7.2.2
 ptyprocess==0.7.0
 pure_eval==0.2.4
 py-key-value-aio==0.4.6
-pyasn1==0.6.4
 pycparser==3.11
 pydantic==2.14.1
 pydantic-settings==2.16.1
@@ -155,7 +153,6 @@ pytest==9.1.1
 pytest-asyncio==1.4.0
 python-dateutil==2.9.0.post0
 python-dotenv==1.2.4
-python-jose==3.5.0
 python-multipart==0.0.32
 python-pptx==1.0.2
 PyYAML==6.0.3
@@ -166,7 +163,6 @@ requests==2.34.2
 rich==15.0.0
 rich-rst==2.2.0
 rpds-py==2026.9.1
-rsa==4.9.1
 scikit-learn==1.9.1
 scipy==1.18.1
 seaborn==0.13.2
@@ -183,7 +179,7 @@ sympy==1.14.0
 tabulate==0.10.0
 threadpoolctl==3.7.0
 tokenizers==0.23.3
-tornado==6.5.10
+tornado==6.6.1
 tqdm==4.70.1
 traitlets==5.16.1
 truststore==0.10.5
