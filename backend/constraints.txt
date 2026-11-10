@@ -177,7 +177,7 @@ sudachidict-core==20261015
 SudachiPy==0.7.0
 sympy==1.14.0
 tabulate==0.10.0
-threadpoolctl==3.7.0
+threadpoolctl==3.8.0
 tokenizers==0.23.3
 tornado==6.6.1
 tqdm==4.70.1
