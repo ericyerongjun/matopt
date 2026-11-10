@@ -39,9 +39,24 @@ describe("literal native ZCode Markdown renderer", () => {
             assert.ok(doc.querySelector('[data-language="python"]'));
             assert.ok(doc.querySelector('button[aria-label="Copy code"]'));
             assert.ok(doc.querySelector('button[aria-label="Wrap lines"]'));
-            // @pierre/diffs inserts the code into its shadow root after mount.
-            assert.ok(doc.querySelector("diffs-container"));
+            // The highlighter is a separate chunk, so the source stays readable while it loads.
+            assert.ok(doc.querySelector("pre code")?.textContent?.includes("print(1)"));
         } finally { dom.window.close(); }
+    });
+
+    it("upgrades code blocks to the native highlighted viewer once it has loaded", async () => {
+        const host = document.createElement("div");
+        document.body.append(host);
+        const root = createRoot(host);
+        await act(async () => {
+            root.render(<ZCodeIntlProvider initialLocale="en-US"><TooltipProvider><MarkdownRenderer content={"```python\nprint(1)\n```"} /></TooltipProvider></ZCodeIntlProvider>);
+            await import("../zcode/components/ui/code-viewer.js");
+            await new Promise((resolve) => setTimeout(resolve, 20));
+        });
+        // @pierre/diffs inserts the code into its shadow root after mount.
+        assert.ok(host.querySelector("diffs-container"));
+        act(() => root.unmount());
+        host.remove();
     });
 
     it("keeps scientific fence contents inside the native frame with a real chart loading slot", () => {

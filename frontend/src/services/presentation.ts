@@ -193,7 +193,18 @@ function uniqueArtifacts(artifacts: Artifact[]): Artifact[] {
 }
 
 /** A single presentation boundary shared by chat, copy, and the Activity timeline. */
+const projections = new WeakMap<AssistantContent, { streaming: boolean; value: AssistantPresentation }>();
+
+/** Content objects are replaced, never edited, so a settled turn projects once however often the chat renders. */
 export function projectAssistantPresentation(content: AssistantContent, streaming = false): AssistantPresentation {
+    const cached = projections.get(content);
+    if (cached?.streaming === streaming) return cached.value;
+    const value = projectPresentation(content, streaming);
+    projections.set(content, { streaming, value });
+    return value;
+}
+
+function projectPresentation(content: AssistantContent, streaming: boolean): AssistantPresentation {
     const isPublic = content.presentation === "final";
     const ready = isPublic || (!streaming && content.status !== "streaming");
     const answer = !ready ? "" : isPublic

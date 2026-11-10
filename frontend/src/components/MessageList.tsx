@@ -1,5 +1,5 @@
 /** MatOpt protocol binding for complete native ZCode messages and task elements. */
-import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
+import { memo, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { ArrowDown, Check, ChevronDown, Copy, Square, Volume2 } from "lucide-react";
 import { speak, stopSpeaking } from "../features/voice/playback.ts";
 import type { ActivityItem, ChatMessage, ResultBlock } from "../types/protocol.ts";
@@ -70,12 +70,31 @@ function AssistantFooter({ answer, children }: { answer: string; children?: Reac
     </MessageActions>;
 }
 
+/** One short message per run for screen readers; individual tokens are never announced. */
+function useRunAnnouncement(messages: ChatMessage[], streaming: boolean): string {
+    const [announcement, setAnnouncement] = useState("");
+    const running = useRef(false);
+    const lastAssistant = [...messages].reverse().find((message) => message.role === "assistant");
+    const status = lastAssistant && isAssistantContent(lastAssistant.content) ? lastAssistant.content.status : undefined;
+    useEffect(() => {
+        if (streaming) {
+            running.current = true;
+            setAnnouncement("MatOpt is working on your request.");
+        } else if (running.current) {
+            running.current = false;
+            setAnnouncement(status === "stopped" ? "Stopped." : status === "error" ? "The analysis could not be completed." : "Answer ready.");
+        }
+    }, [streaming, status]);
+    return announcement;
+}
+
 export default function MessageList({ messages, conversationId, streaming = false, onPickOption, onOpenWork, onQuote, onOpenChanges }: Props) {
     const rootRef = useRef<HTMLDivElement>(null);
     const pinnedRef = useRef(true);
     const [atBottom, setAtBottom] = useState(true);
     const [quoteMenu, setQuoteMenu] = useState<(QuoteRef & { x: number; y: number }) | null>(null);
     const [copyError, setCopyError] = useState(false);
+    const announcement = useRunAnnouncement(messages, streaming);
     const stick = () => {
         const element = rootRef.current;
         if (element && pinnedRef.current) { element.scrollTop = element.scrollHeight; setAtBottom(true); }
@@ -110,6 +129,7 @@ export default function MessageList({ messages, conversationId, streaming = fals
         return true;
     };
     return <div className="relative flex min-h-0 min-w-0 flex-1 flex-col">
+      <div className="sr-only" aria-live="polite" aria-atomic="true" data-testid="run-announcement">{announcement}</div>
       <div className="min-h-0 min-w-0 flex-1 overflow-y-auto overscroll-contain" ref={rootRef} data-testid="chat-view"
         onContextMenu={(event) => { if (openQuoteMenu(event.clientX, event.clientY)) event.preventDefault(); }}
         onKeyDown={(event) => {
@@ -175,7 +195,7 @@ function PublicResult({ block, conversationId, items, onOpenWork }: {
     </section>;
 }
 
-function MessageRow({ message, conversationId, streaming, onPickOption, onOpenWork, onOpenChanges }: {
+const MessageRow = memo(function MessageRow({ message, conversationId, streaming, onPickOption, onOpenWork, onOpenChanges }: {
     message: ChatMessage; conversationId: string | null; streaming: boolean;
     onPickOption?: (text: string) => void; onOpenWork?: () => void; onOpenChanges?: (turn: number) => void;
 }) {
@@ -242,4 +262,4 @@ function MessageRow({ message, conversationId, streaming, onPickOption, onOpenWo
     </MessageContent>
         {!streaming && <AssistantFooter answer={answerForCopy}>{onOpenChanges && <TurnChangesChip content={content} conversationId={conversationId} streaming={streaming} onOpen={onOpenChanges} />}</AssistantFooter>}
     </Message>;
-}
+});

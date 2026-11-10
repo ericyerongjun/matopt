@@ -21,7 +21,8 @@ import {
 import { filterPromptCommands, promptFilesForUpload, resolvePromptSubmission } from "../zcode/adapters/matopt-prompt.ts";
 import { shouldIgnoreEscapeForStopGeneration } from "../zcode/v4/composer/escapeStop.ts";
 import { commandPresentation } from "./commandPresentation.ts";
-import { useVoiceInput } from "../hooks/useVoiceInput.ts";
+import { pushToTalkKeyName, useVoiceInput } from "../hooks/useVoiceInput.ts";
+import { useVoiceStore } from "../features/voice/voiceStore.ts";
 import "./MathInput.css";
 
 interface Props {
@@ -91,6 +92,8 @@ function MatOptPrompt({ onSubmit, onStop, stopControl = "inline", disabled = fal
     setValue(value.trim() ? `${value.replace(/\s*$/, "")} ${text}` : text);
     requestAnimationFrame(() => textareaRef.current?.focus());
   } });
+  const pushToTalk = useVoiceStore((store) => store.pushToTalk);
+  const voiceHint = pushToTalk ? `hold ${pushToTalkKeyName()}` : null;
   const [pinned, setPinned] = useState<PinnedCommand[]>([]);
   const [quotes, setQuotes] = useState<QuoteRequest[]>([]);
   const [quoteError, setQuoteError] = useState(false);
@@ -129,8 +132,9 @@ function MatOptPrompt({ onSubmit, onStop, stopControl = "inline", disabled = fal
   const showStop = loading && !canSend && stopControl === "inline";
 
   useEffect(() => {
-    live.current.mounted = true;
-    return () => { live.current.mounted = false; };
+    const state = live.current;
+    state.mounted = true;
+    return () => { state.mounted = false; };
   }, []);
   useEffect(() => {
     if (!quoteRequest || disabled || appliedQuote.current === quoteRequest.id) return;
@@ -142,6 +146,8 @@ function MatOptPrompt({ onSubmit, onStop, stopControl = "inline", disabled = fal
     if (!duplicate && quotes.length < MAX_QUOTES) setQuotes((current) => [...current, quote]);
     const frame = requestAnimationFrame(() => textareaRef.current?.focus());
     return () => cancelAnimationFrame(frame);
+    // Each request is applied once; re-running when `quotes` changes would only re-check the applied id.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [quoteRequest, disabled]);
   useEffect(() => {
     if (!draftPreset || disabled || composing || appliedPreset.current === draftPreset.id) return;
@@ -371,7 +377,7 @@ function MatOptPrompt({ onSubmit, onStop, stopControl = "inline", disabled = fal
         <PromptInputTools className="matopt-composer-actions">
           <span className="matopt-composer-command-hint" aria-hidden="true"><kbd>/</kbd> for tools</span>
           <button type="button" className="matopt-composer-mic" data-voice={voice.state} aria-pressed={voice.state === "recording"}
-            aria-label={voice.state === "recording" ? "Stop recording" : "Voice input (hold Right Option)"} title="Voice input: click, or hold Right ⌥ Option"
+            aria-label={voice.state === "recording" ? "Stop recording" : voiceHint ? `Voice input (${voiceHint})` : "Voice input"} title={voiceHint ? `Voice input: click, or ${voiceHint}` : "Voice input"}
             disabled={disabled || voice.state === "transcribing"} onClick={voice.toggle}
             style={{ "--voice-level": voice.level } as React.CSSProperties}>
             {voice.state === "transcribing" ? <Loader2 size={17} className="matopt-work-spinning" aria-hidden="true" /> : <Mic size={17} strokeWidth={1.8} aria-hidden="true" />}
@@ -383,6 +389,7 @@ function MatOptPrompt({ onSubmit, onStop, stopControl = "inline", disabled = fal
         </PromptInputTools>
       </div>
     </PromptInput>
+    <span className="sr-only" aria-live="polite" aria-atomic="true" data-testid="voice-status">{voice.state === "recording" ? "Recording." : voice.state === "transcribing" ? "Transcribing." : ""}</span>
     {voice.error && <p className="matopt-voice-error" role="alert">{voice.error} <button type="button" onClick={voice.clearError}>Dismiss</button></p>}
     {showDisclaimer && <p className="matopt-composer-disclaimer">MatOpt can make mistakes. Check important info.</p>}
   </div>;

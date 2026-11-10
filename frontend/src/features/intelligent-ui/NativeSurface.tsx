@@ -76,8 +76,8 @@ const SurfacePlot = memo(function SurfacePlot({ nodeId, props }: { nodeId: strin
     const figure = useMemo(() => {
         const allowed = new Set(["scatter", "bar", "histogram", "box", "heatmap", "contour", "surface", "pie", "violin", "scatter3d", "histogram2d", "histogram2dcontour", "waterfall", "funnel", "indicator"]);
         const data = Array.isArray(props.data) ? props.data.filter((trace) => trace && typeof trace === "object" && !Array.isArray(trace) && (!trace.type || allowed.has(String(trace.type)))) : [];
-        const rawLayout = props.layout && typeof props.layout === "object" && !Array.isArray(props.layout) ? props.layout : {};
-        const { images: _images, mapbox: _mapbox, map: _map, geo: _geo, ...layout } = rawLayout;
+        // PlotRenderer removes layout keys that reach remote hosts, for every figure source.
+        const layout = props.layout && typeof props.layout === "object" && !Array.isArray(props.layout) ? props.layout : {};
         return { data: data as unknown as Plotly.Data[], layout: layout as Partial<Plotly.Layout>, config: { displaylogo: false, showSendToCloud: false } };
     }, [props]);
     return <figure className="ui-surface-plot" data-ui-node={nodeId}>

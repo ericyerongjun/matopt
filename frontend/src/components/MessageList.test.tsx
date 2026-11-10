@@ -396,3 +396,36 @@ test('a selection crossing message boundaries never receives an incorrect quote 
     assert.equal(document.querySelector('[role="menu"]'), null);
     selection.removeAllRanges();
 });
+
+test('settled rows do not re-render when only the streaming answer changes', () => {
+    let reads = 0;
+    const user: ChatMessage = { id: 'u1', conversation_id: 'task', seq: 0, role: 'user', created_at: 1,
+        content: { attachments: [], get text() { reads += 1; return 'A settled question'; } } };
+    const render = (message: ChatMessage) => act(() => root?.render(<ZCodeIntlProvider initialLocale="en-US"><TooltipProvider>
+        <MessageList messages={[user, message]} conversationId="task" streaming />
+    </TooltipProvider></ZCodeIntlProvider>));
+    mount([user, assistant([], 'streaming')], { streaming: true });
+    const settled = reads;
+    render(assistant([{ type: 'text', text: 'one' }], 'streaming'));
+    render(assistant([{ type: 'text', text: 'one two' }], 'streaming'));
+    assert.equal(reads, settled);
+});
+
+test('screen readers hear one message when a run starts and one when it ends, never the tokens', () => {
+    const render = (message: ChatMessage, streaming: boolean) => act(() => root?.render(<ZCodeIntlProvider initialLocale="en-US"><TooltipProvider>
+        <MessageList messages={[message]} conversationId="task" streaming={streaming} />
+    </TooltipProvider></ZCodeIntlProvider>));
+    const dom = mount([assistant([{ type: 'text', text: 'Saved answer' }])]);
+    const region = () => dom.querySelector('[data-testid="run-announcement"]');
+    assert.equal(region()?.textContent, '');
+    assert.equal(region()?.getAttribute('aria-live'), 'polite');
+    render(assistant([], 'streaming'), true);
+    assert.equal(region()?.textContent, 'MatOpt is working on your request.');
+    render(assistant([{ type: 'text', text: 'SECRET_TOKEN' }], 'streaming'), true);
+    assert.equal(region()?.textContent, 'MatOpt is working on your request.');
+    render(assistant([{ type: 'text', text: 'Done' }]), false);
+    assert.equal(region()?.textContent, 'Answer ready.');
+    render(assistant([], 'streaming'), true);
+    render(assistant([], 'stopped'), false);
+    assert.equal(region()?.textContent, 'Stopped.');
+});

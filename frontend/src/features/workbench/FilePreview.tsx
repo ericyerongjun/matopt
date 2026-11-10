@@ -2,7 +2,6 @@
  * Images, PDF, Markdown, data tables and Plotly retain MatOpt's existing renderers/file URLs. */
 import { lazy, Suspense, useEffect, useMemo, useState } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
-import { CodeViewer } from "../../zcode/components/ui/code-viewer.js";
 import { RichSourcePreview } from "../../components/RichSourcePreview.tsx";
 import type { WorkspaceFile } from "../../types/protocol.ts";
 import { codeLanguage, downloadUrl, FILE_VIEWER_MAX_TEXT_BYTES, fileExtension, formatFileSize, latexMathPreview, parseDelimited, previewKind, readTextPreview, type TextSlice } from "./preview.ts";
@@ -10,6 +9,7 @@ import "./workbench.css";
 
 const MarkdownRenderer = lazy(() => import("../../components/MarkdownRenderer.tsx"));
 const PlotRenderer = lazy(() => import("../../components/PlotRenderer.tsx"));
+const CodeViewer = lazy(() => import("../../zcode/components/ui/code-viewer.js").then((module) => ({ default: module.CodeViewer })));
 export interface FilePreviewProps { file: WorkspaceFile; conversationId: string | null }
 
 export function FilePreview({ file, conversationId }: FilePreviewProps) {

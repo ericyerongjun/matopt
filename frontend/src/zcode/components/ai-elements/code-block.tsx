@@ -15,6 +15,8 @@ import { CheckIcon, CopyIcon, Maximize2Icon, WrapTextIcon } from "lucide-react";
 import type { ComponentProps, CSSProperties, HTMLAttributes, ReactNode } from "react";
 import {
   createContext,
+  lazy,
+  Suspense,
   useCallback,
   useContext,
   useEffect,
@@ -23,7 +25,6 @@ import {
   useState,
 } from "react";
 import type { BundledTheme } from "shiki";
-import { CodeViewer } from "@/components/ui/code-viewer.js";
 import { ControlHintTooltip } from "@/ControlHintTooltip.js";
 import { FileDisplayIcon, resolveFileDisplayDescriptor } from "@/lib/fileDisplay.js";
 import { isMermaidLanguage, shouldRenderMermaidCodeBlock } from "@/lib/mermaidLanguage.js";
@@ -36,6 +37,11 @@ import { DiagramPreviewDialog } from "@/components/ai-elements/diagram-preview-d
 import { useZCodeIntl } from "@/i18n/IntlProvider.js";
 import { logger } from "@/logger.js";
 import type { Theme } from "@/useTheme.js";
+
+// MatOpt host: keeps the diff/highlight engine out of the entry chunk.
+const CodeViewer = lazy(() =>
+  import("@/components/ui/code-viewer.js").then((module) => ({ default: module.CodeViewer })),
+);
 
 // Types
 type CodeBlockProps = HTMLAttributes<HTMLDivElement> & {
@@ -339,6 +345,7 @@ export const CodeBlock = ({
               // className={cn(children ? "border-t border-border" : null)}
             />
           ) : (
+            <Suspense fallback={<pre className="overflow-x-auto bg-transparent font-mono text-ui-sm whitespace-pre"><code>{code}</code></pre>}>
             <CodeViewer
               code={code}
               enableSyntaxHighlighting={enableSyntaxHighlighting}
@@ -362,6 +369,7 @@ export const CodeBlock = ({
                 } as CSSProperties
               }
             />
+            </Suspense>
           ))}
         </div>
         {shouldRenderMermaid && mermaidPreviewSvg ? (

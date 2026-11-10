@@ -547,3 +547,14 @@ test("a rejected send keeps quotes, and an accepted send keeps quotes added whil
   await act(async () => { resolve(true); });
   assert.deepEqual(Array.from(container!.querySelectorAll('blockquote'), (node) => node.textContent), ['New quote during send']);
 });
+
+test("the voice control states its key and follows the hold-to-talk setting", async () => {
+  const { useVoiceStore } = await import("../features/voice/voiceStore.ts");
+  render({ onSubmit: () => true });
+  const mic = () => container!.querySelector<HTMLButtonElement>(".matopt-composer-mic")!;
+  assert.equal(mic().getAttribute("aria-label"), "Voice input (hold Right Alt)");
+  assert.equal(container!.querySelector('[data-testid="voice-status"]')?.getAttribute("aria-live"), "polite");
+  act(() => useVoiceStore.setState({ pushToTalk: false }));
+  assert.equal(mic().getAttribute("aria-label"), "Voice input");
+  act(() => useVoiceStore.setState({ pushToTalk: true }));
+});

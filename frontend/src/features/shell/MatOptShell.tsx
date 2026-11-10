@@ -41,9 +41,10 @@ export function MatOptShell({ sidebar, header, conversation, sidePane, inspector
     if (!drawerOpen) return;
     sidebarFocus.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     sidebarRef.current?.querySelector<HTMLElement>("button, input, [tabindex='0']")?.focus({ preventScroll: true });
+    const workspace = workspaceRef.current;
     return () => {
       // The compact header can remount its opener while the drawer closes.
-      const opener = workspaceRef.current?.closest(".matopt-shell")?.querySelector<HTMLElement>('[aria-label="Open sidebar"]');
+      const opener = workspace?.closest(".matopt-shell")?.querySelector<HTMLElement>('[aria-label="Open sidebar"]');
       const previous = sidebarFocus.current;
       (previous?.isConnected && previous !== document.body ? previous : opener)?.focus({ preventScroll: true });
     };

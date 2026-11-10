@@ -7,7 +7,7 @@ import { WorkDisclosure, ActivityPanel, SafeWorkTimeline } from './WorkActivity.
 import type { PresentedWork } from '../services/presentation.ts';
 let root: Root | null = null; let dom: HTMLDivElement | null = null;
 afterEach(() => { act(() => root?.unmount()); root = null; dom?.remove(); dom = null; });
-const work = (): PresentedWork => ({ status: 'running', toolCount: 7, verification: { status: 'not_requested', rounds: 0 }, steps: [], startedAt: Date.now() / 1000,
+const work = (): PresentedWork => ({ status: 'running', toolCount: 7, verification: { status: 'not_requested', rounds: 0 }, steps: [], transcript: [], startedAt: Date.now() / 1000,
   progress: { id: 'latest', seq: 12, text: 'Three sources are ready; checking the remaining calculations.', created_at: 12, phase: 'work' },
   milestones: Array.from({ length: 8 }, (_, index) => ({ id: `update-${index}`, seq: index, text: `Completed milestone ${index}`, created_at: index, phase: 'work' as const })),
   items: Array.from({ length: 7 }, (_, index) => ({ id: `call-${index}`, parent_id: null, seq: index, kind: 'tool' as const, phase: 'work' as const, label: `Read source ${index + 1}`, purpose: 'Find evidence.', status: 'running' as const, started_at: 10, updated_at: 11, finished_at: null, attempt: 1, outputs: [] })) });

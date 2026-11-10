@@ -45,13 +45,13 @@ test("Plotly figure axes, colors, interaction state and config overrides survive
 test("Chart.js honors explicit dataset styles and named axes while filling absent theme defaults", () => {
   setColors(); const theme = readChartTheme();
   const options = { plugins: { legend: { display: false } }, scales: { custom: { type: "logarithmic", grid: { display: false } } } };
-  const resolved = mergeChartDefaults(chartJsDefaults(theme, "line", options), options);
+  const resolved = mergeChartDefaults(chartJsDefaults(theme, "line", options as any), options) as any;
   assert.equal((resolved.plugins.legend as Record<string, unknown>).display, false);
   assert.equal(resolved.plugins.legend.labels.color, "#111111");
   assert.deepEqual(Object.keys(resolved.scales), ["custom"]);
   assert.equal((resolved.scales.custom.grid as Record<string, unknown>).display, false);
   const data = { datasets: [{ data: [1, 2] }, { data: [3, 4], borderColor: "orange", backgroundColor: null }] };
-  const themed = themedChartData(data, "line", theme);
+  const themed = themedChartData(data as never, "line", theme);
   assert.deepEqual(themed.datasets[0], { data: [1, 2], borderColor: "#0066ff", backgroundColor: "#0066ff" });
   assert.deepEqual(themed.datasets[1], { data: [3, 4], borderColor: "orange", backgroundColor: null });
   assert.deepEqual(data.datasets[0], { data: [1, 2] });

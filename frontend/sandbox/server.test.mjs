@@ -4,7 +4,7 @@ import { startSandbox } from "./server.mjs";
 
 test("isolated runtime serves only two static assets and denies API, writes, and network permissions", async () => {
   const server = await startSandbox({ port: 0 });
-  const base = `http://127.0.0.1:${server.address().port}`;
+  const base = `http://127.0.0.1:${/** @type {import("node:net").AddressInfo} */ (server.address()).port}`;
   try {
     const document = await fetch(base);
     assert.equal(document.status, 200);

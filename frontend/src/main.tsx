@@ -1,7 +1,7 @@
 import React from "react";
 import { createRoot } from "react-dom/client";
 import App from "./MatOptApp";
-import { ZCodeIntlProvider } from "./zcode/i18n/IntlProvider";
+import { loadLocaleMessages, ZCodeIntlProvider } from "./zcode/i18n/IntlProvider";
 import { TooltipProvider } from "./zcode/components/ui/tooltip";
 import { LucideProvider } from "lucide-react";
 import "@fontsource/carlito/400.css";
@@ -35,8 +35,10 @@ subscribeToUiFontSizeStorageChanges();
 subscribeToFontPreferenceStorageChanges();
 void redirectIfSignedOut();
 
-createRoot(document.getElementById("root")!).render(
+const render = () => createRoot(document.getElementById("root")!).render(
     <React.StrictMode>
         <ZCodeIntlProvider initialLocale="en-US"><TooltipProvider><LucideProvider strokeWidth={1.5}><App /></LucideProvider></TooltipProvider></ZCodeIntlProvider>
     </React.StrictMode>
 );
+// A failed catalog download must not leave a blank page; the provider retries after mounting.
+void loadLocaleMessages("en-US").then(render, render);

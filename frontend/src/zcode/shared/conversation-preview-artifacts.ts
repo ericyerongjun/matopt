@@ -1,9 +1,7 @@
 /* Vendored whole file from ZCode 29628c9acdb81b703bbd4080c207a0e7ce5e276e: packages/shared/src/conversation-preview-artifacts.ts
- * Apache-2.0; original notices retained. */
-import {
-  conversationArtifactTypeSchema,
-  type ConversationArtifactType,
-} from "./zcode-protocol-v4/rows.js";
+ * Apache-2.0; original notices retained.
+ * MatOpt host: type-only import and no schema re-export, which keeps zod out of the browser entry. */
+import type { ConversationArtifactType } from "./zcode-protocol-v4/rows.js";
 import { MEDIA_PREVIEW_FORMATS } from "./media-preview.js";
 
 export type ConversationPreviewFileKind =
@@ -391,5 +389,3 @@ export function buildConversationPreviewArtifactCandidates(input: {
     references: extractConversationPreviewFileReferences(input.assistantText, input.workspacePath),
   });
 }
-
-export { conversationArtifactTypeSchema };

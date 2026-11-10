@@ -1,0 +1,8 @@
+{
+    // `npm run build` checks application sources only. This adds the tests and
+    // the Vite config; tsconfig.sandbox.json covers the plain-JS sandbox.
+    "extends": "./tsconfig.json",
+    "include": ["src", "vite.config.ts"],
+    "exclude": ["node_modules", "dist"],
+    "references": []
+}

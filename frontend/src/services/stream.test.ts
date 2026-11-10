@@ -299,3 +299,21 @@ test("live transcript events upsert by id, stay in step order and persist into t
   assert.deepEqual(state.transcript?.map((entry) => [entry.id, entry.status]), [["note:1", undefined], ["action:c1", "done"]]);
   assert.equal(assistantFromStream(state).transcript?.[1].output, "42");
 });
+
+test("a rejected request keeps its status whatever the body is, so it is never retried as a network failure", async () => {
+    const original = globalThis.fetch;
+    let requests = 0;
+    const respond = (body: string, status: number) => { globalThis.fetch = async () => { requests += 1; return new Response(body, { status }); }; };
+    const rejection = () => observeRun({ runId: "run-1", signal: new AbortController().signal, onEvent: () => {} }).then(() => null, (error: Error & { status?: number }) => error);
+    try {
+        respond("<html><body>Sign in</body></html>", 401);
+        const html = await rejection();
+        assert.equal(html?.status, 401);
+        assert.equal(html?.message, "HTTP 401");
+        assert.equal(requests, 1);
+        respond("Request blocked", 403);
+        assert.equal((await rejection())?.message, "Request blocked");
+        respond(JSON.stringify({ detail: "Run not found" }), 404);
+        assert.equal((await rejection())?.message, "Run not found");
+    } finally { globalThis.fetch = original; }
+});

@@ -124,6 +124,7 @@ function TableScrollCue({ entry, label }: { entry: TableViewport; label: string 
             window.removeEventListener('resize', measure);
             restore();
         };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- `move` only reads refs and the current viewport.
     }, [entry, label, descriptionId]);
     if (!edges.overflow) return null;
     return <div className="ui-table-overflow-cue">

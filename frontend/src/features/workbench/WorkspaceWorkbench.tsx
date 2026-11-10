@@ -60,6 +60,7 @@ function WorkbenchSession({ conversationId, files, loading = false, onRefresh, o
                 ?? workbenchRef.current?.querySelector<HTMLElement>('[role="treeitem"][tabindex="0"]')
             : tabsRef.current?.querySelector<HTMLElement>('[role="tab"][aria-selected="true"]');
         target?.focus({ preventScroll: true });
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- focus moves when the selected path changes, not when its metadata refreshes.
     }, [browsingFiles, selected?.path, compactFiles]);
     useEffect(() => {
         if (initialPath && initialPath !== handledInitialPath.current) {

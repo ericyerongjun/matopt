@@ -1,7 +1,7 @@
 /** Foreground subscription to a durable agent run. Navigation only unsubscribes. */
 import { useCallback, useEffect, useRef, useState, type Dispatch, type SetStateAction } from "react";
 import { fetchFollowUps } from "../services/followups.ts";
-import { getConversation, steerRun, stopRun } from "../services/conversations.ts";
+import { deleteConversation, getConversation, steerRun, stopRun } from "../services/conversations.ts";
 import { controlRun, latestRun, observeRun } from "../services/runs.ts";
 import { textFromAssistant, isAssistantContent } from "../types/protocol.ts";
 import { uploadFiles } from "../services/files.ts";
@@ -13,7 +13,8 @@ interface Options {
     messages: ChatMessage[];
     setMessages: Dispatch<SetStateAction<ChatMessage[]>>;
     setActiveId: (id: string | null) => void;
-    createConversation: (opts: { provider?: string | null; model?: string | null; reasoning?: string | null }) => Promise<{ id: string; title: string }>;
+    /** `onActivating` runs just before the new chat becomes active, so that change is not mistaken for navigation. */
+    createConversation: (opts: { provider?: string | null; model?: string | null; reasoning?: string | null; onActivating?: (id: string) => void }) => Promise<{ id: string; title: string }>;
     refreshList: () => Promise<void>;
     provider: string | null;
     model: string | null;
@@ -36,6 +37,20 @@ interface Subscription {
 const EMPTY_RUN_VIEW = { runId: null, approvals: [] as ApprovalRequest[], subagents: [] as SubagentEvent[] };
 function uid(prefix: string) { return `${prefix}${crypto.randomUUID()}`; }
 
+/** Everything else streams at token rate and is drawn at most once per frame. */
+const PUBLISH_AT_ONCE = new Set(["conversation", "message_start", "final_start", "message_end", "done", "stopped", "error",
+    "approval_request", "approval_resolved", "run_state", "control_ack", "steer_applied"]);
+
+/** Browsers suspend animation frames in background tabs; the timer keeps those tabs current. */
+function nextPaint(callback: () => void): () => void {
+    let frame = 0;
+    const run = () => { cancel(); callback(); };
+    const timer = setTimeout(run, 100);
+    const cancel = () => { clearTimeout(timer); cancelAnimationFrame(frame); };
+    frame = requestAnimationFrame(run);
+    return cancel;
+}
+
 export function useChat(options: Options) {
     const [streaming, setStreaming] = useState(false);
     const [statusLine, setStatusLine] = useState<string | null>(null);
@@ -54,23 +69,27 @@ export function useChat(options: Options) {
     const preparingCid = useRef<string | null>(null);
     const optionsRef = useRef(options);
     optionsRef.current = options;
+    const pendingPaint = useRef<(() => void) | null>(null);
+    const cancelPaint = useCallback(() => { pendingPaint.current?.(); pendingPaint.current = null; }, []);
 
     const unsubscribe = useCallback(() => {
         ++generation.current;
+        cancelPaint();
         current.current?.abort.abort();
         current.current = null;
         preparing.current = false;
         setStreaming(false); setReconnecting(false); setPaused(false); setPauseRequested(false);
         setStatusLine(null); setControlStatus(null); setRunView(EMPTY_RUN_VIEW);
-    }, []);
+    }, [cancelPaint]);
 
     const publish = useCallback((session: Subscription) => {
+        cancelPaint();
         if (current.current !== session || session.abort.signal.aborted) return;
         setStatusLine(session.state.statusLine);
         setPaused(Boolean(session.state.paused));
         setPauseRequested(Boolean(session.state.pauseRequested));
         setControlStatus(session.state.controlStatus ?? null);
-        const { runId = null, approvals = [], subagents = [] } = session.state;
+        const { runId = null, approvals = EMPTY_RUN_VIEW.approvals, subagents = EMPTY_RUN_VIEW.subagents } = session.state;
         setRunView((previous) => previous.runId === runId && previous.approvals === approvals && previous.subagents === subagents
             ? previous : { runId, approvals, subagents });
         const answer: ChatMessage = {
@@ -87,7 +106,11 @@ export function useChat(options: Options) {
         if (!found) session.messages = [...session.messages, answer];
         setOverlay({ cid: session.cid, messages: session.messages });
         if (optionsRef.current.activeId === session.cid) optionsRef.current.setMessages(session.messages);
-    }, []);
+    }, [cancelPaint]);
+
+    const publishSoon = useCallback((session: Subscription) => {
+        pendingPaint.current ??= nextPaint(() => { pendingPaint.current = null; publish(session); });
+    }, [publish]);
 
     const monitor = useCallback(async (session: Subscription, body?: ChatStreamBody, onAccepted?: (accepted: boolean) => void) => {
         const original = session.messages.filter((message) => message.id !== session.assistantId);
@@ -107,7 +130,8 @@ export function useChat(options: Options) {
                         }
                     }
                     session.state = applyEvent(session.state, event);
-                    publish(session);
+                    if (PUBLISH_AT_ONCE.has(event.type)) publish(session);
+                    else publishSoon(session);
                     if (event.type === "error") setStreamError(String(event.message ?? "The run failed"));
                     if (event.type === "artifact" || event.type === "ui_commit") optionsRef.current.onArtifacts?.();
                 },
@@ -155,16 +179,24 @@ export function useChat(options: Options) {
                 onAccepted?.(false);
                 setStreaming(false); setReconnecting(false); setStatusLine(null);
                 current.current = null;
+            } else {
+                // The server definitively refused this run, so nothing further can arrive.
+                // Left as "streaming", the next message would be sent as a steer to a dead run.
+                session.state = applyEvent(session.state, { type: "error", message });
+                publish(session);
+                setStreaming(false); setReconnecting(false); setStatusLine(null); setPaused(false); setPauseRequested(false);
+                current.current = null;
             }
             return session.accepted;
         } finally {
             if (current.current === session) { setStreaming(false); setReconnecting(false); setStatusLine(null); }
         }
-    }, [publish]);
+    }, [publish, publishSoon]);
 
     useEffect(() => {
         const cid = options.activeId;
-        if (current.current?.cid === cid || (preparing.current && (!preparingCid.current || preparingCid.current === cid))) return;
+        // While sending, only the chat being prepared is expected; any other change is the user navigating.
+        if (current.current?.cid === cid || (preparing.current && preparingCid.current === cid)) return;
         unsubscribe();
         setOverlay(null);
         setDetached(false); setStreamError(null);
@@ -191,7 +223,7 @@ export function useChat(options: Options) {
         return () => abort.abort();
     }, [options.activeId, monitor, publish, unsubscribe]);
 
-    useEffect(() => () => { generation.current += 1; current.current?.abort.abort(); current.current = null; }, []);
+    useEffect(() => () => { generation.current += 1; cancelPaint(); current.current?.abort.abort(); current.current = null; }, [cancelPaint]);
 
     const runTurn = useCallback(async (text: string, files: File[], skills: string[], tools: string[], accepted: (value: boolean) => void) => {
         const opts = optionsRef.current;
@@ -216,16 +248,26 @@ export function useChat(options: Options) {
         unsubscribe(); preparing.current = true; preparingCid.current = opts.activeId; setDetached(false); setStreamError(null);
         const mine = generation.current;
         let cid = opts.activeId;
+        let created = false;
+        // A chat created for this send holds nothing the user wrote if the send is abandoned.
+        const abandonCreated = (id: string) => {
+            if (created) void deleteConversation(id).catch(() => {}).finally(() => optionsRef.current.refreshList());
+            return false;
+        };
         try {
-            if (!cid) cid = (await opts.createConversation({ provider: opts.provider, model: opts.model, reasoning: opts.reasoning })).id;
-            if (generation.current !== mine) return false;
+            if (!cid) {
+                cid = (await opts.createConversation({ provider: opts.provider, model: opts.model, reasoning: opts.reasoning,
+                    onActivating: (id) => { if (generation.current === mine) preparingCid.current = id; } })).id;
+                created = true;
+            }
+            if (generation.current !== mine) return abandonCreated(cid);
             preparingCid.current = cid;
             let attachments: Attachment[] = [];
             if (files.length) {
                 setStatusLine("Uploading files…");
                 attachments = (await uploadFiles(cid, files)).map(({ name, path, url, size, kind }) => ({ name, path, url, size, kind }));
             }
-            if (generation.current !== mine || (optionsRef.current.activeId !== cid && (opts.activeId || optionsRef.current.activeId))) return false;
+            if (generation.current !== mine || (optionsRef.current.activeId !== cid && (opts.activeId || optionsRef.current.activeId))) return abandonCreated(cid);
             const user: ChatMessage = { id: uid("u_"), conversation_id: cid, seq: opts.messages.length + 1, role: "user",
                 content: { text: trimmed, attachments }, created_at: Date.now() / 1000 };
             const session: Subscription = { cid, abort: new AbortController(), accepted: false, assistantId: uid("m_"),

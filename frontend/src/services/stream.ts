@@ -766,12 +766,12 @@ export async function streamRun(runId: string, after: number, onEvent: (event: S
 
 async function consumeEventStream(res: Response, onEvent: (event: StreamEvent) => void, signal?: AbortSignal): Promise<"done" | "stopped" | "error"> {
     if (!res.ok) {
-        let message = `HTTP ${res.status}`;
-        try {
-            message = parseDetail(await res.json());
-        } catch {
-            message = await res.text();
-        }
+        // The body can be read once. A proxy's HTML page must still surface the
+        // status, because observeRun uses it to tell rejection from network loss.
+        let raw = "";
+        try { raw = await res.text(); } catch { /* The status alone is enough. */ }
+        let message = raw && !/^\s*</.test(raw) ? raw.slice(0, 500) : `HTTP ${res.status}`;
+        try { message = parseDetail(JSON.parse(raw)); } catch { /* Not JSON: keep the text or status. */ }
         throw Object.assign(new Error(message), { status: res.status });
     }
     if (!res.body) throw new Error("No response body");

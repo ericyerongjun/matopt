@@ -74,3 +74,7 @@ globalThis.IS_REACT_ACT_ENVIRONMENT = true
 after(() => window.close())
 
 export { dom, window }
+
+// The app loads its message catalog before the first render (see main.tsx).
+const { loadLocaleMessages } = await import('../src/zcode/i18n/IntlProvider.tsx')
+await loadLocaleMessages('en-US')

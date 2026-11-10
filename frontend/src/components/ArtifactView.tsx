@@ -25,6 +25,12 @@ export function safeHtmlArtifactSource(url: string | undefined, conversationId?:
     } catch { return null; }
 }
 
+/** A figure's own name, readable aloud; the protocol carries no separate caption. */
+export function artifactImageAlt(artifact: Pick<Artifact, "name">): string {
+    const label = artifact.name.replace(/\.[a-z0-9]{1,8}$/i, "").replace(/[-_]+/g, " ").trim();
+    return label ? `Figure: ${label}` : "Generated figure";
+}
+
 function richArtifactKind(artifact: Artifact): RichSourceKind | null {
     const mime = artifact.mime?.split(";")[0].trim().toLowerCase();
     const file = (artifact.path || artifact.name).toLowerCase();
@@ -89,7 +95,7 @@ export function ArtifactView({ artifact, conversationId, inCanvas = false }: { a
         return frame(<><p className="ui-surface-note" role="status">{error || "Loading preview…"}</p>
             {error && url && <a className="text-ui-sm text-foreground underline underline-offset-4" href={url} download={artifact.name}>Download {artifact.name}</a>}</>);
     }
-    if (artifact.kind === "image") return frame(<figure><img src={url} alt="Figure" className="block h-auto max-w-full rounded-xl" /></figure>);
+    if (artifact.kind === "image") return frame(<figure><img src={url} alt={artifactImageAlt(artifact)} className="block h-auto max-w-full rounded-xl" /></figure>);
     if (artifact.kind === "plotly") {
         const figure = (artifact.data || fetched) as { data?: unknown[] } | null;
         if (figure && Array.isArray(figure.data)) return frame(<PlotRenderer figure={figure as { data?: Plotly.Data[] }} />);

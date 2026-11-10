@@ -7,7 +7,8 @@ const FALLBACK: SpeechLanguage[] = [{ code: "en", label: "English", voice: "" },
 
 /** Reply and voice language: Auto follows the user; a choice is stated to the model and used for speech. */
 export function LanguagePicker({ disabled = false }: { disabled?: boolean }) {
-    const { language, setPreference } = useVoiceStore();
+    const language = useVoiceStore((store) => store.language);
+    const setPreference = useVoiceStore((store) => store.setPreference);
     const [languages, setLanguages] = useState<SpeechLanguage[]>(FALLBACK);
     useEffect(() => { void getSpeechStatus().then((status) => { if (status.languages?.length) setLanguages(status.languages); }).catch(() => undefined); }, []);
     return <label className="matopt-language-picker" title="Reply and voice language">

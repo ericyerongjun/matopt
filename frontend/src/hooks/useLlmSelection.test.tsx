@@ -3,7 +3,6 @@ import assert from "node:assert/strict";
 import { afterEach, test } from "node:test";
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
-import { window } from "../../test/jsdom-env.mjs";
 import type { ApiRequestConfig, ApiResponse } from "../services/api.ts";
 import apiClient from "../services/api.ts";
 import { useLlmSelection } from "./useLlmSelection.ts";

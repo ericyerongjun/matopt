@@ -16,6 +16,8 @@ interface Preferences {
     avatarOpen: boolean;
     /** Which built-in tutor the avatar panel shows. */
     tutor: TutorId;
+    /** Holding the right Option/Alt key records speech; the mic button always works. */
+    pushToTalk: boolean;
 }
 
 interface VoiceStore extends Preferences {
@@ -29,7 +31,7 @@ interface VoiceStore extends Preferences {
 }
 
 const KEY = "matopt.voice";
-const DEFAULTS: Preferences = { language: null, speakReplies: false, conversation: false, avatarOpen: false, tutor: DEFAULT_TUTOR };
+const DEFAULTS: Preferences = { language: null, speakReplies: false, conversation: false, avatarOpen: false, tutor: DEFAULT_TUTOR, pushToTalk: true };
 
 function load(): Preferences {
     try {
@@ -40,6 +42,7 @@ function load(): Preferences {
             conversation: saved.conversation === true,
             avatarOpen: saved.avatarOpen === true,
             tutor: isTutorId(saved.tutor) ? saved.tutor : DEFAULT_TUTOR,
+            pushToTalk: saved.pushToTalk !== false,
         };
     } catch {
         return DEFAULTS;
@@ -53,8 +56,8 @@ export const useVoiceStore = create<VoiceStore>((set, get) => ({
     mood: "idle",
     setPreference: (key, value) => {
         set({ [key]: value } as Partial<VoiceStore>);
-        const { language, speakReplies, conversation, avatarOpen, tutor } = get();
-        try { localStorage.setItem(KEY, JSON.stringify({ language, speakReplies, conversation, avatarOpen, tutor })); } catch { /* Preferences are optional. */ }
+        const { language, speakReplies, conversation, avatarOpen, tutor, pushToTalk } = get();
+        try { localStorage.setItem(KEY, JSON.stringify({ language, speakReplies, conversation, avatarOpen, tutor, pushToTalk })); } catch { /* Preferences are optional. */ }
     },
     setSpeech: (speaking, viseme = SILENT) => set({ speaking, viseme }),
     setMood: (mood) => set({ mood }),

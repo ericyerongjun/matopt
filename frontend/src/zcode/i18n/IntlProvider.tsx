@@ -19,14 +19,18 @@ import {
   readSafeLocalStorage,
   writeSafeLocalStorage,
 } from "@/lib/browserEnvironment.js";
-import zhCN from "./locales/zh-CN.js";
-import enUS from "./locales/en-US.js";
 
-/** 语言 → 翻译消息映射 */
-const MESSAGES: Record<Locale, Record<string, string>> = {
-  "zh-CN": zhCN,
-  "en-US": enUS,
+/** 语言 → 翻译消息映射 (MatOpt host: each catalog is a separate chunk, loaded on demand.) */
+const MESSAGES: Partial<Record<Locale, Record<string, string>>> = {};
+const MESSAGE_LOADERS: Record<Locale, () => Promise<{ default: Record<string, string> }>> = {
+  "zh-CN": () => import("./locales/zh-CN.js"),
+  "en-US": () => import("./locales/en-US.js"),
 };
+
+/** MatOpt host: call before the first render so no message id is ever painted. */
+export async function loadLocaleMessages(locale: Locale): Promise<void> {
+  MESSAGES[locale] ??= (await MESSAGE_LOADERS[locale]()).default;
+}
 
 /** 简易 intl 工具：根据 id 查找翻译，支持 {key} 占位符替换 */
 export interface IntlInstance {
@@ -115,7 +119,7 @@ function shouldApplyLocaleBroadcastMessage(
 
 function createIntl(locale: Locale): IntlInstance {
   // noUncheckedIndexedAccess：用 ?? 回退到默认语言的翻译
-  const messages = MESSAGES[locale] ?? MESSAGES[DEFAULT_LOCALE]!;
+  const messages = MESSAGES[locale] ?? MESSAGES[DEFAULT_LOCALE] ?? {};
   return {
     formatMessage({ id }, values) {
       let msg = messages[id] ?? id;
@@ -357,7 +361,24 @@ export function ZCodeIntlProvider({
     [setLocalePreference],
   );
 
-  const intl = useMemo(() => createIntl(locale), [locale]);
+  const [messagesLoaded, setMessagesLoaded] = useState(0);
+  useEffect(() => {
+    if (MESSAGES[locale]) return;
+    let disposed = false;
+    void loadLocaleMessages(locale)
+      .then(() => {
+        if (!disposed) setMessagesLoaded((count) => count + 1);
+      })
+      .catch(() => {
+        // 目录加载失败时回退到默认语言或消息 id，不阻断界面。
+      });
+    return () => {
+      disposed = true;
+    };
+  }, [locale]);
+
+  // messagesLoaded signals that the module-level catalog changed.
+  const intl = useMemo(() => createIntl(locale), [locale, messagesLoaded]);
 
   const value = useMemo<IntlContextValue>(
     () => ({ intl, locale, localePreference, setLocale, setLocalePreference }),

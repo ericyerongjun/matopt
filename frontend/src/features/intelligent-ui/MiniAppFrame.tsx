@@ -13,6 +13,8 @@ export function MiniAppFrame({ surfaceId, title, html, state = {}, onStateChange
     const [height, setHeight] = useState(320);
     const [ready, setReady] = useState(false);
     const [unavailable, setUnavailable] = useState(false);
+    // New document, new channel: `html` is a deliberate dependency that remounts the frame.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     const identity = useMemo(() => ({ channel: crypto.randomUUID(), surfaceId }), [surfaceId, html]);
     const origin = typeof window === "undefined" ? null : sandboxOrigin(window.location, import.meta.env?.VITE_UI_SANDBOX_ORIGIN);
     const source = origin ? `${origin}/#${new URLSearchParams({ channel: identity.channel, surface: surfaceId })}` : undefined;

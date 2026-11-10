@@ -114,13 +114,14 @@ export function useConversations() {
     }, [loadThread, select]);
 
     const create = useCallback(
-        async (opts: { title?: string; provider?: string | null; model?: string | null; reasoning?: string | null } = {}) => {
+        async ({ onActivating, ...opts }: { title?: string; provider?: string | null; model?: string | null; reasoning?: string | null; onActivating?: (id: string) => void } = {}) => {
             const generation = loadGeneration.current;
             const conv = await apiCreate(opts);
             setConversations((prev) => [conv, ...prev.filter((c) => c.id !== conv.id)]);
             // Creating a chat may finish after the user has navigated away.
             // Keep the saved conversation, but never take over their new view.
             if (generation !== loadGeneration.current) return conv;
+            onActivating?.(conv.id);
             setActiveId(conv.id);
             setMessages([]);
             setRunning(false);

@@ -2,6 +2,7 @@ import "../../test/jsdom-env.mjs";
 import assert from "node:assert/strict";
 import { afterEach, beforeEach, test } from "node:test";
 import { act, useEffect, useState } from "react";
+import { flushSync } from "react-dom";
 import { createRoot, type Root } from "react-dom/client";
 import { useChat } from "./useChat.ts";
 import MathInput from "../components/MathInput.tsx";
@@ -22,15 +23,19 @@ Object.defineProperty(globalThis, "ResizeObserver", { configurable: true, value:
 window.HTMLElement.prototype.scrollIntoView = () => {};
 afterEach(() => {
   act(() => root?.unmount()); root = null; container?.remove(); container = null;
-  globalThis.fetch = originalFetch; apiClient.defaults.adapter = originalAdapter; submitted = null;
+  globalThis.fetch = originalFetch; apiClient.defaults.adapter = originalAdapter; submitted = null; publishes = 0;
 });
 
-function Harness({ activeId = "chat-1" }: { activeId?: string } = {}) {
+type CreateConversation = Parameters<typeof useChat>[0]["createConversation"];
+let publishes = 0;
+const paint = () => act(async () => { await new Promise((resolve) => setTimeout(resolve, 120)); });
+
+function Harness({ activeId = "chat-1", createConversation }: { activeId?: string | null; createConversation?: CreateConversation } = {}) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   renderedMessages = messages;
   useEffect(() => setMessages([]), [activeId]);
-  hook = useChat({ activeId, messages, setMessages, setActiveId: () => {},
-    createConversation: async () => ({ id: "chat-1", title: "Test" }), refreshList: async () => {},
+  hook = useChat({ activeId, messages, setMessages: (value) => { publishes += 1; setMessages(value); }, setActiveId: () => {},
+    createConversation: createConversation ?? (async () => ({ id: "chat-1", title: "Test" })), refreshList: async () => {},
     provider: "deepseek", model: "deepseek-flash", reasoning: "high", verify: false });
   return <ZCodeIntlProvider initialLocale="en-US"><TooltipProvider><MathInput loading={hook.streaming} showDisclaimer={false}
     commands={[{ kind: "tool", name: "web_search", description: "Search the web", source: "matopt" }]}
@@ -62,7 +67,7 @@ test("accepted sends clear promptly, steering stays available, and turn completi
     return new Response(new ReadableStream<Uint8Array>({ start(stream) { controller = stream; } }), { headers: { "Content-Type": "text/event-stream" } });
   };
   apiClient.defaults.adapter = async (config) => {
-    calls.push({ url: config.url, body: config.data ? JSON.parse(config.data) : {} });
+    calls.push({ url: config.url, body: config.data ? JSON.parse(String(config.data)) : {} });
     return { data: {}, config, headers: {}, status: 200, statusText: "OK" };
   };
   render(); type("Explain the result");
@@ -385,11 +390,13 @@ test("partial revisions remain on the same assistant after steering and reconcil
     frame(controller, { type: "final_start", message_id: "answer-1", run_id: "run-1", seq: 5 });
     frame(controller, { type: "text_delta", delta: "Final answer", run_id: "run-1", seq: 6 });
   });
+  await paint();
   assert.equal(hook.overlay?.messages.filter((message) => message.role === "assistant").length, 1);
   assert.equal(hook.overlay?.messages.at(-1)?.role, "user");
   assert.equal(answer().status, "streaming");
   assert.deepEqual(answer().parts.map((part) => part.type), ["result_block", "text"]);
-  assert.equal(answer().parts[0].type === "result_block" && answer().parts[0].block.revision, 2);
+  const firstPart = answer().parts[0];
+  assert.equal(firstPart.type === "result_block" && firstPart.block.revision, 2);
   assert.equal(JSON.stringify(hook.overlay).includes("PRIVATE_"), false);
   const finalContent: AssistantContent = { ...answer(), status: "complete", parts: [
     { type: "text", text: "Final answer in metres." },
@@ -407,4 +414,101 @@ test("partial revisions remain on the same assistant after steering and reconcil
   assert.deepEqual(answer().parts, finalContent.parts);
   assert.equal(hook.overlay?.messages.filter((message) => message.role === "assistant").length, 1);
   assert.equal(input().value, "Keep my next draft");
+});
+
+test("token deltas are drawn at most once per frame and a terminal event is drawn at once", async () => {
+  let controller!: ReadableStreamDefaultController<Uint8Array>;
+  globalThis.fetch = async () => new Response(new ReadableStream<Uint8Array>({ start(stream) { controller = stream; } }));
+  render();
+  let pending!: Promise<boolean>;
+  await act(async () => {
+    pending = hook.sendMessage("Stream a long answer");
+    await Promise.resolve();
+    frame(controller, { type: "message_start", message_id: "answer-1" });
+    assert.equal(await pending, true);
+  });
+  const before = publishes;
+  await act(async () => { for (let index = 0; index < 50; index += 1) frame(controller, { type: "text_delta", delta: "x" }); });
+  await paint();
+  assert.ok(publishes - before <= 3, `expected coalesced publishes, saw ${publishes - before}`);
+  const text = () => (hook.overlay!.messages.find((message) => message.id === "answer-1")!.content as AssistantContent).parts;
+  assert.deepEqual(text().map((part) => part.type === "text" && part.text.length), [50]);
+  await act(async () => { frame(controller, { type: "text_delta", delta: "y" }); frame(controller, { type: "done" }); controller.close(); });
+  assert.deepEqual(text().map((part) => part.type === "text" && part.text.length), [51]);
+  assert.equal(hook.streaming, false);
+});
+
+test("a run the server refuses after acceptance ends the turn, so the next message starts a new run instead of steering", async () => {
+  const urls: string[] = [];
+  const steers: string[] = [];
+  let controller!: ReadableStreamDefaultController<Uint8Array>;
+  globalThis.fetch = async (url) => {
+    urls.push(String(url));
+    if (String(url).includes("/runs/")) return new Response(JSON.stringify({ detail: "Run not found" }), { status: 404 });
+    return new Response(new ReadableStream<Uint8Array>({ start(stream) { controller = stream; } }));
+  };
+  apiClient.defaults.adapter = async (config) => {
+    if (config.url?.endsWith("/steer")) steers.push(config.url);
+    return { data: { run: null, messages: [] }, config, headers: {}, status: 200, statusText: "OK" };
+  };
+  render();
+  let first!: Promise<boolean>;
+  await act(async () => {
+    first = hook.sendMessage("First question");
+    await Promise.resolve();
+    frame(controller, { type: "message_start", message_id: "answer-1", run_id: "run-1", seq: 1 });
+    assert.equal(await first, true);
+  });
+  await act(async () => { controller.close(); await new Promise((resolve) => setTimeout(resolve, 400)); });
+  assert.equal(hook.streaming, false);
+  assert.equal(hook.streamError, "Run not found");
+  assert.equal((hook.overlay!.messages.find((message) => message.id === "answer-1")!.content as AssistantContent).status, "error");
+  await act(async () => { void hook.sendMessage("Second question"); await new Promise((resolve) => setTimeout(resolve, 20)); });
+  assert.deepEqual(steers, []);
+  assert.equal(urls.filter((url) => url === "/api/chat/stream").length, 2);
+});
+
+test("selecting another chat during a first send attaches that chat and discards the unused new one", async () => {
+  const requests: Array<{ method?: string; url?: string }> = [];
+  let finishCreate!: (value: { id: string; title: string }) => void;
+  let chatRequests = 0;
+  globalThis.fetch = async () => { chatRequests += 1; return new Response(new ReadableStream()); };
+  apiClient.defaults.adapter = async (config) => {
+    requests.push({ method: config.method, url: config.url });
+    return { data: { run: null }, config, headers: {}, status: 200, statusText: "OK" };
+  };
+  const createConversation: CreateConversation = () => new Promise((resolve) => { finishCreate = resolve; });
+  container = document.createElement("div"); document.body.appendChild(container); root = createRoot(container);
+  act(() => root?.render(<Harness activeId={null} createConversation={createConversation} />));
+  let pending!: Promise<boolean>;
+  await act(async () => { pending = hook.sendMessage("First question"); await Promise.resolve(); });
+  await act(async () => { root?.render(<Harness activeId="chat-b" createConversation={createConversation} />); await Promise.resolve(); });
+  assert.ok(requests.some((request) => request.url === "/chat/chat-b/run"), "the selected chat must check for a live run");
+  await act(async () => { finishCreate({ id: "chat-new", title: "New" }); assert.equal(await pending, false); await new Promise((resolve) => setTimeout(resolve, 0)); });
+  assert.equal(chatRequests, 0);
+  assert.ok(requests.some((request) => request.method === "delete" && request.url === "/conversations/chat-new"));
+});
+
+test("a first send survives its own new chat becoming active", async () => {
+  let controller!: ReadableStreamDefaultController<Uint8Array>;
+  globalThis.fetch = async () => new Response(new ReadableStream<Uint8Array>({ start(stream) { controller = stream; } }));
+  let activate!: (id: string) => void;
+  // flushSync commits the activation before `create` returns, the earliest React could ever do it.
+  const createConversation: CreateConversation = async ({ onActivating }) => { onActivating?.("chat-new"); flushSync(() => activate("chat-new")); return { id: "chat-new", title: "New" }; };
+  function FirstSend() {
+    const [active, setActive] = useState<string | null>(null);
+    activate = setActive;
+    return <Harness activeId={active} createConversation={createConversation} />;
+  }
+  container = document.createElement("div"); document.body.appendChild(container); root = createRoot(container);
+  act(() => root?.render(<FirstSend />));
+  let pending!: Promise<boolean>;
+  await act(async () => {
+    pending = hook.sendMessage("First question");
+    await new Promise((resolve) => setTimeout(resolve, 10));
+    frame(controller, { type: "message_start", message_id: "answer-1" });
+    assert.equal(await pending, true);
+  });
+  assert.equal(hook.streaming, true);
+  assert.equal(hook.overlay?.cid, "chat-new");
 });

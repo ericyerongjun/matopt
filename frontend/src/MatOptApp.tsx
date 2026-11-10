@@ -1,6 +1,6 @@
 /** MatOpt conversation workspace, using the licensed ZCode component primitives. */
-import { useCallback, useEffect, useRef, useState } from "react";
-import { Activity, Calculator, ChartNoAxesCombined, Download, FileCode2, Layers, Monitor, Moon, PanelLeft, RotateCcw, Settings, ShieldCheck, SlidersHorizontal, Smile, SquareFunction, SquarePen, Sun, Type, X, CaseSensitive } from "lucide-react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { Activity, Calculator, ChartNoAxesCombined, Download, FileCode2, Layers, Mic, Monitor, Moon, PanelLeft, RotateCcw, Settings, ShieldCheck, SlidersHorizontal, Smile, SquareFunction, SquarePen, Sun, Type, X, CaseSensitive } from "lucide-react";
 import { Button } from "@/components/ui/button.js";
 import { DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu.js";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs.js";
@@ -33,11 +33,12 @@ import { MatOptShell } from "./features/shell/MatOptShell";
 import { ChatSidebar } from "./features/shell/ChatSidebar";
 import { WorkspacePanel, ResultWorkspace, type WorkspaceView } from "./features/shell/WorkspacePanel";
 import { RunControls } from "./features/shell/RunControls";
-import { isAssistantContent, textFromAssistant } from "./types/protocol";
+import { isAssistantContent } from "./types/protocol";
 import { AvatarPanel } from "./features/avatar/AvatarPanel";
 import { LanguagePicker } from "./features/voice/LanguagePicker";
-import { speak, stopSpeaking } from "./features/voice/playback";
+import { useRunSpeech } from "./features/voice/useRunSpeech";
 import { useVoiceStore } from "./features/voice/voiceStore";
+import { pushToTalkKeyName } from "./hooks/useVoiceInput";
 import MathInput from "./components/MathInput";
 import MessageList from "./components/MessageList";
 import { ActivityPanel } from "./components/WorkActivity";
@@ -79,7 +80,10 @@ export default function MatOptApp() {
   const convos = useConversations();
   const files = useWorkspaceFiles(convos.activeId);
   const skillCatalog = useSkills();
-  const voice = useVoiceStore();
+  const voiceLanguage = useVoiceStore((store) => store.language);
+  const avatarOpen = useVoiceStore((store) => store.avatarOpen);
+  const pushToTalk = useVoiceStore((store) => store.pushToTalk);
+  const setVoicePreference = useVoiceStore((store) => store.setPreference);
   const [sidebarVisible, setSidebarVisible] = useState(() => !window.matchMedia("(max-width: 900px)").matches);
   const [paneVisible, setPaneVisible] = useState(false);
   const [view, setView] = useState<WorkspaceView>("results");
@@ -97,7 +101,7 @@ export default function MatOptApp() {
   const quotePassage = (quote: QuoteRef) => setQuoteRequest({ ...quote, id: crypto.randomUUID(), conversationId: convos.activeId });
   const chat = useChat({ activeId: convos.activeId, messages: convos.messages, setMessages: convos.setMessages,
     setActiveId: convos.setActiveId, createConversation: convos.create, refreshList: convos.refreshList,
-    provider: llm.provider, model: llm.model, reasoning: llm.reasoning, verify: llm.verify, language: voice.language, mode: chatMode,
+    provider: llm.provider, model: llm.model, reasoning: llm.reasoning, verify: llm.verify, language: voiceLanguage, mode: chatMode,
     onArtifacts: () => { void files.refresh(); } });
   const attachedRun = Boolean(chat.streaming && chat.overlay?.cid === convos.activeId);
   const messages = attachedRun && chat.overlay ? chat.overlay.messages : convos.messages;
@@ -117,14 +121,16 @@ export default function MatOptApp() {
     if (window.matchMedia("(max-width: 900px)").matches) setSidebarVisible(false);
     if (id !== convos.activeId) { setDraftPreset(undefined); convos.select(id); }
   };
+  const { abandon: abandonRun, sendMessage } = chat;
+  const { newChat: startNewChat } = convos;
   const newChat = useCallback(() => {
-    setDraftPreset(undefined); void chat.abandon(); convos.newChat(); setPaneVisible(false); setActivityVisible(false);
+    setDraftPreset(undefined); void abandonRun(); startNewChat(); setPaneVisible(false); setActivityVisible(false);
     if (window.matchMedia("(max-width: 900px)").matches) setSidebarVisible(false);
-  }, [chat.abandon, convos.newChat]);
+  }, [abandonRun, startNewChat]);
   const handleSend = useCallback((text: string, attached: File[] = [], skillNames: string[] = [], toolNames: string[] = []) => {
     if (inputDisabled) return false;
-    return chat.sendMessage(text, attached, skillNames, toolNames);
-  }, [chat.sendMessage, inputDisabled]);
+    return sendMessage(text, attached, skillNames, toolNames);
+  }, [sendMessage, inputDisabled]);
   const handleExplain = useCallback((text: string) => { void handleSend(text); }, [handleSend]);
   // Hands-free conversation sends what was said; otherwise the transcript is inserted for review.
   const handleVoiceTranscript = useCallback((text: string) => {
@@ -132,23 +138,7 @@ export default function MatOptApp() {
     void handleSend(text);
     return true;
   }, [handleSend]);
-  // The avatar thinks while this chat's run works, smiles when it ends, and reads the answer if asked.
-  const wasRunning = useRef(false);
-  useEffect(() => {
-    const store = useVoiceStore.getState();
-    if (attachedRun) { stopSpeaking(); store.setMood("thinking"); wasRunning.current = true; return; }
-    if (!wasRunning.current) return;
-    wasRunning.current = false;
-    const last = [...messages].reverse().find((message) => message.role === "assistant");
-    const content = last && isAssistantContent(last.content) ? last.content : null;
-    store.setMood(content?.status === "complete" ? "happy" : "idle");
-    const settle = setTimeout(() => { if (useVoiceStore.getState().mood === "happy") useVoiceStore.getState().setMood("idle"); }, 2500);
-    if (content?.status === "complete" && store.speakReplies) {
-      const text = textFromAssistant(content);
-      if (text.trim()) void speak(text).catch(() => undefined);
-    }
-    return () => clearTimeout(settle);
-  }, [attachedRun, messages]);
+  useRunSpeech(attachedRun, messages);
   const handleUpload = async (list: File[]) => { if (!convos.activeId) return; await uploadFiles(convos.activeId, list); await files.refresh(); };
   useEffect(() => watchSystemTheme(loadTheme), []);
   useEffect(() => { setPaneVisible(false); setActivityVisible(false); setActivityView("timeline"); setDraftPreset(undefined); setQuoteRequest(undefined); setChangesTurn(null); }, [convos.activeId]);
@@ -179,6 +169,7 @@ export default function MatOptApp() {
         <DropdownMenuItem onSelect={() => void exportConversation(convos.activeId!, "markdown")} disabled={!messages.length}><Download className="size-5" />Export markdown</DropdownMenuItem>
         <DropdownMenuItem onSelect={() => void exportConversation(convos.activeId!, "ipynb")} disabled={!messages.length}><FileCode2 className="size-5" />Export notebook</DropdownMenuItem>
         <DropdownMenuItem onSelect={() => void restartKernel(convos.activeId!)} disabled={chat.streaming}><RotateCcw className="size-5" />Restart analysis</DropdownMenuItem></>}
+      <DropdownMenuCheckboxItem checked={pushToTalk} onCheckedChange={(checked) => setVoicePreference("pushToTalk", checked === true)}><Mic className="size-4" />Hold {pushToTalkKeyName()} to talk</DropdownMenuCheckboxItem>
       <DropdownMenuSeparator /><DropdownMenuLabel>Text size · {Math.round(uiFontSize / DEFAULT_UI_FONT_SIZE_PX * 100)}%</DropdownMenuLabel>
       <DropdownMenuItem disabled={uiFontSize <= MIN_UI_FONT_SIZE_PX} onSelect={() => setUiFontSize(setUiFontSizePx(uiFontSize - 1))}><Type className="size-4" />Smaller text</DropdownMenuItem>
       <DropdownMenuItem disabled={uiFontSize >= MAX_UI_FONT_SIZE_PX} onSelect={() => setUiFontSize(setUiFontSizePx(uiFontSize + 1))}><Type className="size-5" />Larger text</DropdownMenuItem>
@@ -194,7 +185,7 @@ export default function MatOptApp() {
   const toolbar = <>{!attachedRun && <ModeSwitch value={chatMode} disabled={chat.streaming} onChange={(next) => setChatMode(persistChatMode(next))} />}<ModelPicker catalog={llm.catalog} provider={llm.provider} model={llm.model} label={llm.selectedLabel} onSelect={llm.select} disabled={chat.streaming} levels={llm.allowedLevels} reasoning={llm.reasoning} onReasoningChange={llm.selectReasoning} menuUp /><LanguagePicker disabled={chat.streaming} /></>;
   const composer = <MathInput key={convos.activeId ?? "draft"} onSubmit={handleSend} onStop={() => void chat.stop()} loading={attachedRun}
     quoteRequest={quoteRequest?.conversationId === convos.activeId ? quoteRequest : undefined}
-    stopControl={attachedRun && messages.length > 0 ? "external" : "inline"} voiceLanguage={voice.language} onVoiceTranscript={handleVoiceTranscript}
+    stopControl={attachedRun && messages.length > 0 ? "external" : "inline"} voiceLanguage={voiceLanguage} onVoiceTranscript={handleVoiceTranscript}
     disabled={inputDisabled} showDisclaimer={false} commands={skillCatalog.commands} toolbar={toolbar} draftPreset={messages.length ? undefined : draftPreset} />;
   const conversation = <>
     <div className="matopt-conversation-body">
@@ -222,19 +213,23 @@ export default function MatOptApp() {
       {chat.approvals.map((approval) => <ApprovalCard key={approval.id} approval={approval} onDecide={(decision) => decideApproval(approval.id, decision)} />)}</div>}{attachedRun && <RunControls paused={chat.paused} pauseRequested={chat.pauseRequested} reconnecting={chat.reconnecting} status={chat.controlStatus}
       onPause={() => void chat.pause()} onResume={() => void chat.resume()} onStop={() => void chat.stop()} />}{composer}<p className="matopt-disclaimer">MatOpt can make mistakes. Check important results.</p></div>}
     {!messages.length && <p className="matopt-disclaimer matopt-welcome-disclaimer">MatOpt can make mistakes. Check important results.</p>}
-    {voice.avatarOpen && <AvatarPanel />}
+    {avatarOpen && <AvatarPanel />}
   </>;
-  const presentations = messages.flatMap((message) => message.role === "assistant" && isAssistantContent(message.content)
-    ? [{ id: message.id, presentation: projectAssistantPresentation(message.content, attachedRun && message.content.status === "streaming") }] : []);
-  const workTimeline = presentations.flatMap(({ id, presentation }) => presentation.work ? [{ id, work: presentation.work }] : []);
-  const surfaces = [...new Map(presentations.flatMap(({ presentation }) => presentation.surfaces).map((surface) => [surface.id, surface])).values()];
-  const artifacts = [...new Map(presentations.flatMap(({ presentation }) => presentation.artifacts).map((artifact) => [artifact.path || artifact.url || `${artifact.kind}:${artifact.name}`, artifact])).values()];
-  const surfaceIds = surfaces.map((surface) => surface.id);
+  const presentations = useMemo(() => messages.flatMap((message) => message.role === "assistant" && isAssistantContent(message.content)
+    ? [{ id: message.id, presentation: projectAssistantPresentation(message.content, attachedRun && message.content.status === "streaming") }] : []), [messages, attachedRun]);
+  const { workTimeline, surfaces, artifacts, surfaceIds } = useMemo(() => {
+    const surfaces = [...new Map(presentations.flatMap(({ presentation }) => presentation.surfaces).map((surface) => [surface.id, surface])).values()];
+    return {
+      surfaces, surfaceIds: surfaces.map((surface) => surface.id),
+      workTimeline: presentations.flatMap(({ id, presentation }) => presentation.work ? [{ id, work: presentation.work }] : []),
+      artifacts: [...new Map(presentations.flatMap(({ presentation }) => presentation.artifacts).map((artifact) => [artifact.path || artifact.url || `${artifact.kind}:${artifact.name}`, artifact])).values()],
+    };
+  }, [presentations]);
   const activeConversation = convos.conversations.find((conversation) => conversation.id === convos.activeId);
   const taskTitle = activeConversation?.title || "New task";
   const memoryMode = activeConversation?.meta?.memory_mode ?? activeConversation?.meta?.memory;
-  const changeTurns = [...new Set(messages.flatMap((message) => message.role === "assistant" && isAssistantContent(message.content) && typeof message.content.turn === "number" ? [message.content.turn] : []))];
-  const selectedChanges = messages.flatMap((message) => message.role === "assistant" && isAssistantContent(message.content) && message.content.turn === changesTurn ? [message.content.changes?.files.length ?? 0] : [])[0] ?? 0;
+  const changeTurns = useMemo(() => [...new Set(messages.flatMap((message) => message.role === "assistant" && isAssistantContent(message.content) && typeof message.content.turn === "number" ? [message.content.turn] : []))], [messages]);
+  const selectedChanges = useMemo(() => messages.flatMap((message) => message.role === "assistant" && isAssistantContent(message.content) && message.content.turn === changesTurn ? [message.content.changes?.files.length ?? 0] : [])[0] ?? 0, [messages, changesTurn]);
   const taskContext = attachedRun ? chat.reconnecting ? "Reconnecting" : chat.paused ? "Paused" : "In progress" : null;
   const sidePane = <WorkspacePanel view={view} onViewChange={(next) => { setView(next); if (next === "files") void files.refresh(); }} onClose={closePane} resultCount={surfaces.length + artifacts.length} fileCount={files.files.length}
     results={<ResultWorkspace surfaces={surfaces} artifacts={artifacts} />}
@@ -254,7 +249,7 @@ export default function MatOptApp() {
     <MatOptShell sidebarOpen={sidebarVisible} paneOpen={paneVisible} onCloseSidebar={dismissSidebar} onClosePane={closePane} conversation={conversation} sidePane={sidePane} inspector={inspector} inspectorOpen={activityVisible} onCloseInspector={closeActivity}
       sidebar={<ChatSidebar conversations={convos.conversations} activeId={convos.activeId} pausedConversationId={attachedRun && chat.paused ? convos.activeId : undefined} loading={convos.loadingList} onNewChat={newChat} onSelect={selectChat} onRename={convos.rename} onDelete={convos.remove} onFiles={openFiles} onClose={dismissSidebar} />}
       header={<><div className="matopt-header-title">{!sidebarVisible && <><Button variant="ghost" size="icon-md" aria-label="Open sidebar" title="Open sidebar" onClick={() => setSidebarVisible(true)}><PanelLeft className="size-5" /></Button><Button variant="ghost" size="icon-md" aria-label="New chat" title="New chat" onClick={newChat}><SquarePen className="size-5" /></Button></>}<div className="matopt-task-identity"><h1 title={taskTitle}>{taskTitle}</h1>{taskContext && <span><i className="is-active" aria-hidden="true" />{taskContext}</span>}</div></div>
-        <div className="matopt-header-actions"><Button variant="ghost" size="sm" aria-label="Open workspace" title="Workspace" aria-expanded={paneVisible && !activityVisible} onClick={() => paneVisible && !activityVisible ? closePane() : openPane(view)}><Layers className="size-4" /><span>Workspace</span></Button><Button variant="ghost" size="sm" aria-label="Open activity" title="Activity" aria-expanded={activityVisible} onClick={() => activityVisible ? closeActivity() : openActivity()}><Activity className="size-4" /><span>Activity</span></Button><Button variant="ghost" size="sm" aria-label="Voice tutor" title="Voice tutor" aria-pressed={voice.avatarOpen} onClick={() => voice.setPreference("avatarOpen", !voice.avatarOpen)}><Smile className="size-4" /><span>Tutor</span></Button>{settings}<FontSettingsDialog open={fontsOpen} onOpenChange={setFontsOpen} value={fonts} onChange={(next) => setFonts(setFontPreferences(next))} />
+        <div className="matopt-header-actions"><Button variant="ghost" size="sm" aria-label="Open workspace" title="Workspace" aria-expanded={paneVisible && !activityVisible} onClick={() => paneVisible && !activityVisible ? closePane() : openPane(view)}><Layers className="size-4" /><span>Workspace</span></Button><Button variant="ghost" size="sm" aria-label="Open activity" title="Activity" aria-expanded={activityVisible} onClick={() => activityVisible ? closeActivity() : openActivity()}><Activity className="size-4" /><span>Activity</span></Button><Button variant="ghost" size="sm" aria-label="Voice tutor" title="Voice tutor" aria-pressed={avatarOpen} onClick={() => setVoicePreference("avatarOpen", !avatarOpen)}><Smile className="size-4" /><span>Tutor</span></Button>{settings}<FontSettingsDialog open={fontsOpen} onOpenChange={setFontsOpen} value={fonts} onChange={(next) => setFonts(setFontPreferences(next))} />
           <SettingsDialog open={settingsOpen} onOpenChange={setSettingsOpen} conversationId={convos.activeId} conversationMemory={memoryMode === "disabled" ? "disabled" : memoryMode === "enabled" ? "enabled" : undefined} /></div></>} />
   </UiWorkspaceProvider>;
 }

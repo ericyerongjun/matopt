@@ -247,14 +247,23 @@ export function UiWorkspaceProvider({ conversationId, conversationBusy = false, 
         setSelection(null);
         requestAnimationFrame(() => { if (opener.current?.isConnected) opener.current.focus(); });
     }, []);
-    const value: UiWorkspace = {
-        conversationId, conversationBusy: conversationBusy || anyActionBusy, capabilities, capabilitiesLoaded, records, selection, registerSurface, openSurface, openArtifact, closeCanvas, updateState, runAction, reloadSurface,
-        updateViewState: (id, nodeId, viewValue) => { const record = live.current[id]; if (record && record.viewState[nodeId] !== viewValue) publish(id, { ...record, viewState: { ...record.viewState, [nodeId]: viewValue } }); },
-        resetState: (id) => { const record = live.current[id]; if (record) updateState(id, record.initialState); },
-        stopAction: (id) => actionControllers.current.get(id)?.abort(),
-        explainSurface: (id) => { const record = live.current[id]; if (record) callbacks.current.onExplain?.(surfaceExplanation(record.surface, record.state, record.resultState)); },
-        canExplain: Boolean(onExplain),
-    };
+    const updateViewState = useCallback((id: string, nodeId: string, viewValue: string | boolean) => {
+        const record = live.current[id];
+        if (record && record.viewState[nodeId] !== viewValue) publish(id, { ...record, viewState: { ...record.viewState, [nodeId]: viewValue } });
+    }, [publish]);
+    const resetState = useCallback((id: string) => { const record = live.current[id]; if (record) updateState(id, record.initialState); }, [updateState]);
+    const stopAction = useCallback((id: string) => actionControllers.current.get(id)?.abort(), []);
+    const explainSurface = useCallback((id: string) => {
+        const record = live.current[id];
+        if (record) callbacks.current.onExplain?.(surfaceExplanation(record.surface, record.state, record.resultState));
+    }, []);
+    const canExplain = Boolean(onExplain);
+    const busy = conversationBusy || anyActionBusy;
+    // Every surface node consumes this; a new object per parent render would re-render them on each stream frame.
+    const value = useMemo<UiWorkspace>(() => ({
+        conversationId, conversationBusy: busy, capabilities, capabilitiesLoaded, records, selection, registerSurface, openSurface, openArtifact, closeCanvas, updateState, runAction, reloadSurface,
+        updateViewState, resetState, stopAction, explainSurface, canExplain,
+    }), [conversationId, busy, capabilities, capabilitiesLoaded, records, selection, registerSurface, openSurface, openArtifact, closeCanvas, updateState, runAction, reloadSurface, updateViewState, resetState, stopAction, explainSurface, canExplain]);
     return <Context.Provider value={value}>{children}</Context.Provider>;
 }
 
@@ -267,7 +276,8 @@ export function useUiWorkspace(): UiWorkspace {
 
 export function useSurface(surface: UISurface) {
     const workspace = useUiWorkspace();
-    useEffect(() => workspace.registerSurface(surface), [surface, workspace.registerSurface]);
+    const { registerSurface } = workspace;
+    useEffect(() => registerSurface(surface), [surface, registerSurface]);
     return { workspace, record: workspace.records[surface.id] ?? {
         surface, state: initialSurfaceState(surface), initialState: resetSurfaceState(surface), resultState: computedSurfaceState(surface), viewState: {}, busy: false, saving: false, error: null, editVersion: 0, savedVersion: 0,
     } };

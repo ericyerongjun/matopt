@@ -4,6 +4,7 @@ import { clearCustomAvatar, loadCustomAvatar, saveCustomAvatar } from "./customA
 import { TUTORS } from "./tutors.ts";
 import { stopSpeaking } from "../voice/playback.ts";
 import { useVoiceStore } from "../voice/voiceStore.ts";
+import { useShallow } from "zustand/react/shallow";
 import "./avatar.css";
 
 const AvatarStage = lazy(() => import("./AvatarStage.tsx"));
@@ -12,7 +13,10 @@ const CAPTIONS = { idle: "", listening: "Listening…", thinking: "Thinking…",
 
 /** Docked tutor card: avatar, live state and the voice switches. */
 export function AvatarPanel() {
-    const { mood, speaking, speakReplies, conversation, tutor, setPreference } = useVoiceStore();
+    const { mood, speaking, speakReplies, conversation, tutor, setPreference } = useVoiceStore(useShallow((store) => ({
+        mood: store.mood, speaking: store.speaking, speakReplies: store.speakReplies,
+        conversation: store.conversation, tutor: store.tutor, setPreference: store.setPreference,
+    })));
     const [customUrl, setCustomUrl] = useState<string | null>(null);
     const [notice, setNotice] = useState<string | null>(null);
     const picker = useRef<HTMLInputElement>(null);

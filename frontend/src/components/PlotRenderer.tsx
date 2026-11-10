@@ -5,9 +5,10 @@
  * and renders an interactive chart using react-plotly.js.
  */
 
-import React, { useEffect, useMemo, useRef, lazy, Suspense, memo } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, lazy, Suspense, memo } from "react";
 import { mergeChartDefaults, plotlyDefaults, useChartTheme } from "./chartTheme.ts";
 import { observePlotResize } from "./plotResize.ts";
+import { localOnlyFigure } from "./plotFigure.ts";
 import "./PlotRenderer.css";
 
 // Lazy-load Plotly to avoid bloating the initial bundle (~3MB)
@@ -40,8 +41,9 @@ function PlotRenderer({ json, figure }: Props) {
     const resizeCleanupRef = useRef<(() => void) | undefined>(undefined);
     const parsed = useMemo(() => {
         try {
-            const obj = figure ?? (json ? JSON.parse(json) : null);
-            if (!obj) return null;
+            const source = figure ?? (json ? JSON.parse(json) : null);
+            if (!source) return null;
+            const obj = localOnlyFigure(source as NonNullable<Props["figure"]>);
             return {
                 data: obj.data || [],
                 layout: mergeChartDefaults(plotlyDefaults(theme), obj.layout),
@@ -52,16 +54,16 @@ function PlotRenderer({ json, figure }: Props) {
         }
     }, [json, figure, theme]);
     const autoWidth = parsed?.layout.autosize !== false && !(typeof parsed?.layout.width === "number" && parsed.layout.width > 0);
-    const bindResize = (graph: HTMLElement) => {
+    const bindResize = useCallback((graph: HTMLElement) => {
         resizeCleanupRef.current?.();
         graphRef.current = graph;
         resizeCleanupRef.current = autoWidth && containerRef.current && plotlyRuntime
             ? observePlotResize(containerRef.current, graph, (element) => plotlyRuntime!.Plots.resize(element)) : undefined;
-    };
+    }, [autoWidth]);
     useEffect(() => {
         if (graphRef.current) bindResize(graphRef.current);
         return () => resizeCleanupRef.current?.();
-    }, [autoWidth]);
+    }, [bindResize]);
 
     if (!parsed || parsed.data.length === 0) {
         return (

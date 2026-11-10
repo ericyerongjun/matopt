@@ -38,6 +38,7 @@ export function TrajectoryView({ conversationId, projection, events, loading, er
             ledger.scrollTop = prependRef.current.top + ledger.scrollHeight - prependRef.current.height;
             prependRef.current = null;
         } else if (following) ledger.scrollTop = ledger.scrollHeight;
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- `visible` is derived from `records` and `anchorSeq`.
     }, [records, anchorSeq, following]);
 
     const loadOlder = () => {

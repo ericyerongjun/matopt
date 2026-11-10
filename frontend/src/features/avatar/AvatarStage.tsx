@@ -12,6 +12,13 @@ import { DEFAULT_TUTOR, dressTutor, TUTORS, type TutorPreset } from "./tutorStyl
 
 const MOUTH: Array<keyof Viseme> = ["aa", "ih", "ou", "ee", "oh"];
 
+/** `dispose` frees GPU objects only; the context itself must be released, or tutor switches exhaust the browser's cap. */
+export function releaseRenderer(renderer: Pick<THREE.WebGLRenderer, "dispose" | "forceContextLoss" | "domElement">): void {
+    renderer.dispose();
+    renderer.forceContextLoss();
+    renderer.domElement.remove();
+}
+
 /** Renders a built-in tutor, or a user's own `url` (which keeps its own neutral face and proportions). */
 export default function AvatarStage({ url, tutor = TUTORS[DEFAULT_TUTOR] }: { url?: string; tutor?: TutorPreset }) {
     const source = url ?? tutor.url;
@@ -132,8 +139,7 @@ export default function AvatarStage({ url, tutor = TUTORS[DEFAULT_TUTOR] }: { ur
             cancelAnimationFrame(frame);
             observer.disconnect();
             if (vrm) VRMUtils.deepDispose(vrm.scene);
-            renderer.dispose();
-            renderer.domElement.remove();
+            releaseRenderer(renderer);
         };
     }, [source, restingSmile, isTutor, tutor]);
 

@@ -13807,9 +13807,9 @@
     {
       "path": "frontend/src/MatOptApp.tsx",
       "mode": "host-adapter",
-      "expected_sha256": "94d169932eaee8a2f8f473b19be302b5e4c81bbc38c8d7e9b947230d43fd7f7a",
+      "expected_sha256": "e1db7735e686e74cb36de21eb349dc78333e353e72cfe6794019130f8b4685a6",
       "sources": [],
-      "notes": "MatOpt-owned workspace orchestrator with editable task starters, conversation-scoped quote requests, persistent results/files/activity panes, and actual model/effort controls. Composes licensed ZCode primitives; not a verbatim upstream application. Voice tutor: avatar panel, reply-language picker, spoken replies and hands-free conversation. Folio mark on the welcome screen and a Fonts settings dialog. Mat/Opt composer switch, Settings dialog, Agents and Jobs inspector tabs, approval cards and Changes pane."
+      "notes": "MatOpt-owned workspace orchestrator with editable task starters, conversation-scoped quote requests, persistent results/files/activity panes, and actual model/effort controls. Composes licensed ZCode primitives; not a verbatim upstream application. Voice tutor: avatar panel, reply-language picker, spoken replies and hands-free conversation. Folio mark on the welcome screen and a Fonts settings dialog. Mat/Opt composer switch, Settings dialog, Agents and Jobs inspector tabs, approval cards and Changes pane. Subscribes to voice preferences by selector, memoizes turn projections, moves run speech to useRunSpeech, and adds the hold-to-talk setting."
     },
     {
       "path": "frontend/src/components/ChartRenderer.css",
@@ -13835,16 +13835,16 @@
     {
       "path": "frontend/src/components/MathInput.tsx",
       "mode": "host-adapter",
-      "expected_sha256": "2c32b11964d6eaa652b9cac5cb80f8b7d10149edffcc2eee9d43e3d1becbfe6e",
+      "expected_sha256": "c084e1b4fa00049f49c7c6eff032eaef239f1d481c5f205162c3a5640eff6a3f",
       "sources": [],
-      "notes": "MatOpt slash-only composer adapter with viewport-aware command portal, draft presets, bounded literal quotes, acceptance-aware submit/steer, attachments and Stop. Preserves pending user edits, new quote IDs, and IME behavior. Voice input: mic button and hold-Right-Option push-to-talk with local transcription."
+      "notes": "MatOpt slash-only composer adapter with viewport-aware command portal, draft presets, bounded literal quotes, acceptance-aware submit/steer, attachments and Stop. Preserves pending user edits, new quote IDs, and IME behavior. Voice input: mic button and hold-Right-Option push-to-talk with local transcription. Announces recording state and reflects the hold-to-talk setting and platform key name on the voice control."
     },
     {
       "path": "frontend/src/components/MessageList.tsx",
       "mode": "host-adapter",
-      "expected_sha256": "b1a3c1c9cf0b045b65bd955d5a3f66f40e03994c83646ea8f449738c6a043be8",
+      "expected_sha256": "a38b14cef9df1d5227342b58460ca4ccc5fd4d45c9d1a36f859a3b8240efd3cc",
       "sources": [],
-      "notes": "MatOpt durable-history projection with public work, revisioned results, and native surfaces. Adds quoted follow-ups and an explicit scroll-to-bottom control while preserving reader scroll position, keyed rows, copying, disclosure and canonical output behavior. Follow-up chips render inline $...$ math with KaTeX. Answers have a Read aloud action. Answers carry the Folio neural-net mark. Answer mode badge and files-changed chip."
+      "notes": "MatOpt durable-history projection with public work, revisioned results, and native surfaces. Adds quoted follow-ups and an explicit scroll-to-bottom control while preserving reader scroll position, keyed rows, copying, disclosure and canonical output behavior. Follow-up chips render inline $...$ math with KaTeX. Answers have a Read aloud action. Answers carry the Folio neural-net mark. Answer mode badge and files-changed chip. Memoizes rows so settled turns skip stream frames, and announces run start and end in a polite live region."
     },
     {
       "path": "frontend/src/components/ModelPicker.tsx",
@@ -13863,9 +13863,9 @@
     {
       "path": "frontend/src/components/PlotRenderer.tsx",
       "mode": "host-adapter",
-      "expected_sha256": "0ea828700d66da3c0648082d4b189f50bf87c8276ded5b41cb88be8ed0865126",
+      "expected_sha256": "4d8c7f8dea68ed2b4a4955015ac8e1c7348a6187a1ef34cd3edce6260eea43ed",
       "sources": [],
-      "notes": "Original MatOpt Plotly scientific-fence renderer using native CSS defaults, explicit figure dimensions, supported Plots.resize observation, and default removal of sendChartToCloud. Explicit figure settings retain precedence. This is not copied ZCode chart code."
+      "notes": "Original MatOpt Plotly scientific-fence renderer using native CSS defaults, explicit figure dimensions, supported Plots.resize observation, and default removal of sendChartToCloud. Explicit figure settings retain precedence. This is not copied ZCode chart code. Every figure source passes through localOnlyFigure, which removes layout and config keys that reach remote hosts."
     },
     {
       "path": "frontend/src/components/chartTheme.ts",
@@ -14085,7 +14085,7 @@
     {
       "path": "frontend/src/zcode/components/ai-elements/code-block.tsx",
       "mode": "whole-file-adapted",
-      "expected_sha256": "fcedc4de1272c0f93fd0512971a19e22c75a72a70d8e41b33f2c488462b2390a",
+      "expected_sha256": "ed7ebd299277925da54fb7c5557383bd9834b53b20d9e922bfa5c5fd1e7329e6",
       "sources": [
         {
           "path": "packages/ui/src/components/ai-elements/code-block.tsx",
@@ -14093,7 +14093,7 @@
           "sha256": "ae4f975537ebb9c8ef905b7b9de39bc37180f81511bffc027dc4da1929037f18"
         }
       ],
-      "notes": "Whole native source with one optional renderContent host slot for scientific chart fences; original frame, highlight, copy and controls retained."
+      "notes": "Whole native source with one optional renderContent host slot for scientific chart fences; original frame, highlight, copy and controls retained. CodeViewer is lazy-loaded with a readable source fallback, keeping the diff/highlight engine out of the entry chunk."
     },
     {
       "path": "frontend/src/zcode/components/ai-elements/diagram-preview-dialog.tsx",
@@ -14615,7 +14615,7 @@
     {
       "path": "frontend/src/zcode/i18n/IntlProvider.tsx",
       "mode": "whole-file-adapted",
-      "expected_sha256": "a5c029babfae676a2742722907fb74fe4339953526e1a9d3383b3fd94c527ef4",
+      "expected_sha256": "c3b5789aecdce262e8fa915195ca6993253880f0d9eae55b3880250730eeb08c",
       "sources": [
         {
           "path": "packages/ui/src/i18n/IntlProvider.tsx",
@@ -14623,7 +14623,7 @@
           "sha256": "269f010d7b15d5c1a011fc79a99a578952ef4194f2ed652a0f052e5ee2b18b40"
         }
       ],
-      "notes": "Whole native source; optional broadcast/settings service types point to narrow browser host interfaces."
+      "notes": "Whole native source; optional broadcast/settings service types point to narrow browser host interfaces. Message catalogs are loaded on demand so neither locale sits in the entry chunk; main.tsx loads the active catalog before the first render."
     },
     {
       "path": "frontend/src/zcode/i18n/locales/en-US.ts",
@@ -15333,8 +15333,8 @@
     },
     {
       "path": "frontend/src/zcode/shared/conversation-preview-artifacts.ts",
-      "mode": "banner-only-copy",
-      "expected_sha256": "c1858ca716324269ef7815734a8028b4edc70ddc6c52bd0488fab2996c70419d",
+      "mode": "whole-file-adapted",
+      "expected_sha256": "cd44c2dc8e61a4f984c6e463407935021ee83faa7be3dddab09366e0a70d65ae",
       "sources": [
         {
           "path": "packages/shared/src/conversation-preview-artifacts.ts",
@@ -15342,7 +15342,7 @@
           "sha256": "addd1765a2774793d30571aa0eb52c1b27aef2bd97e054b8d9e18641952a7e11"
         }
       ],
-      "provenance_banner": "/* Vendored whole file from ZCode 29628c9acdb81b703bbd4080c207a0e7ce5e276e: packages/shared/src/conversation-preview-artifacts.ts\n * Apache-2.0; original notices retained. */\n"
+      "notes": "Whole native source with one host adaptation: the rows import is type-only and the unused schema re-export is removed, which keeps zod out of the browser entry chunk."
     },
     {
       "path": "frontend/src/zcode/shared/cuaAccessibilitySettings.ts",
@@ -16277,7 +16277,7 @@
     {
       "path": "frontend/src/zcode/styles.css",
       "mode": "whole-file-adapted",
-      "expected_sha256": "d9922e07226b95e0a3ab424505c95a64008f8e47296b1dc57c3e5da6f2eca64d",
+      "expected_sha256": "2cd2d37336ec4f0cc60973338bca948f215b2dee4c32797f5f3caa65d2bf3489",
       "sources": [
         {
           "path": "packages/ui/src/styles.css",
@@ -16291,7 +16291,7 @@
           "local": "@source \"../../node_modules/streamdown/dist/*.js\";\n@source \"../**/*.{ts,tsx}\"; /* 显式扫描 streamdown 的运行时类名 */\n"
         }
       ],
-      "notes": "Whole pinned stylesheet adapted for Streamdown/MatOpt source scanning and accessible focus styles; global focus-outline suppression is removed. MatOpt theme tokens live separately in matopt.css."
+      "notes": "Whole pinned stylesheet adapted for Streamdown/MatOpt source scanning and accessible focus styles; global focus-outline suppression is removed. MatOpt theme tokens live separately in matopt.css. Drops the xterm stylesheet import because MatOpt renders no terminal."
     },
     {
       "path": "frontend/src/zcode/useTheme.ts",

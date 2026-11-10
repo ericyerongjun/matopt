@@ -1,9 +1,12 @@
 /**
- * Push-to-talk voice input: hold Right ⌥ Option, or press the mic button.
+ * Push-to-talk voice input: hold Right ⌥ Option (Right Alt elsewhere), or press
+ * the mic button.
  *
  * Browsers never see the fn/Globe key, so Right Option is the hold key. It
  * starts recording only after a short hold, and any other key pressed while
- * it is down cancels, so Option+letter characters keep working.
+ * it is down cancels, so Option+letter characters keep working. The key is
+ * ignored where it is AltGr, which those keyboards need for typing, and can be
+ * turned off in Settings.
  */
 import { useCallback, useEffect, useRef, useState } from "react";
 import { transcribe } from "../services/speech.ts";
@@ -25,8 +28,17 @@ function recorderMimeType(): string | undefined {
     return ["audio/webm;codecs=opus", "audio/webm", "audio/mp4", "audio/ogg;codecs=opus"].find((type) => MediaRecorder.isTypeSupported(type));
 }
 
-export function isPushToTalkKey(event: Pick<KeyboardEvent, "code">): boolean {
-    return event.code === "AltRight";
+function isApple(): boolean {
+    return typeof navigator !== "undefined" && /mac|iphone|ipad/i.test(navigator.platform || "");
+}
+
+export function pushToTalkKeyName(): string {
+    return isApple() ? "Right Option" : "Right Alt";
+}
+
+export function isPushToTalkKey(event: Pick<KeyboardEvent, "code"> & Partial<Pick<KeyboardEvent, "key" | "ctrlKey" | "metaKey">>, apple = isApple()): boolean {
+    if (event.code !== "AltRight" || event.ctrlKey || event.metaKey) return false;
+    return apple || event.key !== "AltGraph";
 }
 
 export function useVoiceInput({ language, disabled = false, onTranscript }: {
@@ -38,6 +50,8 @@ export function useVoiceInput({ language, disabled = false, onTranscript }: {
     const [level, setLevel] = useState(0);
     const [error, setError] = useState<string | null>(null);
     const session = useRef<Recording | null>(null);
+    /** Set while the browser is opening the microphone, so the request can be withdrawn. */
+    const opening = useRef<{ via: "hotkey" | "button"; cancelled: boolean } | null>(null);
     const live = useRef({ language, onTranscript, disabled });
     live.current = { language, onTranscript, disabled };
 
@@ -51,19 +65,32 @@ export function useVoiceInput({ language, disabled = false, onTranscript }: {
     }, []);
 
     const start = useCallback(async (via: "hotkey" | "button") => {
-        if (session.current || live.current.disabled) return;
+        if (session.current || opening.current || live.current.disabled) return;
         if (!navigator.mediaDevices?.getUserMedia || typeof MediaRecorder === "undefined") {
             setError("This browser cannot record audio."); setState("error"); return;
         }
         setError(null);
+        const request = { via, cancelled: false };
+        opening.current = request;
         let stream: MediaStream;
         try {
             stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true } });
         } catch {
-            setError("Microphone access was blocked. Allow it in the browser's site settings."); setState("error"); return;
+            opening.current = null;
+            if (!request.cancelled) { setError("Microphone access was blocked. Allow it in the browser's site settings."); setState("error"); }
+            return;
         }
+        opening.current = null;
+        // The key came up, or the composer went away, while the permission prompt was open.
+        if (request.cancelled) { stream.getTracks().forEach((track) => track.stop()); return; }
         const mimeType = recorderMimeType();
-        const recorder = new MediaRecorder(stream, mimeType ? { mimeType } : undefined);
+        let recorder: MediaRecorder;
+        try {
+            recorder = new MediaRecorder(stream, mimeType ? { mimeType } : undefined);
+        } catch {
+            stream.getTracks().forEach((track) => track.stop());
+            setError("This browser cannot record audio."); setState("error"); return;
+        }
         const current: Recording = { recorder, stream, chunks: [], started: Date.now(), via };
         session.current = current;
         recorder.ondataavailable = (event) => { if (event.data.size) current.chunks.push(event.data); };
@@ -105,6 +132,7 @@ export function useVoiceInput({ language, disabled = false, onTranscript }: {
     }, [release]);
 
     const stop = useCallback((cancel = false) => {
+        if (opening.current) opening.current.cancelled = true;
         const current = session.current;
         if (!current) return;
         current.cancelled = cancel;
@@ -112,7 +140,7 @@ export function useVoiceInput({ language, disabled = false, onTranscript }: {
     }, []);
 
     const toggle = useCallback(() => {
-        if (session.current) stop();
+        if (session.current || opening.current) stop();
         else void start("button");
     }, [start, stop]);
 
@@ -120,15 +148,16 @@ export function useVoiceInput({ language, disabled = false, onTranscript }: {
     useEffect(() => {
         let timer: ReturnType<typeof setTimeout> | null = null;
         let held = false;
+        const startedByHotkey = () => (session.current?.via ?? opening.current?.via) === "hotkey";
         const down = (event: KeyboardEvent) => {
             if (isPushToTalkKey(event)) {
-                if (event.repeat || held || live.current.disabled) return;
+                if (event.repeat || held || live.current.disabled || !useVoiceStore.getState().pushToTalk) return;
                 held = true;
                 timer = setTimeout(() => { timer = null; void start("hotkey"); }, HOLD_DELAY_MS);
             } else if (held) {
                 // Option+key types a character: this was not push-to-talk.
                 if (timer) { clearTimeout(timer); timer = null; }
-                if (session.current?.via === "hotkey") stop(true);
+                if (startedByHotkey()) stop(true);
                 held = false;
             }
         };
@@ -136,9 +165,9 @@ export function useVoiceInput({ language, disabled = false, onTranscript }: {
             if (!isPushToTalkKey(event) || !held) return;
             held = false;
             if (timer) { clearTimeout(timer); timer = null; return; }
-            if (session.current?.via === "hotkey") stop();
+            if (startedByHotkey()) stop();
         };
-        const blur = () => { held = false; if (timer) clearTimeout(timer); if (session.current?.via === "hotkey") stop(true); };
+        const blur = () => { held = false; if (timer) { clearTimeout(timer); timer = null; } if (startedByHotkey()) stop(true); };
         window.addEventListener("keydown", down, true);
         window.addEventListener("keyup", up, true);
         window.addEventListener("blur", blur);
