@@ -26,7 +26,7 @@ cn2an==0.5.24
 comm==0.2.3
 contourpy==1.4.0
 cryptography==50.0.2
-ctranslate2==4.8.3
+ctranslate2==4.8.5
 cycler==0.12.1
 cyclopts==5.2.0
 ddgs==9.16.0
