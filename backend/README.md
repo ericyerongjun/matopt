@@ -183,7 +183,10 @@ existing file. Re-read after Python, bash or an external process changes it.
 This freshness guard and child environment filtering operate inside the
 existing execution environment; container isolation remains on the roadmap.
 
-## Docker Compose
+## Docker Compose (optional)
+
+MatOpt runs natively with `./scripts/start.sh`. Compose is only for packaging: all
+conversations share one container, so they are less isolated than in a native run.
 
 From the repository root:
 

@@ -11,6 +11,11 @@ APP_URL="http://localhost:$FRONTEND_PORT"
 fail() { echo "MatOpt: $1" >&2; exit 1; }
 
 cd "$ROOT"
+[ -f backend/.env ] || cp backend/.env.example backend/.env
+if [ -z "${DEEPSEEK_API_KEY:-}" ] && ! grep -Eq '^DEEPSEEK_API_KEY=[^[:space:]#]' backend/.env; then
+  fail "add your key to backend/.env (DEEPSEEK_API_KEY=...), then run this again."
+fi
+
 if [ ! -x backend/.venv/bin/python ] || [ ! -d frontend/node_modules ]; then
   echo "First run: installing dependencies (a few minutes)..."
   ./scripts/setup.sh
@@ -19,9 +24,13 @@ elif [ frontend/package-lock.json -nt frontend/node_modules/.package-lock.json ]
   (cd frontend && npm ci)
 fi
 
-[ -f backend/.env ] || cp backend/.env.example backend/.env
-if [ -z "${DEEPSEEK_API_KEY:-}" ] && ! grep -Eq '^DEEPSEEK_API_KEY=[^[:space:]#]' backend/.env; then
-  fail "add your key to backend/.env (DEEPSEEK_API_KEY=...), then run this again."
+# Linux runs agent code under bubblewrap, so find out now rather than at the first tool call.
+sandbox_mode="${SANDBOX_MODE:-$(sed -n 's/^SANDBOX_MODE=\([a-z-]*\).*/\1/p' backend/.env | tail -1)}"
+if [ "$(uname -s)" = "Linux" ] && [ "$sandbox_mode" != "off" ] && [ "$sandbox_mode" != "external" ]; then
+  command -v bwrap >/dev/null 2>&1 \
+    || fail "install bubblewrap (sudo apt install bubblewrap), or set SANDBOX_MODE=off in backend/.env."
+  bwrap --unshare-user --ro-bind / / true 2>/dev/null \
+    || fail "bubblewrap cannot create a sandbox here. On Ubuntu run: sudo sysctl kernel.apparmor_restrict_unprivileged_userns=0"
 fi
 
 for port in "$BACKEND_PORT" "$FRONTEND_PORT" 5174; do

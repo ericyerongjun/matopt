@@ -6,6 +6,7 @@ import asyncio
 import json
 import os
 import struct
+import shutil
 import sys
 from types import SimpleNamespace
 
@@ -219,9 +220,19 @@ async def test_cell_timeout_cancels_nested_call(tmp_path, code_mode):
 @pytest.mark.skipif(sys.platform != "darwin" or not os.path.exists(SEATBELT), reason="needs macOS seatbelt")
 @pytest.mark.asyncio
 async def test_tools_reachable_under_seatbelt_without_network(tmp_path, code_mode, monkeypatch):
+    await _assert_tools_reachable_without_network(tmp_path, code_mode, monkeypatch, "seatbelt")
+
+
+@pytest.mark.skipif(not sys.platform.startswith("linux") or shutil.which("bwrap") is None, reason="needs Linux bubblewrap")
+@pytest.mark.asyncio
+async def test_tools_reachable_under_bubblewrap_without_network(tmp_path, code_mode, monkeypatch):
+    await _assert_tools_reachable_without_network(tmp_path, code_mode, monkeypatch, "bwrap")
+
+
+async def _assert_tools_reachable_without_network(tmp_path, code_mode, monkeypatch, backend):
     monkeypatch.setattr(settings, "sandbox_mode", "workspace-write")
     monkeypatch.setattr(settings, "sandbox_network", False)
-    monkeypatch.setattr(settings, "sandbox_backend", "seatbelt")
+    monkeypatch.setattr(settings, "sandbox_backend", backend)
     ws = Workspace("c1", tmp_path / "ws")
     kernels = KernelPool(lambda cid: ws)
 
@@ -236,7 +247,7 @@ async def test_tools_reachable_under_seatbelt_without_network(tmp_path, code_mod
                                              "except OSError:\n    print('no network')"})
         assert r.ok, r.output
         assert "sandboxed ok" in r.output and "no network" in r.output
-        assert "seatbelt" in r.output
+        assert backend in r.output
         server = kernels.get("c1")._tool_server
         assert server is not None
     finally:

@@ -1,22 +1,28 @@
 #!/usr/bin/env bash
-# One-shot developer setup for MatOpt (macOS/Linux). Uses Homebrew Python + pip (no uv).
+# One-shot setup for MatOpt (macOS/Linux). Uses uv when installed, otherwise Python + pip.
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-PY="${PYTHON:-}"
-if [ -z "$PY" ]; then
-  for cand in /opt/homebrew/opt/python@3.12/bin/python3.12 python3.12 python3.13 python3.11; do
-    if command -v "$cand" >/dev/null 2>&1; then PY="$cand"; break; fi
-  done
-fi
-if [ -z "$PY" ]; then
-  echo "Python 3.11+ not found. Install with: brew install python@3.12" >&2; exit 1
-fi
-echo "Using $PY ($($PY --version))"
 
 cd "$ROOT/backend"
-[ -d .venv ] || "$PY" -m venv .venv
-.venv/bin/python -m pip install --upgrade pip
-.venv/bin/python -m pip install -r requirements.txt -c constraints.txt
+if command -v uv >/dev/null 2>&1; then
+  # uv also fetches Python 3.12 when this machine does not have it.
+  [ -d .venv ] || uv venv --seed --python "${PYTHON:-3.12}" .venv
+  uv pip install --python .venv/bin/python -r requirements.txt -c constraints.txt
+else
+  PY="${PYTHON:-}"
+  if [ -z "$PY" ]; then
+    for cand in /opt/homebrew/opt/python@3.12/bin/python3.12 python3.12 python3.13 python3.11; do
+      if command -v "$cand" >/dev/null 2>&1; then PY="$cand"; break; fi
+    done
+  fi
+  if [ -z "$PY" ]; then
+    echo "Python 3.11+ not found. Install uv (https://docs.astral.sh/uv/) or Python 3.12." >&2; exit 1
+  fi
+  echo "Using $PY ($($PY --version))"
+  [ -d .venv ] || "$PY" -m venv .venv
+  .venv/bin/python -m pip install --upgrade pip
+  .venv/bin/python -m pip install -r requirements.txt -c constraints.txt
+fi
 [ -f .env ] || cp .env.example .env
 mkdir -p data
 

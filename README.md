@@ -9,7 +9,9 @@ through the streaming harness.
 
 ## Quick start
 
-You need Node.js 22+, Python 3.11+ and a DeepSeek API key.
+MatOpt runs directly on your machine and does not need Docker. You need Node.js
+22+, a DeepSeek API key, and [uv](https://docs.astral.sh/uv/) (recommended, it
+also provides Python) or Python 3.11+.
 
 **1. Add your key** (first time only):
 
@@ -43,12 +45,14 @@ http://localhost:5173. Press Ctrl-C to stop both services.
 | `add your key to backend/.env` | Set `DEEPSEEK_API_KEY=` in `backend/.env`. |
 | `port 8000 is already in use` | Stop the other program, often an earlier MatOpt. |
 | `Refusing to listen on 0.0.0.0` | You started `main.py` directly with an older `.env`. Set `HOST=127.0.0.1` there, or use `./scripts/start.sh`. |
-| A tool says the sandbox is unavailable (Linux) | Run `sudo apt install bubblewrap`, or set `SANDBOX_MODE=off` in `backend/.env`. |
+| `install bubblewrap` or `bubblewrap cannot create a sandbox` (Linux) | Follow the command in the message, or set `SANDBOX_MODE=off` in `backend/.env`. |
 
 ### Other ways to run it
 
-**Docker:** `docker compose up --build`, then open http://localhost:3000. The
-mini-app runtime is on port 3001.
+**Docker (optional):** `docker compose up --build`, then open
+http://localhost:3000. The mini-app runtime is on port 3001. Use this only for
+packaging: all conversations share one container, so they are less isolated from
+each other than in a native run.
 
 **Two terminals, for development:** run `./scripts/setup.sh` once, then
 `cd backend && .venv/bin/python main.py` and `cd frontend && npm run dev`. The

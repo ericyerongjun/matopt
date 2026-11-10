@@ -2,6 +2,7 @@
 
 import asyncio
 import os
+import shutil
 import sys
 from pathlib import Path
 from types import SimpleNamespace
@@ -116,6 +117,16 @@ def test_bwrap_argv_masks_data_and_binds_workspace(tmp_path):
 @pytest.mark.skipif(sys.platform != "darwin" or not os.path.exists(SEATBELT), reason="needs macOS seatbelt")
 @pytest.mark.asyncio
 async def test_seatbelt_confines_bash_writes_and_reads(tmp_path):
+    await _assert_bash_is_confined(tmp_path, "seatbelt")
+
+
+@pytest.mark.skipif(not sys.platform.startswith("linux") or shutil.which("bwrap") is None, reason="needs Linux bubblewrap")
+@pytest.mark.asyncio
+async def test_bubblewrap_confines_bash_writes_and_reads(tmp_path):
+    await _assert_bash_is_confined(tmp_path, "bwrap")
+
+
+async def _assert_bash_is_confined(tmp_path, backend):
     data = tmp_path / "data"
     secret = data / "matopt.sqlite3"
     ws = data / "workspaces" / "c"
@@ -126,7 +137,7 @@ async def test_seatbelt_confines_bash_writes_and_reads(tmp_path):
     async def emit(_):
         pass
     ctx = ToolContext("c", Workspace("c", data / "workspaces"), emit, asyncio.Event(), call_id="x",
-                      settings=settings_for(tmp_path))
+                      settings=SimpleNamespace(**{**vars(settings_for(tmp_path)), "sandbox_backend": backend}))
     command = f"echo hi > inside.txt; cat {secret}; echo x > {outside}; true"
     result = await ShellTool()(ctx, {"command": command})
     assert (ws / "inside.txt").read_text() == "hi\n"

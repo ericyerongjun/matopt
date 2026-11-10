@@ -1,5 +1,5 @@
 # Exact versions verified together (backend tests passing, 2026-10-21, Python 3.12).
-# Install with: pip install -r requirements.txt -c constraints.txt
+# Install with: uv pip install -r requirements.txt -c constraints.txt (or plain pip).
 # Refresh: install requirements.txt without -c in a fresh venv, run pytest, then pip freeze.
 addict==2.4.0
 aiofile==3.12.3
@@ -68,6 +68,9 @@ interface_meta==2.0.1
 ipykernel==7.4.0
 ipython==9.17.1
 ipython_pygments_lexers==1.1.1
+jaraco-classes==3.4.0
+jaraco-context==6.1.2
+jaraco-functools==4.6.0
 jaraco.classes==3.4.0
 jaraco.context==6.1.2
 jaraco.functools==4.6.0
@@ -137,13 +140,13 @@ pure_eval==0.2.4
 py-key-value-aio==0.4.6
 pycparser==3.11
 pydantic==2.14.1
-pydantic-settings==2.16.1
 pydantic_core==2.50.1
+pydantic-settings==2.16.1
 Pygments==2.21.0
 PyJWT==2.15.1
 pymupdf==2.0
-pymupdf4llm==2.0
 pymupdf_layout==2.0
+pymupdf4llm==2.0
 pyopenjtalk-plus==0.4.1.post10
 pyparsing==3.3.3
 pyperclip==1.11.0
@@ -183,8 +186,8 @@ tornado==6.6.1
 tqdm==4.70.1
 traitlets==5.16.1
 truststore==0.10.5
-typing-inspection==0.4.4
 typing_extensions==4.16.0
+typing-inspection==0.4.4
 uncalled-for==0.4.1
 urllib3==2.8.0
 uvicorn==0.54.0
