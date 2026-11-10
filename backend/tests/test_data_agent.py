@@ -8,32 +8,12 @@ from app.main import app
 
 
 @pytest.mark.asyncio
-async def test_data_agent_api_v1_health_and_config():
+async def test_data_agent_is_available_through_the_harness():
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
-        r = await client.get("/api/v1/health")
-        assert r.status_code == 200
-        body = r.json()
-        assert body["service"] == "data-api"
-        assert body["status"] == "healthy"
-        assert body["code_execution"] == "local"
-
-        r = await client.get("/api/v1/public/config")
-        assert r.status_code == 200
-        assert r.json()["local_mode"] is True
-
-        r = await client.get("/api/v1/chat/models")
-        assert r.status_code == 200
-        assert r.json() == {"models": [{"id": "deepseek-flash", "name": "DeepSeek V4.1 Flash", "multimodal": True}],
-                            "default": "deepseek-flash"}
-
         r = await client.get("/health")
         assert r.status_code == 200
         assert r.json()["data"] is True
         assert "data_agent" in r.json()["tools"]
-
-        r = await client.get("/api/v1/conversations")
-        assert r.status_code == 200
-        assert r.json() == []
 
 
 def test_data_agent_original_agent_module_is_present():

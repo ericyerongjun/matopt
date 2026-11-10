@@ -20,7 +20,7 @@ metadata:
 
 Use `data_agent` for an explicit data-agent request or a substantial specialized analysis pipeline. Use native `python` and file tools by default for short bounded calculations, single statistics, table inspections, and file edits. A table attachment alone does not require delegation.
 
-The data agent inspects files, runs analysis code, produces charts, and can write reports. MatOpt hosts that backend at `/api/v1`.
+The data agent inspects files, runs analysis code, produces charts, and can write reports. MatOpt runs it in-process through the `data_agent` tool.
 
 ## When
 

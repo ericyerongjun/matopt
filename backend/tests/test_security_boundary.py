@@ -126,22 +126,20 @@ async def test_dot_dot_conversation_cannot_reach_the_data_directory():
     assert canary.read_text() == "keep"
 
 
-@pytest.mark.parametrize(("conversation_id", "filename"), [
-    ("../../escape", "notes.txt"),
-    ("c1", "payload.pth"),
-    ("c1", "../../payload.pth"),
-])
-async def test_data_agent_upload_refuses_traversal_and_startup_files(conversation_id, filename):
-    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test") as client:
-        response = await client.post("/api/v1/files/upload", data={"conversation_id": conversation_id},
-                                     files={"file": (filename, b"import os\n")})
-    assert response.status_code == 400
-
-
 async def test_unused_dangerous_routes_are_gone():
     async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test") as client:
         assert (await client.post("/api/v1/code/execute", json={"code": "1"})).status_code == 404
         assert (await client.get("/api/v1/files/proxy", params={"url": "https://x"})).status_code == 404
+        assert (await client.post("/api/v1/chat/stream", json={})).status_code == 404
+        assert (await client.post("/api/v1/files/upload", data={})).status_code == 404
+        assert (await client.get("/api/v1/conversations")).status_code == 404
+        assert (await client.post("/api/v1/export/report/1", json={})).status_code == 404
+        assert (await client.get("/api/v1/health")).status_code == 404
+
+
+async def test_generated_file_links_still_resolve():
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test") as client:
+        assert (await client.get("/api/v1/files/content")).status_code == 422  # route exists, url is required
 
 
 @pytest.mark.parametrize(("url", "allowed"), [

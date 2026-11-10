@@ -31,7 +31,7 @@ class IsolatedStaticFiles(StaticFiles):
 
 
 def attach_data_agent(app: FastAPI) -> None:
-    """Include the data agent's `/api/v1` router and local-file mounts."""
+    """Serve the data agent's generated-file links and local-file mounts."""
     if not settings.data_agent_enabled:
         logger.info("Data agent is disabled (DATA_AGENT_ENABLED=false)")
         return
@@ -49,30 +49,12 @@ def attach_data_agent(app: FastAPI) -> None:
 
     app.include_router(api_router, prefix="/api/v1")
 
-    @app.get("/api/v1/public/config")
-    async def data_agent_public_config():
-        return {
-            "local_mode": ls.LOCAL_MODE,
-            "turnstile_enabled": False,
-            "turnstile_site_key": "",
-        }
-
-    @app.get("/api/v1/health")
-    async def data_agent_api_health():
-        return {
-            "status": "healthy",
-            "service": "data-api",
-            "database": "connected",
-            "storage": ls.FILE_STORAGE_MODE,
-            "code_execution": ls.CODE_EXECUTION_MODE,
-        }
-
     if ls.FILE_STORAGE_MODE == "local":
         app.mount("/uploads", IsolatedStaticFiles(directory=str(UPLOADS_DIR)), name="data-uploads")
         app.mount("/images", IsolatedStaticFiles(directory=str(IMAGES_DIR)), name="data-images")
 
     logger.info(
-        "Data agent mounted at /api/v1 (storage=%s, code=%s, workspace=%s)",
+        "Data agent file links mounted at /api/v1/files (storage=%s, code=%s, workspace=%s)",
         ls.FILE_STORAGE_MODE,
         ls.CODE_EXECUTION_MODE,
         ls.LOCAL_WORKSPACE_ROOT,

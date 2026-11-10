@@ -184,17 +184,12 @@ Skill folders live in `skills/matopt/`, `skills/data/`, `skills/workflow/` and `
 
 ## Data agent
 
-The data agent's FastAPI backend lives in `backend/data_agent_app/` and is mounted at `/api/v1`. MatOpt's harness calls it through the `data_agent` tool.
+The data agent lives in `backend/data_agent_app/`. MatOpt's harness calls it through the `data_agent` tool.
 
 | Method | Path | Notes |
 |---|---|---|
-| GET | `/api/v1/health` | `{status, service: "data-api", storage, code_execution}` |
-| GET | `/api/v1/public/config` | `{local_mode, turnstile_enabled, turnstile_site_key}` |
-| GET/POST | `/api/v1/conversations` | Data-agent conversation store (SQLite under `DATA_DIR/data_agent/`) |
-| POST | `/api/v1/chat/stream` | SSE data-agent loop |
-| POST | `/api/v1/files/upload` | Data-agent uploads |
-| POST | `/api/v1/code/execute` | Data-agent local code execution |
-| POST | `/api/v1/export/...` | notebooks, Markdown/PDF reports, slides |
+| GET | `/api/v1/files/content` | Local files linked from generated output |
+| GET | `/api/v1/files/proxy-object` | OSS objects linked from generated output |
 
 Local data lives in `DATA_DIR/data_agent/` (not MatOpt `DATA_DIR/workspaces/`). Disable with `DATA_AGENT_ENABLED=false`.
 

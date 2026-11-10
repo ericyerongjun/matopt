@@ -1,6 +1,4 @@
 import logging
-from fastapi import APIRouter, Depends, HTTPException
-from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 from typing import AsyncGenerator
 from contextlib import aclosing
@@ -12,9 +10,7 @@ import re
 import time
 import uuid
 from urllib.parse import quote
-from data_agent_app.api.deps import get_current_active_user
 from data_agent_app.core.config import settings
-from data_agent_app.core.database import get_db
 from data_agent_app.core.hashid import encode_id, decode_id
 from data_agent_app.models.models import Conversation, Message, UsageRecord, User
 from data_agent_app.models.schemas import ChatRequest
@@ -29,7 +25,6 @@ from app.agent.data_agent_bridge import get_data_agent_exec_context, reap_tasks
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter()
 llm_service = LLMService()
 agent_service = AgentService()
 
@@ -1208,97 +1203,3 @@ When you receive an error from tool execution:
         logger.exception("Data agent stream failed")
         yield f"data: {json.dumps({'type': 'error', 'content': user_facing_model_error(request.language)})}\n\n"
         yield f"data: {json.dumps({'type': 'done'})}\n\n"
-
-
-@router.post("/stream")
-async def chat_stream(
-    request: ChatRequest,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_active_user)
-):
-    """Stream chat response with Server-Sent Events."""
-    return StreamingResponse(
-        stream_chat_response(request, current_user, db),
-        media_type="text/event-stream",
-        headers={
-            "Cache-Control": "no-cache",
-            "Connection": "keep-alive",
-            "X-Accel-Buffering": "no"
-        }
-    )
-
-
-@router.post("/cancel/{conversation_hash_id}")
-async def cancel_chat_execution(
-    conversation_hash_id: str,
-    current_user: User = Depends(get_current_active_user),
-    db: Session = Depends(get_db),
-):
-    """Cancel an active sandbox execution for a conversation."""
-    conversation_id = decode_id(conversation_hash_id)
-    if conversation_id is None:
-        raise HTTPException(status_code=404, detail="Conversation not found")
-
-    conversation = db.query(Conversation).filter(
-        Conversation.id == conversation_id,
-        Conversation.user_id == current_user.id
-    ).first()
-    if not conversation:
-        raise HTTPException(status_code=404, detail="Conversation not found")
-
-    # Do not clean up the sandbox session here. Users often stop because they
-    # want to refine the prompt, and the existing workspace files should remain
-    # available for the next request.
-    return {"success": True, "message": "Response stream cancelled"}
-
-
-@router.get("/models")
-def get_available_models(
-    current_user: User = Depends(get_current_active_user)
-):
-    """Get list of available LLM models."""
-    return {
-        "models": [
-            {
-                "id": model,
-                "name": model_display_name(model),
-                "multimodal": supports_multimodal_observations(model),
-            }
-            for model in settings.AVAILABLE_MODELS
-        ],
-        "default": settings.DEFAULT_MODEL
-    }
-
-
-@router.post("/generate-title/{conversation_id}")
-def generate_conversation_title(
-    conversation_id: str,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_active_user)
-):
-    """Generate a title for a conversation based on its first message."""
-    real_id = decode_id(conversation_id)
-    if real_id is None:
-        raise HTTPException(status_code=404, detail="Conversation not found")
-    
-    conversation = db.query(Conversation).filter(
-        Conversation.id == real_id,
-        Conversation.user_id == current_user.id
-    ).first()
-    
-    if not conversation:
-        raise HTTPException(status_code=404, detail="Conversation not found")
-    
-    # Get first user message
-    first_message = db.query(Message).filter(
-        Message.conversation_id == real_id,
-        Message.role == "user"
-    ).order_by(Message.created_at.asc()).first()
-    
-    if first_message:
-        # Generate title using LLM
-        title = llm_service.generate_title(first_message.content)
-        conversation.title = title
-        db.commit()
-    
-    return {"title": conversation.title}

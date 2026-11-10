@@ -2,7 +2,7 @@
 
 The agentic FastAPI service: a tool-calling harness with a persistent Python kernel,
 workspace files, Agent Skills routing, an MCP sandbox, DeepSeek multimodal document reading,
-the data-analysis backend at `/api/v1`, and streaming SSE events.
+the data-analysis backend, and streaming SSE events.
 
 ## Environment
 
@@ -40,7 +40,6 @@ Python comes from Homebrew (`python@3.12`). Dependencies are plain pip.
 - Health: http://localhost:8000/health
 - Providers: http://localhost:8000/api/providers
 - Protocol: [docs/PROTOCOL.md](../docs/PROTOCOL.md)
-- Data agent: http://localhost:8000/api/v1/health
 
 ## MCP workspace identity
 
