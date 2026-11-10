@@ -235,7 +235,10 @@ def seatbelt_profile(policy: SandboxPolicy) -> str:
 
 def bwrap_argv(policy: SandboxPolicy, bwrap: str = "bwrap") -> list[str]:
     argv = [bwrap, "--new-session", "--die-with-parent", "--ro-bind", "/", "/", "--dev", "/dev",
-            "--proc", "/proc", "--unshare-user", "--unshare-pid", "--unshare-ipc"]
+            "--proc", "/proc", "--unshare-user", "--unshare-pid", "--unshare-ipc",
+            # A child's parent is PID 1 in the new namespace, which ipykernel reads
+            # as its parent having died. --die-with-parent covers that job here.
+            "--unsetenv", "JPY_PARENT_PID"]
     if not policy.network:
         argv.append("--unshare-net")
     # Mount order matters: a later bind of /tmp would uncover a mask beneath it.
