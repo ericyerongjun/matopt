@@ -16,9 +16,11 @@ from copy import deepcopy
 from collections.abc import AsyncIterator
 from typing import Any
 
+from app.agent import otel
 from app.agent.events import Event, ev
 from app.agent.harness import RunRequest
 from app.agent.presentation import public_content, public_work, public_counts
+from app.log_context import bind_log_context
 from app.storage.db import Database, new_id
 
 logger = logging.getLogger(__name__)
@@ -192,7 +194,9 @@ def project_public_event(event: Event) -> Event | None:
         if data.get("code") == "interrupted":
             out.update(code="interrupted", message="This run was interrupted by a server restart. Its completed work is saved; no actions were repeated.")
         else:
-            out["message"] = "The run could not be completed. Its completed work is saved."
+            # public_message is only ever the harness's sanitized notice.
+            notice = data.get("public_message")
+            out["message"] = notice[:600] if isinstance(notice, str) and notice else "The run could not be completed. Its completed work is saved."
     else:
         return None
     return ev(kind, **out)
@@ -200,11 +204,14 @@ def project_public_event(event: Event) -> Event | None:
 
 class RunManager:
     def __init__(self, db: Database, harness, *, heartbeat_seconds: float = 15.0,
-                 stop_grace_seconds: float = 2.0):
+                 stop_grace_seconds: float = 2.0, delta_flush_seconds: float = 0.05,
+                 delta_flush_chars: int = 4096):
         self.db = db
         self.harness = harness
         self.heartbeat_seconds = heartbeat_seconds
         self.stop_grace_seconds = stop_grace_seconds
+        self.delta_flush_seconds = delta_flush_seconds
+        self.delta_flush_chars = delta_flush_chars
         self._tasks: dict[str, asyncio.Task] = {}
         self._conditions: dict[str, asyncio.Condition] = {}
         self._start_lock = asyncio.Lock()
@@ -212,6 +219,7 @@ class RunManager:
         self._stop_watchdogs: dict[str, asyncio.Task] = {}
         self._pending_controls: dict[str, list[tuple[str, dict]]] = {}
         self._claimed_runs: set[str] = set()
+        self._stalled: set[str] = set()
         self._shutting_down = False
 
     def get(self, run_id: str) -> dict | None:
@@ -269,46 +277,60 @@ class RunManager:
         for run in self.db.active_runs():
             if run["id"] in self._tasks:
                 continue
-            prepare = getattr(self.harness, "prepare_session", None)
-            if prepare:
-                await prepare(run["conversation_id"])
-            if not run["message_id"]:
-                # The private checkpoint may have committed message_start
-                # just before the public consumer received its identity.
-                recovered = [message for message in self.db.list_messages(run["conversation_id"])
-                             if message["role"] == "assistant" and message["created_at"] >= run["created_at"]]
-                if recovered:
-                    run["message_id"] = recovered[-1]["id"]
-            saved = self.db.get_message(run["message_id"]) if run["message_id"] else None
-            # A crash after the final answer's durable commit but before its
-            # terminal SSE frame must not turn successful work into failure.
-            completed = bool(saved and saved["content"].get("status") == "complete"
-                             and saved["content"].get("final_ready"))
-            work = self._recovered_work(run, interrupted=not completed)
-            content = deepcopy(saved["content"]) if saved else {"parts": [], "final_text": "", "final_ready": False}
-            content["work"] = work
-            if not completed:
-                from app.agent.results import result_parts
-                content["parts"] = [*content.get("parts", []), *self._recovered_results(run)]
-                public_blocks = result_parts(content["parts"])
-                content["parts"] = [part for part in content["parts"] if part.get("type") != "result_block"] + public_blocks
-                content.update(status="stopped", recovered=True,
-                               notice="This run was interrupted by a server restart. Its completed work is saved; no actions were repeated.")
-            persist = getattr(self.harness, "persist_recovered_run", None)
-            if run["message_id"]:
-                if persist:
-                    await persist(run["conversation_id"], run["message_id"], content)
-                elif saved:
-                    self.db.update_message(run["message_id"], content)
-                else:
-                    self.db.add_message(run["conversation_id"], "assistant", content, run["message_id"])
-            await self._publish(run["id"], ev("work", work=work))
-            if run["message_id"]:
-                await self._publish(run["id"], ev("message_end", message_id=run["message_id"], status=content.get("status"), content=content))
-            status = "completed" if completed else "interrupted"
-            await self._publish(run["id"], ev("run_state", status=status))
-            await self._publish(run["id"], ev("done", message_id=run["message_id"]) if completed else
-                                ev("error", code="interrupted", message_id=run["message_id"]), status=status)
+            try:
+                await self._recover_run(run)
+            except Exception:  # noqa: BLE001 - one unreadable session must not keep the server from starting
+                logger.exception("Could not recover run %s; marking it interrupted", run["id"])
+                await self._seal_unrecoverable(run)
+
+    async def _seal_unrecoverable(self, run: dict) -> None:
+        try:
+            await self._publish(run["id"], ev("run_state", status="interrupted"))
+            await self._publish(run["id"], ev("error", code="interrupted", message_id=run["message_id"]), status="interrupted")
+        except Exception:  # noqa: BLE001
+            logger.exception("Could not mark run %s interrupted", run["id"])
+
+    async def _recover_run(self, run: dict) -> None:
+        prepare = getattr(self.harness, "prepare_session", None)
+        if prepare:
+            await prepare(run["conversation_id"])
+        if not run["message_id"]:
+            # The private checkpoint may have committed message_start
+            # just before the public consumer received its identity.
+            recovered = [message for message in self.db.list_messages(run["conversation_id"])
+                         if message["role"] == "assistant" and message["created_at"] >= run["created_at"]]
+            if recovered:
+                run["message_id"] = recovered[-1]["id"]
+        saved = self.db.get_message(run["message_id"]) if run["message_id"] else None
+        # A crash after the final answer's durable commit but before its
+        # terminal SSE frame must not turn successful work into failure.
+        completed = bool(saved and saved["content"].get("status") == "complete"
+                         and saved["content"].get("final_ready"))
+        work = self._recovered_work(run, interrupted=not completed)
+        content = deepcopy(saved["content"]) if saved else {"parts": [], "final_text": "", "final_ready": False}
+        content["work"] = work
+        if not completed:
+            from app.agent.results import result_parts
+            content["parts"] = [*content.get("parts", []), *self._recovered_results(run)]
+            public_blocks = result_parts(content["parts"])
+            content["parts"] = [part for part in content["parts"] if part.get("type") != "result_block"] + public_blocks
+            content.update(status="stopped", recovered=True,
+                           notice="This run was interrupted by a server restart. Its completed work is saved; no actions were repeated.")
+        persist = getattr(self.harness, "persist_recovered_run", None)
+        if run["message_id"]:
+            if persist:
+                await persist(run["conversation_id"], run["message_id"], content)
+            elif saved:
+                self.db.update_message(run["message_id"], content)
+            else:
+                self.db.add_message(run["conversation_id"], "assistant", content, run["message_id"])
+        await self._publish(run["id"], ev("work", work=work))
+        if run["message_id"]:
+            await self._publish(run["id"], ev("message_end", message_id=run["message_id"], status=content.get("status"), content=content))
+        status = "completed" if completed else "interrupted"
+        await self._publish(run["id"], ev("run_state", status=status))
+        await self._publish(run["id"], ev("done", message_id=run["message_id"]) if completed else
+                            ev("error", code="interrupted", message_id=run["message_id"]), status=status)
 
     def _recovered_results(self, run: dict) -> list[dict]:
         from app.agent.results import result_parts
@@ -373,10 +395,38 @@ class RunManager:
         return Event(row["type"], row["data"], row["seq"])
 
     async def _drive(self, run_id: str, req: RunRequest) -> None:
+        bind_log_context(conversation_id=req.conversation_id, run_id=run_id)
         terminal: Event | None = None
         final_started = False
         message_ended = False
         iterator = None
+        # Public text is journalled in small batches: one row per token would
+        # commit to SQLite on the event loop for every token.
+        delta_buffer: list[str] = []
+        buffered_chars = 0
+        flush_timer: asyncio.Task | None = None
+
+        async def flush_deltas() -> None:
+            # Taking the buffer and writing its row happen without a suspension
+            # point in between, so the timer and this task cannot reorder rows.
+            nonlocal buffered_chars, flush_timer
+            if flush_timer is not None:
+                flush_timer.cancel()
+                flush_timer = None
+            if delta_buffer:
+                text = "".join(delta_buffer)
+                delta_buffer.clear()
+                buffered_chars = 0
+                await self._publish(run_id, ev("text_delta", delta=text))
+
+        async def flush_later() -> None:
+            nonlocal flush_timer
+            await asyncio.sleep(self.delta_flush_seconds)
+            flush_timer = None  # flush_deltas must not cancel the task running it
+            try:
+                await flush_deltas()
+            except Exception:  # noqa: BLE001
+                logger.exception("Could not journal text for run %s", run_id)
 
         async def on_claim(cid: str) -> None:
             # This hook runs in the producer before any provider or tool work.
@@ -400,6 +450,15 @@ class RunManager:
                 async for event in iterator:
                     if event.type == "keepalive":
                         continue  # Transport heartbeats are comments, never journal entries.
+                    if event.type == "text_delta" and final_started and isinstance(event.data.get("delta"), str):
+                        delta_buffer.append(event.data["delta"])
+                        buffered_chars += len(event.data["delta"])
+                        if buffered_chars >= self.delta_flush_chars:
+                            await flush_deltas()
+                        elif flush_timer is None:
+                            flush_timer = asyncio.create_task(flush_later())
+                        continue
+                    await flush_deltas()
                     if event.type == "final_start":
                         final_started = True
                     if event.type == "message_end":
@@ -422,6 +481,7 @@ class RunManager:
                 except Exception:  # noqa: BLE001
                     logger.exception("Could not close run %s", run_id)
             if self.db.get_run(run_id) is not None:
+                await flush_deltas()
                 run = self.db.get_run(run_id)
                 saved = self.db.get_message(run["message_id"]) if run and run["message_id"] else None
                 if self._shutting_down:
@@ -440,8 +500,11 @@ class RunManager:
                                                   status=saved["content"].get("status", "error"), content=saved["content"]))
                 await self._publish(run_id, ev("run_state", status=status))
                 await self._publish(run_id, terminal, status=status)
+            if flush_timer is not None:
+                flush_timer.cancel()
             self._stop_requested.discard(run_id)
             self._claimed_runs.discard(run_id)
+            self._stalled.discard(run_id)
             self._pending_controls.pop(run_id, None)
             watchdog = self._stop_watchdogs.pop(run_id, None)
             if watchdog is not None:
@@ -452,6 +515,25 @@ class RunManager:
                 async with condition:
                     condition.notify_all()
             self._conditions.pop(run_id, None)
+
+    def check_stalled(self, idle_seconds: float) -> int:
+        """Report running runs with no journal progress. Never stops them."""
+        now = time.time()
+        for run_id in tuple(self._tasks):
+            run = self.db.get_run(run_id)
+            idle = now - run["updated_at"] if run and run["status"] == "running" else 0
+            if idle < idle_seconds:
+                self._stalled.discard(run_id)
+            elif run_id not in self._stalled:
+                self._stalled.add(run_id)
+                logger.warning("Run %s (conversation %s) has made no progress for %.0fs",
+                               run_id, run["conversation_id"], idle)
+                otel.export_stalled_run(run["conversation_id"], run_id, idle)
+        return len(self._stalled)
+
+    @property
+    def active_count(self) -> int:
+        return len(self._tasks)
 
     async def subscribe(self, run_id: str, after: int = 0) -> AsyncIterator[Event | None]:
         """Replay then tail a run. Closing this iterator never closes its run."""

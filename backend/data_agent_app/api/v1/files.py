@@ -21,6 +21,7 @@ from data_agent_app.api.deps import get_current_active_user, get_db
 from data_agent_app.core.hashid import decode_id
 from data_agent_app.models.models import User, UploadedFile
 from data_agent_app.core.config import settings
+from app.security import file_headers
 
 router = APIRouter()
 
@@ -273,7 +274,7 @@ async def upload_file(
                 raise HTTPException(status_code=400, detail="Invalid conversation id")
 
         # Read file content
-        content = await file.read()
+        content = await file.read(MAX_UPLOAD_SIZE_BYTES + 1)
         file_size = len(content)
         stored_filename = safe_filename(file.filename or "")
         validate_upload_file(stored_filename, file_size)
@@ -471,7 +472,8 @@ async def download_file(
     return FileResponse(
         path=str(resolved_path),
         filename=resolved_path.name,
-        media_type="application/octet-stream"
+        media_type="application/octet-stream",
+        headers={"X-Content-Type-Options": "nosniff"},
     )
 
 
@@ -491,9 +493,7 @@ async def get_file_content(
         return Response(
             content=content,
             media_type=content_type,
-            headers={
-                'Content-Disposition': f'inline; filename="{filename}"'
-            }
+            headers=file_headers(content_type, filename),
         )
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Internal error: {str(e)}")
@@ -521,10 +521,7 @@ async def proxy_object_file(
         return Response(
             content=content,
             media_type=media_type or "application/octet-stream",
-            headers={
-                "Content-Disposition": f'inline; filename="{filename}"',
-                "Cache-Control": "public, max-age=300",
-            },
+            headers={**file_headers(media_type, filename), "Cache-Control": "public, max-age=300"},
         )
     except Exception as e:
         if "NoSuchKey" in str(e) and object_name.startswith("generated/"):
@@ -553,10 +550,7 @@ async def proxy_object_file(
                         return Response(
                             content=content,
                             media_type=media_type or "application/octet-stream",
-                            headers={
-                                "Content-Disposition": f'inline; filename="{filename}"',
-                                "Cache-Control": "public, max-age=300",
-                            },
+                            headers={**file_headers(media_type, filename), "Cache-Control": "public, max-age=300"},
                         )
                 except Exception as repair_e:
                     print(f"Failed to repair missing proxy object {object_name}: {repair_e}")

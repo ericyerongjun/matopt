@@ -128,22 +128,31 @@ def ensure_data_agent_conversation(db: Any, user: Any, title: str, prior_hash: O
     return encode_id(conv.id)
 
 
-def _register_workspace_uploads(
-    uploads: Path,
+def _copy_workspace_uploads(uploads: Path, dest_dir: Path) -> list[tuple[Path, Path]]:
+    """Copy each upload for the data agent; returns (source, copy) pairs. Blocking."""
+    if not uploads.is_dir():
+        return []
+    dest_dir.mkdir(parents=True, exist_ok=True)
+    copied: list[tuple[Path, Path]] = []
+    for path in sorted(uploads.iterdir()):
+        if not path.is_file():
+            continue
+        dest = dest_dir / f"matopt_{path.name}"
+        shutil.copy2(path, dest)
+        copied.append((path, dest))
+    return copied
+
+
+def _record_workspace_uploads(
+    copied: list[tuple[Path, Path]],
     user_id: int,
     db: Any,
-    dest_dir: Path,
     conversation_id: Optional[str] = None,
 ) -> list[int]:
     from data_agent_app.models.models import UploadedFile
 
-    if not uploads.is_dir():
-        return []
-    dest_dir.mkdir(parents=True, exist_ok=True)
     ids: list[int] = []
-    for path in sorted(uploads.iterdir()):
-        if not path.is_file():
-            continue
+    for path, dest in copied:
         existing = None
         if conversation_id:
             existing = db.query(UploadedFile).filter(
@@ -151,8 +160,6 @@ def _register_workspace_uploads(
                 UploadedFile.conversation_id == conversation_id,
                 UploadedFile.original_name == path.name,
             ).first()
-        dest = dest_dir / f"matopt_{path.name}"
-        shutil.copy2(path, dest)
         mime, _ = mimetypes.guess_type(path.name)
         if existing is not None:
             existing.file_path = str(dest)
@@ -176,6 +183,16 @@ def _register_workspace_uploads(
         db.refresh(rec)
         ids.append(rec.id)
     return ids
+
+
+def _register_workspace_uploads(
+    uploads: Path,
+    user_id: int,
+    db: Any,
+    dest_dir: Path,
+    conversation_id: Optional[str] = None,
+) -> list[int]:
+    return _record_workspace_uploads(_copy_workspace_uploads(uploads, dest_dir), user_id, db, conversation_id)
 
 
 class DataAgentTool(Tool):
@@ -251,13 +268,10 @@ class DataAgentTool(Tool):
             _persist_data_agent_id(ctx.conversation_id, hash_id, ctx.state)
             numeric_id = decode_id(hash_id)
             session_key = str(numeric_id) if numeric_id else None
-            file_ids = _register_workspace_uploads(
-                ctx.workspace.root / "uploads",
-                user.id,
-                db,
-                UPLOADS_DIR,
-                conversation_id=session_key,
-            )
+            # Uploads can be large; only the copy leaves the loop, because
+            # the SQLAlchemy session belongs to this thread.
+            copied = await asyncio.to_thread(_copy_workspace_uploads, ctx.workspace.root / "uploads", UPLOADS_DIR)
+            file_ids = _record_workspace_uploads(copied, user.id, db, conversation_id=session_key)
             req = ChatRequest(
                 message=text,
                 conversation_id=hash_id,
@@ -277,7 +291,7 @@ class DataAgentTool(Tool):
                 record_model_call=ctx.state.get("data_agent_record_call"),
                 tool_context=ctx,
             )
-            before = ctx.workspace.snapshot()
+            before = await asyncio.to_thread(ctx.workspace.snapshot)
             chunks: list[str] = []
             error: Optional[str] = None
             incomplete = False
@@ -314,7 +328,7 @@ class DataAgentTool(Tool):
 
             artifacts: list[Artifact] = []
             seen: set[str] = set()
-            for rel in ctx.workspace.changed_since(before):
+            for rel in await asyncio.to_thread(ctx.workspace.changed_since, before):
                 if rel in seen or is_internal_output(rel):
                     continue
                 try:
@@ -327,7 +341,7 @@ class DataAgentTool(Tool):
             if numeric_id and exec_ctx.kernel is None:
                 data_agent_ws = Path(ls.LOCAL_WORKSPACE_ROOT).resolve() / str(numeric_id)
                 dest = ctx.workspace.resolve("data_agent_output")
-                for path in _copy_data_agent_outputs(data_agent_ws, dest):
+                for path in await asyncio.to_thread(_copy_data_agent_outputs, data_agent_ws, dest):
                     rel = ctx.workspace.relpath(path)
                     if rel in seen:
                         continue

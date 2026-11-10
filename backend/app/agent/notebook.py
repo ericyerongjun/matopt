@@ -8,6 +8,11 @@ from __future__ import annotations
 
 import base64
 import logging
+import os
+import tempfile
+import threading
+import time
+from pathlib import Path
 from typing import Any
 
 from app.agent.workspace import SANDBOX_NOTEBOOK, Workspace
@@ -15,10 +20,48 @@ from app.agent.workspace import SANDBOX_NOTEBOOK, Workspace
 logger = logging.getLogger(__name__)
 
 NOTEBOOK_NAME = SANDBOX_NOTEBOOK
+# A cancelled caller's thread can still be running when the next cell arrives.
+_write_lock = threading.Lock()
+
+
+def _quarantine(path: Path) -> None:
+    """Keep an unreadable notebook for inspection; the leading dot hides it from artifacts."""
+    target = path.with_name(f".{path.name}.corrupt-{int(time.time() * 1000)}")
+    try:
+        os.replace(path, target)
+    except OSError:
+        logger.warning("Could not set aside unreadable notebook %s", path, exc_info=True)
+    else:
+        logger.warning("Notebook %s was unreadable; kept as %s and started a new one", path, target.name)
+
+
+def _write_atomic(nb: Any, path: Path) -> None:
+    """A crash mid-write leaves the previous notebook intact, never a torn file."""
+    import nbformat
+
+    fd, temporary = tempfile.mkstemp(prefix=f".{path.name}.", suffix=".tmp", dir=path.parent)
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as out:
+            nbformat.write(nb, out)
+            out.flush()
+            os.fsync(out.fileno())
+        os.chmod(temporary, path.stat().st_mode & 0o777 if path.exists() else 0o644)
+        os.replace(temporary, path)
+    except BaseException:
+        try:
+            os.unlink(temporary)
+        except OSError:
+            pass
+        raise
 
 
 def append_analysis_cell(workspace: Workspace, code: str, result: Any) -> None:
     """Append a code cell (and captured outputs) to ``analysis.ipynb``."""
+    with _write_lock:
+        _append_analysis_cell(workspace, code, result)
+
+
+def _append_analysis_cell(workspace: Workspace, code: str, result: Any) -> None:
     source = (code or "").strip()
     if not source:
         return
@@ -34,6 +77,7 @@ def append_analysis_cell(workspace: Workspace, code: str, result: Any) -> None:
         try:
             nb = nbformat.read(path, as_version=4)
         except Exception:  # noqa: BLE001
+            _quarantine(path)
             nb = new_notebook()
             nb.metadata["kernelspec"] = {"name": "python3", "display_name": "Python 3", "language": "python"}
     else:
@@ -68,4 +112,4 @@ def append_analysis_cell(workspace: Workspace, code: str, result: Any) -> None:
     if count is not None:
         cell["execution_count"] = count
     nb.cells.append(cell)
-    nbformat.write(nb, path)
+    _write_atomic(nb, path)

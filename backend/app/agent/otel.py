@@ -71,6 +71,17 @@ def _capture() -> bool:
     return os.environ.get("OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT", "").lower() == "true"
 
 
+def export_stalled_run(conversation_id: str, run_id: str, idle_seconds: float, tracer=None) -> bool:
+    """One span marking a run that has gone quiet; export_turn only fires once a turn ends."""
+    tracer = tracer or _tracer_or_none()
+    if tracer is None:
+        return False
+    tracer.start_span("matopt.run.stalled", attributes={
+        "gen_ai.conversation.id": conversation_id, "matopt.run_id": run_id,
+        "matopt.idle_seconds": float(idle_seconds)}).end()
+    return True
+
+
 def export_turn(conversation_id: str, events: list[dict], turn: int, tracer=None) -> int:
     """Emit spans for one finished turn; returns the number of spans created."""
     tracer = tracer or _tracer_or_none()

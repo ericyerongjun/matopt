@@ -1,3 +1,4 @@
+import asyncio
 import json
 import re
 import time
@@ -634,14 +635,18 @@ if '_image_paths' in globals() and _image_paths:
         bridge = get_data_agent_exec_context()
         if bridge is not None or settings.CODE_EXECUTION_MODE == "local":
             workspace = bridge.workspace_root if bridge is not None else self._local_workspace(session_id)
-            snapshot = {}
-            for path in workspace.rglob("*"):
-                if (not path.is_file() or ".skills" in path.parts
-                        or not self.is_visible_generated_file(str(path))):
-                    continue
-                stat = path.stat()
-                snapshot[str(path)] = {"size": stat.st_size, "mtime_ns": stat.st_mtime_ns}
-            return snapshot
+
+            def scan() -> Dict[str, Dict[str, Any]]:
+                snapshot = {}
+                for path in workspace.rglob("*"):
+                    if (not path.is_file() or ".skills" in path.parts
+                            or not self.is_visible_generated_file(str(path))):
+                        continue
+                    stat = path.stat()
+                    snapshot[str(path)] = {"size": stat.st_size, "mtime_ns": stat.st_mtime_ns}
+                return snapshot
+
+            return await asyncio.to_thread(scan)
 
         from data_agent_app.services.opensandbox_service import get_opensandbox_service
         opensandbox = get_opensandbox_service()

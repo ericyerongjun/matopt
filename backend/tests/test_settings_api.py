@@ -45,7 +45,9 @@ def test_settings_endpoint_and_feature_toggle(monkeypatch, tmp_path):
         assert client.get("/api/conversations/none/jobs").json() == {"jobs": []}
 
 
-def test_approval_trigger_rules():
+def test_approval_trigger_rules(monkeypatch):
+    from app.config import settings
+    monkeypatch.setattr(settings, "sandbox_mode", "external")
     shell = ShellTool(exec_policy=ExecPolicy([_rule(["git", "push"], "prompt", "publishes")]))
     assert approval_trigger(shell, {"command": "git push"}) == ("exec_rule_prompt", "publishes")
     assert approval_trigger(shell, {"command": "ls"}) is None

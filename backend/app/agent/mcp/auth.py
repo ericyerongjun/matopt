@@ -15,6 +15,9 @@ from fastmcp.server.auth import AccessToken, RemoteAuthProvider, TokenVerifier
 from fastmcp.server.auth.providers.jwt import JWTVerifier
 
 
+STATIC_CLIENT_ID = "matopt-static-token"
+
+
 class StaticBearer(TokenVerifier):
     """One shared secret, compared in constant time."""
     def __init__(self, token: str):
@@ -23,7 +26,7 @@ class StaticBearer(TokenVerifier):
 
     async def verify_token(self, token: str) -> AccessToken | None:
         if hmac.compare_digest(token.encode(), self._token):
-            return AccessToken(token=token, client_id="matopt-static-token", scopes=[])
+            return AccessToken(token=token, client_id=STATIC_CLIENT_ID, scopes=[])
         return None
 
 

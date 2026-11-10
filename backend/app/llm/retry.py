@@ -22,10 +22,17 @@ from typing import Optional
 RETRYABLE_STATUS = frozenset({408, 409, 425, 429, 500, 502, 503, 504, 520, 522, 524, 529})
 TERMINAL_STATUS = frozenset({400, 401, 402, 403, 404, 405, 413, 415, 422})
 RETRYABLE_TYPES = frozenset({"APIConnectionError", "APITimeoutError", "RateLimitError", "InternalServerError",
-                             "ReadTimeout", "ConnectTimeout", "ConnectError", "RemoteProtocolError", "TimeoutError"})
+                             "ReadTimeout", "ConnectTimeout", "ConnectError", "RemoteProtocolError", "TimeoutError",
+                             "IncompleteStream"})
+# Compared with the lowercased message of an exception without a usable status.
+_TRANSIENT_MARKERS = ("timeout", "connection", "temporarily", "insufficient_system_resource")
 _CONTEXT_MARKERS = ("context_length_exceeded", "maximum context length", "context window", "too many tokens",
                     "prompt is too long", "reduce the length", "input is too long")
 MAX_RETRY_AFTER = 60.0
+
+
+class IncompleteStream(Exception):
+    """The provider's stream ended cleanly but never said why it finished."""
 
 
 @dataclass(frozen=True)
@@ -79,7 +86,27 @@ def classify(exc: BaseException) -> RetryDecision:
     if type(exc).__name__ in RETRYABLE_TYPES:
         return RetryDecision(retryable=True, retry_after=_retry_after(exc))
     message = str(exc).lower()
-    return RetryDecision(retryable="timeout" in message or "connection" in message or "temporarily" in message)
+    return RetryDecision(retryable=any(marker in message for marker in _TRANSIENT_MARKERS))
+
+
+def failure_category(exc: BaseException) -> str:
+    """A coarse cause that is safe to show: no provider text, keys or URLs."""
+    if is_context_overflow(exc):
+        return "context"
+    if "unsupported_country" in str(exc):
+        return "region"
+    status = _status(exc)
+    if status in (401, 403):
+        return "auth"
+    if status == 402:
+        return "quota"
+    if status == 429:
+        return "rate_limit"
+    if status is not None and status >= 500:
+        return "provider"
+    if type(exc).__name__ in RETRYABLE_TYPES or classify(exc).retryable:
+        return "network"
+    return "unknown"
 
 
 def backoff_delay(attempt: int, base: float = 0.2, retry_after: Optional[float] = None,

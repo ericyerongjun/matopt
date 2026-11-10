@@ -13,6 +13,11 @@ services:
       dockerfile: backend/Dockerfile
     container_name: matopt-backend
     restart: unless-stopped
+    # The non-root server and the agent code it starts need no capabilities.
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
     env_file: ./backend/.env
     # Published on this machine only: the API runs code. To expose MatOpt, set
     # API_AUTH_TOKEN and ALLOWED_HOSTS first, then change these bindings.
@@ -46,6 +51,8 @@ services:
         VITE_UI_SANDBOX_ORIGIN: ${UI_SANDBOX_ORIGIN:-}
     container_name: matopt-frontend
     restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
     ports:
       - "127.0.0.1:3000:80"
     environment:
@@ -62,6 +69,8 @@ services:
       context: .
       dockerfile: frontend/sandbox/Dockerfile
     restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
     ports:
       - "127.0.0.1:3001:80"
 

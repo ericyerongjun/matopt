@@ -18,15 +18,18 @@ INTERRUPTED_NOT_STARTED = (
 )
 
 
-def open_turn_closers(events: list[dict], cause: str = "interrupted", *, close_turn: bool = True) -> list[dict]:
+def open_turn_closers(events: list[dict], cause: str = "interrupted", *, close_turn: bool = True,
+                      known_state: tuple[int | None, int | None, dict[str, dict]] | None = None) -> list[dict]:
     """Append missing tool results, then step/end and turn/end; never discard rows.
 
     Reuse the last committed timestamp and deterministic result identities so
     repeatedly opening the same crashed prefix produces the same repair.
+    ``known_state`` is the prefix's (turn, step, pending) when the caller has
+    already validated it, which saves re-walking a long log.
     """
     if cause not in {"interrupted", "forked", "aborted", "error"}:
         raise ValueError("Invalid recovery cause")
-    turn, step, pending = lifecycle(events)
+    turn, step, pending = known_state if known_state is not None else lifecycle(events)
     if turn is None:
         return []
     seq = len(events)

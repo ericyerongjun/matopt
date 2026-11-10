@@ -267,5 +267,5 @@ async def run_python_on_kernel(code: str, timeout: int | None = None) -> dict[st
         "execution_time": (res.duration_ms or 0) / 1000.0,
         "images": images,
         "generated_files": generated,
-        "kernel_restarted": res.status == "restarted",
+        "kernel_restarted": res.status in {"restarted", "died"},
     }

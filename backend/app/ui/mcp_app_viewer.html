@@ -19,8 +19,9 @@
 /* MCP Apps view (ext-apps 2026-01-26) hosting one saved MatOpt mini-app.
    It mirrors frontend/sandbox/runtime.js: the same window.matopt API, carried
    over the host's JSON-RPC postMessage channel instead of matopt:* messages.
-   Saving, computations and Explain are viewer controls, as in the MatOpt app:
-   generated scripts cannot reach the host channel or the surface token. */
+   Saving, computations and Explain are viewer controls, as in the MatOpt app.
+   Generated HTML runs in a nested sandboxed frame: the host ignores messages
+   from it, so its scripts cannot reach the host channel or the surface token. */
 (() => {
   "use strict";
   const PROTOCOL_VERSION = "2026-01-26";
@@ -48,8 +49,11 @@
   let status = "";
   let toolbar = null;
   const pending = new Map();
-  const stateListeners = new Set();
-  const themeListeners = new Set();
+  let frame = null;
+  let frameStarted = false;
+  const styleVariables = {};
+  const FRAME_CSP = "default-src 'none'; script-src 'unsafe-inline' blob:; style-src 'unsafe-inline'; img-src data: blob:; font-src data:; media-src data: blob:; connect-src 'none'; worker-src blob:; frame-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'";
+  const toFrame = (message) => frame?.contentWindow?.postMessage({ matopt: "viewer", ...message }, "*");
   const copy = (value) => parse(stringify(value));
   const send = (message) => postToHost({ jsonrpc: "2.0", ...message }, "*");
   const notify = (method, params = {}) => send({ method, params });
@@ -64,7 +68,7 @@
     try { return stringify(value).length <= 65536; } catch { return false; }
   }
   function resize() {
-    const height = Math.max(160, Math.min(1200, Math.ceil(document.body?.scrollHeight || 160)));
+    const height = Math.max(160, Math.min(1400, Math.ceil(document.body?.scrollHeight || 160)));
     if (height !== lastHeight) { lastHeight = height; notify("ui/notifications/size-changed", { height }); }
   }
   function actionValues(action, values) {
@@ -75,7 +79,7 @@
   }
   const inputsChanged = () => view.actions.some((action) => stringify(actionValues(action, state)) !== stringify(actionValues(action, view.computed_state)));
   function publishState() {
-    for (const listener of stateListeners) { try { listener(copy(state)); } catch { /* app-local error */ } }
+    toFrame({ type: "state", state: copy(state) });
     drawToolbar();
     requestAnimationFrame(resize);
   }
@@ -85,32 +89,29 @@
     const allowed = {};
     for (const key of Object.keys(state)) if (Object.hasOwn(next, key)) allowed[key] = next[key];
     state = { ...state, ...copy(allowed) };
-    publishState();
+    drawToolbar();
+    requestAnimationFrame(resize);
     scheduleSave();
   }
   function setTheme(next) {
     theme = next === "dark" ? "dark" : "light";
     document.documentElement.dataset.theme = theme;
-    for (const listener of themeListeners) { try { listener(theme); } catch { /* app-local error */ } }
+    toFrame({ type: "theme", theme });
   }
   function applyContext(context) {
     if (!context || typeof context !== "object") return;
     const variables = context.styles?.variables;
     if (variables && typeof variables === "object") {
       for (const [source, target] of Object.entries(THEME_VARIABLES)) {
-        if (typeof variables[source] === "string" && variables[source]) document.documentElement.style.setProperty(target, variables[source]);
+        if (typeof variables[source] === "string" && variables[source]) {
+          document.documentElement.style.setProperty(target, variables[source]);
+          styleVariables[target] = variables[source];
+        }
       }
+      toFrame({ type: "style", variables: styleVariables });
     }
     if (context.theme) setTheme(context.theme);
   }
-  const api = Object.freeze({
-    getState: () => copy(state), setState,
-    getTheme: () => theme, resize,
-    onStateChange(listener) { if (typeof listener !== "function") return () => {}; stateListeners.add(listener); return () => stateListeners.delete(listener); },
-    onThemeChange(listener) { if (typeof listener !== "function") return () => {}; themeListeners.add(listener); return () => themeListeners.delete(listener); },
-  });
-  Object.defineProperty(window, "matopt", { value: api, writable: false, configurable: false });
-
   function updateModelContext() {
     if (!capabilities.updateModelContext || !view) return;
     request("ui/update-model-context", {
@@ -190,7 +191,7 @@
     const notice = view.actions.length && inputsChanged() ? "Controls changed since the last result. Recompute to update it." : "";
     root.replaceChildren();
     const style = document.createElement("style");
-    style.textContent = ":host{display:block;margin-top:12px;font:inherit;color:var(--matopt-text)}div{display:flex;flex-wrap:wrap;gap:8px;align-items:center}button{border:1px solid var(--matopt-border);border-radius:999px;padding:6px 14px;background:var(--matopt-control);color:inherit;font:inherit;cursor:pointer}button:disabled{opacity:.6;cursor:default}p{margin:8px 0 0;color:var(--matopt-muted)}details{margin-top:8px}summary{cursor:pointer;color:var(--matopt-muted)}details p{white-space:pre-wrap;color:inherit}";
+    style.textContent = ":host{display:block;padding:0 16px 16px;font:inherit;color:var(--matopt-text)}div{display:flex;flex-wrap:wrap;gap:8px;align-items:center}button{border:1px solid var(--matopt-border);border-radius:999px;padding:6px 14px;background:var(--matopt-control);color:inherit;font:inherit;cursor:pointer}button:disabled{opacity:.6;cursor:default}p{margin:8px 0 0;color:var(--matopt-muted)}details{margin-top:8px}summary{cursor:pointer;color:var(--matopt-muted)}details p{white-space:pre-wrap;color:inherit}";
     const row = document.createElement("div");
     for (const [label, handler, title] of buttons) {
       const button = document.createElement("button");
@@ -228,27 +229,94 @@
     document.body.replaceChildren(paragraph);
     requestAnimationFrame(resize);
   }
+  // Serialized into the sandboxed frame, so it may use nothing from this closure.
+  function frameRuntime(boot) {
+    "use strict";
+    let state = boot.state;
+    let theme = boot.theme;
+    let lastHeight = 0;
+    const stateListeners = new Set();
+    const themeListeners = new Set();
+    const root = document.documentElement;
+    const copy = (value) => JSON.parse(JSON.stringify(value));
+    const post = (message) => parent.postMessage({ matopt: "frame", ...message }, "*");
+    const applyStyle = (variables) => { for (const [name, value] of Object.entries(variables)) root.style.setProperty(name, value); };
+    const notifyState = () => { for (const listener of stateListeners) { try { listener(copy(state)); } catch { /* app-local error */ } } };
+    function resize() {
+      const height = Math.max(160, Math.min(1200, Math.ceil(document.body?.scrollHeight || 160)));
+      if (height !== lastHeight) { lastHeight = height; post({ type: "resize", height }); }
+    }
+    function setTheme(next) {
+      theme = next === "dark" ? "dark" : "light";
+      root.dataset.theme = theme;
+      for (const listener of themeListeners) { try { listener(theme); } catch { /* app-local error */ } }
+    }
+    function setState(next) {
+      if (!next || typeof next !== "object" || Array.isArray(next)) return;
+      let text;
+      try { text = JSON.stringify(next); } catch { return; }
+      if (text.length > 65536) return;
+      const allowed = {};
+      for (const key of Object.keys(state)) if (Object.hasOwn(next, key)) allowed[key] = next[key];
+      state = { ...state, ...copy(allowed) };
+      notifyState();
+      post({ type: "state", state });
+      requestAnimationFrame(resize);
+    }
+    Object.defineProperty(window, "matopt", { writable: false, configurable: false, value: Object.freeze({
+      getState: () => copy(state), setState,
+      getTheme: () => theme, resize,
+      onStateChange(listener) { if (typeof listener !== "function") return () => {}; stateListeners.add(listener); return () => stateListeners.delete(listener); },
+      onThemeChange(listener) { if (typeof listener !== "function") return () => {}; themeListeners.add(listener); return () => themeListeners.delete(listener); },
+    }) });
+    root.dataset.theme = theme;
+    applyStyle(boot.variables);
+    addEventListener("message", (event) => {
+      const message = event.data;
+      if (event.source !== parent || !message || message.matopt !== "viewer") return;
+      if (message.type === "state") { state = copy(message.state); notifyState(); requestAnimationFrame(resize); }
+      else if (message.type === "theme") setTheme(message.theme);
+      else if (message.type === "style") applyStyle(message.variables);
+    });
+    addEventListener("DOMContentLoaded", () => { post({ type: "ready" }); new ResizeObserver(resize).observe(document.body); requestAnimationFrame(resize); });
+    document.addEventListener("click", (event) => {
+      if (event.target instanceof Element && event.target.closest("a[href]")) event.preventDefault();
+    }, true);
+    document.addEventListener("submit", (event) => event.preventDefault(), true);
+  }
+  function onFrameMessage(message) {
+    if (!message || message.matopt !== "frame") return;
+    frameStarted = true;
+    if (message.type === "state") setState(message.state);
+    else if (message.type === "resize" && Number.isFinite(message.height)) {
+      frame.style.height = `${Math.max(160, Math.min(1200, Math.ceil(message.height)))}px`;
+      requestAnimationFrame(resize);
+    }
+  }
   function render(html) {
     if (typeof html !== "string" || html.length > 2_000_000) return;
     const parsed = new DOMParser().parseFromString(html, "text/html");
-    // The host's CSP blocks network and external assets; keep this header intact.
     parsed.querySelectorAll("base, meta[http-equiv], link, script[src]").forEach((node) => node.remove());
+    // Scripts run after all the app's markup, whichever part they were written in.
     const executableType = (script) => !script.type || ["module", "text/javascript", "application/javascript"].includes(script.type.toLowerCase());
-    for (const node of [...parsed.head.children]) {
-      if (node.tagName === "STYLE" || (node.tagName === "SCRIPT" && !executableType(node))) document.head.appendChild(document.importNode(node, true));
-    }
-    const scripts = [...parsed.querySelectorAll("script")].filter(executableType).map((script) => ({ text: script.textContent || "", type: script.type }));
-    parsed.querySelectorAll("script").forEach((script) => { if (executableType(script)) script.remove(); });
-    document.body.replaceChildren(...[...parsed.body.childNodes].map((node) => document.importNode(node, true)));
+    [...parsed.querySelectorAll("script")].filter(executableType).forEach((script) => parsed.body.appendChild(script));
+    // The surface token is deliberately absent from everything sent to the frame.
+    const boot = stringify({ state, theme, variables: styleVariables }).replace(/</g, "\\u003c");
+    const baseStyle = document.querySelector("style").textContent;
+    frame = document.createElement("iframe");
+    frame.setAttribute("sandbox", "allow-scripts");
+    frame.setAttribute("referrerpolicy", "no-referrer");
+    frame.title = view.title;
+    frame.style.cssText = "display:block;width:100%;height:160px;border:0";
+    frame.srcdoc = `<!doctype html><html><head><meta charset="UTF-8"><meta http-equiv="Content-Security-Policy" content="${FRAME_CSP}">` +
+      `<style>${baseStyle}</style><script>(${frameRuntime})(${boot})<\/script>${parsed.head.innerHTML}</head><body>${parsed.body.innerHTML}</body></html>`;
+    document.body.style.padding = "0";
+    document.body.replaceChildren(frame);
     mountToolbar();
-    for (const script of scripts) {
-      const executable = document.createElement("script");
-      if (script.type) executable.type = script.type;
-      executable.textContent = script.text;
-      document.body.insertBefore(executable, toolbar.element);
-    }
     new ResizeObserver(resize).observe(document.body);
     requestAnimationFrame(resize);
+    // A host whose CSP forbids nested frames gets the readable result, not a blank view.
+    setTimeout(() => { if (!frameStarted) { frame = null; showText(view.fallback); } }, 3000);
   }
   function onToolResult(result) {
     if (rendered || !result || typeof result !== "object") return;
@@ -265,6 +333,7 @@
   }
   addEventListener("message", (event) => {
     const message = event.data;
+    if (frame && event.source === frame.contentWindow) { onFrameMessage(message); return; }
     if (event.source !== host || !message || message.jsonrpc !== "2.0") return;
     if (message.id !== undefined && message.method === undefined) {
       const waiter = pending.get(message.id);
@@ -279,10 +348,6 @@
     }
     else if (message.id !== undefined) send({ id: message.id, error: { code: -32601, message: "Method not found" } });
   });
-  document.addEventListener("click", (event) => {
-    if (event.target instanceof Element && event.target.closest("a[href]")) event.preventDefault();
-  }, true);
-  document.addEventListener("submit", (event) => event.preventDefault(), true);
   request("ui/initialize", {
     protocolVersion: PROTOCOL_VERSION,
     appInfo: { name: "matopt-mini-app-viewer", version: "1" },

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import math
+import mimetypes
 from pathlib import Path
 
 from fastapi import APIRouter, File, HTTPException, Query, UploadFile
@@ -13,6 +14,7 @@ from app.agent.datasets import dataset_card
 from app.agent.workspace import WorkspaceError
 from app.config import settings
 from app.runtime import get_runtime
+from app.security import file_headers
 
 router = APIRouter(prefix="/api", tags=["files"])
 
@@ -39,7 +41,7 @@ async def upload_files(conversation_id: str, files: list[UploadFile] = File(...)
     limit = settings.max_upload_size_mb * 1024 * 1024
     saved = []
     for up in files:
-        data = await up.read()
+        data = await up.read(limit + 1)
         if len(data) > limit:
             raise HTTPException(status_code=413, detail=f"{up.filename} exceeds {settings.max_upload_size_mb} MB")
         dest = ws.save_upload(up.filename or "file", data)
@@ -132,11 +134,7 @@ async def get_file(conversation_id: str, path: str, download: bool = False):
         raise HTTPException(status_code=404, detail=str(exc)) from exc
     if p.is_dir():
         raise HTTPException(status_code=400, detail="Not a file")
-    headers = {"X-Content-Type-Options": "nosniff"}
-    if p.suffix.lower() in {".html", ".htm", ".svg", ".xml"}:
-        # The separate mini-app runtime is the only active HTML renderer. A
-        # direct API URL must never acquire the host application's authority.
-        headers["Content-Security-Policy"] = "sandbox; default-src 'none'; style-src 'unsafe-inline'; img-src data:; form-action 'none'; base-uri 'none'"
-    if download:
-        headers["Content-Disposition"] = f'attachment; filename="{p.name}"'
-    return FileResponse(str(p), headers=headers)
+    # The separate mini-app runtime is the only active HTML renderer. A direct
+    # API URL must never acquire the host application's authority.
+    media_type = mimetypes.guess_type(p.name)[0] or "application/octet-stream"
+    return FileResponse(str(p), media_type=media_type, headers=file_headers(media_type, p.name, download=download))

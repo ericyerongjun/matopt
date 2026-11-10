@@ -261,6 +261,7 @@ class SubAgentManager:
         child_state.turn = parent_state.turn
         child_state.provider_id = parent_state.provider_id
         child_state.is_subagent = True
+        child_state.spend_log = parent_state.session
         # Followups rerun the same agent, so the prefix also counts runs.
         agent.runs += 1
         child_state.admission_prefix = f"{agent.id}.{agent.runs}"
@@ -305,6 +306,7 @@ class SubAgentManager:
                 if type(value) in (int, float):
                     parent_state.usage[key] = parent_state.usage.get(key, 0) + value
             parent_state.llm_calls += child_state.llm_calls
+            parent_state.tool_calls += child_state.tool_calls
             kind = {"completed": "completed", "errored": "errored", "closed": "closed"}.get(agent.status, "interrupted")
             await self._publish(agent, kind)
             agent.reported = False

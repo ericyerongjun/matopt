@@ -377,10 +377,10 @@ async def test_repeated_cancellation_does_not_reappend_durable_rows(rig, monkeyp
     log.append("ui/state", {"surface_id": "taylor", "revision": 1, "state": {}}, ignorable=True)
     entered, release = threading.Event(), threading.Event()
     original = rig.db.append_session_events
-    def blocked(cid, events):
+    def blocked(cid, events, **options):
         entered.set()
         assert release.wait(3)
-        original(cid, events)
+        original(cid, events, **options)
     monkeypatch.setattr(rig.db, "append_session_events", blocked)
     task = asyncio.create_task(log.flush())
     while not entered.is_set():

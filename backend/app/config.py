@@ -112,6 +112,9 @@ class Settings(BaseSettings):
     allow_unauthenticated_bind: bool = False
     data_dir: Path = BACKEND_DIR / "data"
     max_upload_size_mb: int = 200
+    # One whole request, however many files it carries. Keep nginx's
+    # client_max_body_size (frontend/nginx.conf.template) in step.
+    max_request_body_mb: int = Field(default=1024, ge=1)
     ui_native_enabled: bool = True
     ui_mini_apps_enabled: bool = True
     ui_sandbox_origin: Optional[str] = None  # defaults to this host on port 3001
@@ -183,6 +186,10 @@ class Settings(BaseSettings):
     context_reserve_tokens: int = 65_536
     compaction_target_ratio: float = 0.5  # compact to this share of the budget so it fires rarely
     keepalive_seconds: float = 10.0
+    # Public replay journals of finished runs are deleted after this many days (0 keeps them).
+    run_event_retention_days: float = Field(default=30, ge=0, allow_inf_nan=False)
+    # A running run this long without journal progress is reported, never stopped.
+    run_stall_seconds: float = Field(default=300, gt=0, allow_inf_nan=False)
     session_log_enabled: bool = True             # disable to use the legacy message replay path
     verify_rounds: int = 2
     verify_max_steps: int = 10
@@ -233,9 +240,10 @@ class Settings(BaseSettings):
     # (the historical behaviour); "guardian" asks a reviewer model
     # (app/agent/guardian.py); "user" asks the person in the UI.
     approvals_reviewer: Literal["off", "guardian", "user"] = "off"
-    # Configuration writes through the HTTP API (feature toggles, plugin
-    # install, config import). Turn off when the sandbox allows network: the
-    # agent's kernel can reach the API on localhost.
+    # Configuration writes through the HTTP API: feature toggles, plugin
+    # install, config import and memory notes. It does not stop a child calling
+    # the rest of the API; the sandbox and API_AUTH_TOKEN do that
+    # (app/agent/sandbox.py, app/security.py).
     settings_api_writable: bool = True
     approval_timeout: float = Field(default=600.0, gt=0, le=3600)
     guardian_timeout: float = Field(default=60.0, gt=0, le=600)

@@ -41,7 +41,7 @@ from app.agent.turn_diff import TurnDiffTracker
 from app.agent.budget import BudgetExhausted, RunBudget
 from app.agent.activity import PublicActivity
 from app.agent.results import ResultPublisher
-from app.agent.session import SessionLog, derive_messages, derive_request
+from app.agent.session import SessionLog, derive_messages
 from app.agent.session.derive import fold_surface
 from app.agent.session.events import snapshot_json
 from app.agent.session.stream import AssistantStreamAccumulator
@@ -57,6 +57,7 @@ from app.agent.prompts import (
     build_turn_context,
 )
 from app.agent.monitor import next_step_options
+from app.log_context import bind_log_context
 from app.agent.loop_policy import FullReadEvidence, Operation, OperationGuard, Outcome
 from app.agent.presentation import public_content, public_work, tool_label
 from app.agent.scheduler import schedule_calls
@@ -70,7 +71,7 @@ from app.agent.tools.read_state import latest_read, parse_read_state_metadata
 from app.agent.workspace import Workspace
 from app.llm.base import ChatOptions, LLMProvider, ToolCallSpec
 from app.llm.catalog import CONTEXT_WINDOW, canonical_reasoning
-from app.llm.retry import backoff_delay, classify
+from app.llm.retry import IncompleteStream, backoff_delay, classify, failure_category
 from app.storage.db import Database, new_id
 
 logger = logging.getLogger(__name__)
@@ -95,6 +96,10 @@ class ContextOverflow(Exception):
     Raised only when nothing was streamed, so the step can compact and be
     dispatched again (Codex's ``ContextWindowExceeded`` recovery).
     """
+
+
+class HookBlocked(RuntimeError):
+    """A prompt hook refused the request; its reason is written for the user."""
 
 
 class SteeringPending(Exception):
@@ -183,6 +188,8 @@ class TurnState:
     admission_prefix: str = "native"
     model_dispatches: int = 0
     mailbox: Optional[Callable[[list], bool]] = None
+    # A sub-agent has no session of its own; its spend is booked to the parent's.
+    spend_log: Optional[SessionLog] = None
     subagents: Any = None
     transcript: Transcript = field(default_factory=Transcript)
     answer_truncated: bool = False
@@ -539,7 +546,7 @@ class AgentHarness:
             })
             state.unapplied_steers.remove(pending_note)
             await emit(ev("steer_applied", text=stored, skills=skill_names, tools=tool_names,
-                          seq=state.session.events[-1]["seq"] if state.session else None))
+                          seq=state.session.last_seq if state.session else None))
         return True
 
     def _has_steer(self, conversation_id: str) -> bool:
@@ -785,6 +792,7 @@ class AgentHarness:
             if cid in self._active:
                 await emit(ev("error", message="A run is already in progress for this conversation."))
                 return
+            bind_log_context(conversation_id=cid)
             self._active[cid] = cancel
             self._steer[cid] = asyncio.Queue()
             self._paused[cid] = asyncio.Event()
@@ -797,7 +805,7 @@ class AgentHarness:
             prior_messages = self.db.list_messages(cid)
             if getattr(self.settings, "session_log_enabled", True):
                 state.session = await self._open_session(cid)
-                if not fold_surface(state.session.events):
+                if not state.session.has_surface:
                     state.session.set_system({"role": "system", "content": ""})
                     # Old UI rows never had an exact provider request or timed
                     # usage. Record the imported replay honestly as a seed.
@@ -815,7 +823,7 @@ class AgentHarness:
                 await state.session.flush()
             else:
                 self.db.add_message(cid, "user", {"text": req.text, "attachments": req.attachments})
-            checkpoint_seq = state.session.events[-1]["seq"] if state.session else None
+            checkpoint_seq = state.session.last_seq if state.session else None
             await emit(ev("conversation", conversation_id=cid, title=conv["title"], seq=checkpoint_seq))
             await emit(ev("message_start", message_id=message_id, provider=spec.id, model=model.id,
                           reasoning=level, seq=checkpoint_seq))
@@ -862,7 +870,7 @@ class AgentHarness:
                     raise asyncio.CancelledError() from exc
                 if state.session is not None:
                     from app.agent.session.telemetry import budget_error
-                    reason = budget_error(state.session.events, state.turn, self.settings)
+                    reason = budget_error(state.session.events_view, state.turn, self.settings)
                     if reason:
                         raise BudgetExceeded(reason)
 
@@ -898,7 +906,7 @@ class AgentHarness:
             if ctx.state["ui_native"]:
                 from app.ui.compiler import UIStreamCompiler
                 state.ui_compiler = UIStreamCompiler(self.ui.store, cid)
-            restore_execution_state(ctx, state.session.events if state.session is not None else [], original_user_text)
+            restore_execution_state(ctx, state.session.events_view if state.session is not None else [], original_user_text)
             route = self._route_turn(req, workspace)
             await self._activate_skills(route, ctx, emit, forced=bool(req.skills), state=state)
             if req.tools:
@@ -906,14 +914,15 @@ class AgentHarness:
                 self._enable_tool_flags(ctx, req.tools)
             options = ChatOptions(model=model.id, reasoning=level, temperature=req.temperature,
                                   max_tokens=self.settings.max_output_tokens or None)
+            # Installed even with the reviewer off: command rules that forbid or
+            # prompt still have to refuse when nobody is asked.
             reviewer = getattr(self.settings, "approvals_reviewer", "off")
-            if reviewer != "off":
-                ctx.state["approvals"] = ApprovalContext(
-                    reviewer=reviewer, broker=self.approvals, emit=emit,
-                    timeout=float(getattr(self.settings, "approval_timeout", 600.0)),
-                    guardian=self._guardian_reviewer(provider, options, state) if reviewer == "guardian" else None,
-                    breaker=GuardianCircuitBreaker() if reviewer == "guardian" else None,
-                    fail_closed=bool(getattr(self.settings, "guardian_fail_closed", True)))
+            ctx.state["approvals"] = ApprovalContext(
+                reviewer=reviewer, broker=self.approvals, emit=emit,
+                timeout=float(getattr(self.settings, "approval_timeout", 600.0)),
+                guardian=self._guardian_reviewer(provider, options, state) if reviewer == "guardian" else None,
+                breaker=GuardianCircuitBreaker() if reviewer == "guardian" else None,
+                fail_closed=bool(getattr(self.settings, "guardian_fail_closed", True)))
             if getattr(self.settings, "code_mode_enabled", False):
                 ctx.state["tool_dispatch"] = self._kernel_dispatcher(ctx, state, emit)
                 ctx.state["tool_registry"] = self.tools
@@ -928,7 +937,7 @@ class AgentHarness:
                 if status == "started" and document:
                     if state.session is not None:
                         from app.agent.session.telemetry import budget_error
-                        reason = budget_error(state.session.events, state.turn, self.settings)
+                        reason = budget_error(state.session.events_view, state.turn, self.settings)
                         if reason:
                             raise BudgetExceeded(reason)
                     admission = state.run_budget.admit_model(task_id, source="document_ocr",
@@ -957,7 +966,7 @@ class AgentHarness:
             system = {"role": "system", "content": self._system_prompt(workspace, route, ui=ctx.state["ui_enabled"])}
             hook_context = await self._prompt_hooks(cid, workspace, req.text, first_turn=not prior_messages)
             turn_context = self._turn_context(workspace, route, cid, req.language,
-                previous_stopped=state.session is not None and _previous_turn_stopped(state.session.events),
+                previous_stopped=state.session is not None and _previous_turn_stopped(state.session.events_view),
                 hook_context=hook_context,
                 mode_section=mode_prompt(state.mode, can_switch=bool(ctx.state.get("mode_can_switch")))
                 if state.mode is not None else "")
@@ -971,7 +980,7 @@ class AgentHarness:
                 state.session.append_message(turn_context, source="turn-context", turn=state.turn)
                 state.session.append_message({"role": "user", "content": _user_content(req.text, req.attachments)},
                                              source="human", turn=state.turn)
-                events = state.session.events
+                events = state.session.events_view
                 history = _provider_replay(derive_messages(events), provider, events)
             else:
                 history = [system, *self._replay(prior_messages, provider), turn_context,
@@ -1075,6 +1084,7 @@ class AgentHarness:
         except Exception as exc:  # noqa: BLE001
             status = "error"
             logger.exception("Agent run failed")
+            state.notice = _failure_notice(exc)
             await emit(ev("error", message=_friendly_error(exc)))
         finally:
             # Stop/error paths must retain accepted notes too, without falsely
@@ -1131,13 +1141,13 @@ class AgentHarness:
                         state.session.append("turn/end", {"turn": state.turn, "reason": {"kind": reason}})
                         await state.session.flush()
                         try:
-                            otel.export_turn(cid, state.session.events, state.turn)
+                            otel.export_turn(cid, state.session.events_view, state.turn)
                         except Exception:  # noqa: BLE001 - telemetry must never fail a turn
                             logger.warning("OpenTelemetry export failed", exc_info=True)
                     elif state.session is None:
                         self.db.add_message(cid, "assistant", content, message_id=message_id)
                         self._persist_steers(cid, state)
-                    checkpoint_seq = state.session.events[-1]["seq"] if state.session else None
+                    checkpoint_seq = state.session.last_seq if state.session else None
                     presentation = public_content(content)
                     if not internal_events:
                         await original_emit(ev("work", work=presentation["work"]))
@@ -1165,7 +1175,8 @@ class AgentHarness:
                         await original_emit(ev("done", conversation_id=cid, message_id=message_id, seq=checkpoint_seq))
                     elif not internal_events:
                         await original_emit(ev("error", message=state.notice or "The answer could not be completed. Please try again.",
-                                               conversation_id=cid, message_id=message_id, seq=checkpoint_seq))
+                                               public_message=state.notice, conversation_id=cid, message_id=message_id,
+                                               seq=checkpoint_seq))
             finally:
                 if claimed:
                     self._active.pop(cid, None)
@@ -1397,7 +1408,7 @@ class AgentHarness:
         """The run's guardian: a reviewer-model call over this conversation's log."""
         async def review(request: dict):
             from app.agent import guardian
-            events = state.session.events if state.session is not None else []
+            events = state.session.events_view if state.session is not None else []
             context = state.context
             return await guardian.review(
                 guardian.GuardianRequest(**request), events, provider, options,
@@ -1434,7 +1445,7 @@ class AgentHarness:
         if self.hooks.has("UserPromptSubmit"):
             outcome = await self.hooks.run("UserPromptSubmit", {**payload, "prompt": text}, cwd=workspace.root)
             if outcome.blocked:
-                raise RuntimeError(f"This request was blocked by a UserPromptSubmit hook: {outcome.reason}")
+                raise HookBlocked(f"This request was blocked by a UserPromptSubmit hook: {outcome.reason}")
             context.append(outcome.additional_context)
         return "\n\n".join(c for c in context if c)
 
@@ -1713,9 +1724,10 @@ class AgentHarness:
         config = {"provider": state.provider_id or provider.id, **frozen_options}
         attempts = 0
         while True:
-            if state.session is not None:
+            ledger = state.session if state.session is not None else state.spend_log
+            if ledger is not None:
                 from app.agent.session.telemetry import budget_error
-                budget_message = budget_error(state.session.events, state.turn, self.settings)
+                budget_message = budget_error(ledger.events_view, state.turn, self.settings)
                 if budget_message:
                     raise BudgetExceeded(budget_message)
             attempts += 1
@@ -1742,6 +1754,7 @@ class AgentHarness:
             finish_reason = None
             attempt_recorded = False
             budget_outcome = "error"
+            public_output = False  # once visible, a second attempt would duplicate it
             delta_stream = None
             if state.session is not None:
                 state.session.sync_history(frozen_history, turn=state.turn, step=state.step, phase=state.phase)
@@ -1752,7 +1765,7 @@ class AgentHarness:
                     "attempt": attempts, "header": header, "reason": "dispatch"})
                 state.session.append("request/context", {"turn": state.turn, "step": state.step,
                     "provider": state.provider_id or provider.id, "model": options.model, "phase": state.phase})
-                request = derive_request(state.session.events)
+                request = state.session.current_request()
                 if request != {"messages": frozen_history, "tools": frozen_schemas, "config": config}:
                     raise AssertionError("Model-visible request differs from the durable session log")
                 await state.session.flush()
@@ -1770,6 +1783,17 @@ class AgentHarness:
                     data["usage"] = usage
                 return data
 
+            async def book_child_attempt(data: dict, outcome: str, error: dict | None = None) -> None:
+                """A sub-agent's attempt, in the parent's log so cost caps and usage see it."""
+                if state.spend_log is None:
+                    return
+                state.spend_log.append("llm/side-task", {
+                    "task": "subagent", "task_id": admission_id, "status": outcome, "turn": state.turn, "step": state.step,
+                    "provider": data["provider"], "model": data["model"], "started_at": data["started_at"],
+                    "completed_at": data["completed_at"], "duration_ms": data["duration_ms"], "usage": data.get("usage"),
+                    **({"error": error} if error else {})})
+                await state.spend_log.flush()
+
             try:
                 source = provider.stream(snapshot_json(frozen_history), snapshot_json(frozen_schemas),
                                          ChatOptions(**snapshot_json(frozen_options)))
@@ -1785,6 +1809,7 @@ class AgentHarness:
                     if delta.kind == "text":
                         stream.push(timestamp, {"type": "text-delta", "index": 0, "text": delta.text})
                         text_parts.append(delta.text)
+                        public_output = public_output or state.final_streaming
                         await emit(ev("text_delta", delta=delta.text))
                     elif delta.kind == "reasoning":
                         stream.push(timestamp, {"type": "reasoning-delta", "index": 0, "text": delta.text})
@@ -1814,6 +1839,7 @@ class AgentHarness:
                             if state.ui_compiler is not None:
                                 preview = state.ui_compiler.feed(slot["name"], slot["id"], slot["arguments"])
                                 if preview is not None:
+                                    public_output = True
                                     await emit(preview)
                     elif delta.kind == "usage" and delta.usage is not None:
                         # Samples are cumulative for one attempt: the last one
@@ -1826,6 +1852,8 @@ class AgentHarness:
                         stream.push(timestamp, {"type": "finish", "reason": finish_reason})
                 if finish_reason in {"error", "aborted", "insufficient_system_resource"}:
                     raise RuntimeError(f"Provider ended the stream with {finish_reason}")
+                if finish_reason is None and not cancel.is_set():
+                    raise IncompleteStream("The model stream ended without a finish reason.")
                 if finish_reason in {"length", "max_tokens", "max-tokens"}:
                     state.end_reason = "max-tokens"
                 state.last_finish_reason = finish_reason
@@ -1846,6 +1874,9 @@ class AgentHarness:
                         state.session.append("assistant/attempt", {**data, "status": "aborted"})
                     attempt_recorded = True
                     await state.session.flush()
+                elif state.spend_log is not None:
+                    attempt_recorded = True
+                    await book_child_attempt(data, budget_outcome)
                 if usage is not None:
                     for key, value in usage.items():
                         if type(value) in (int, float):
@@ -1881,6 +1912,8 @@ class AgentHarness:
                     else:
                         state.session.append("assistant/attempt", data)
                     await state.session.flush()
+                else:
+                    await book_child_attempt(data, budget_outcome, data["error"])
                 if usage is not None:
                     for key, value in usage.items():
                         if type(value) in (int, float):
@@ -1891,8 +1924,10 @@ class AgentHarness:
                         and not isinstance(exc, (BudgetExhausted, Stopped))):
                     raise ContextOverflow(str(exc)) from exc
                 max_retries = int(getattr(self.settings, "llm_max_retries", 4))
+                # Partial worker output is private and was never added to the
+                # history, so it can be dropped and the step sent again.
                 if (decision is not None and not isinstance(exc, (BudgetExhausted, Stopped)) and attempts <= max_retries
-                        and decision.retryable and untouched):
+                        and decision.retryable and not public_output and not cancel.is_set()):
                     delay = backoff_delay(attempts, float(getattr(self.settings, "llm_retry_base_delay", 0.2)),
                                           decision.retry_after)
                     logger.warning("Transient LLM error, retrying in %.2fs: %s", delay, exc)
@@ -2779,6 +2814,21 @@ def _extract_verdict(text: str) -> str:
     if verdict and len(re.findall(r"<verdict>", outside_report, re.IGNORECASE)) == 1:
         return verdict[1].lower()
     return "uncertain"
+
+
+def _failure_notice(exc: Exception) -> str:
+    """Why the run failed, in words safe to save and show with the answer."""
+    if isinstance(exc, HookBlocked):
+        return str(exc)[:600]
+    return {
+        "context": "This conversation is too long for the model, even after compaction. Start a new conversation or send less at once.",
+        "region": "The model provider is not available from this server's region.",
+        "auth": "The model provider rejected the API key. Check DEEPSEEK_API_KEY in backend/.env.",
+        "quota": "The model provider account is out of credit.",
+        "rate_limit": "The model provider is rate limiting requests. Wait a moment and try again.",
+        "provider": "The model provider is having problems. Try again shortly.",
+        "network": "The connection to the model provider failed. Try again.",
+    }.get(failure_category(exc), "The run stopped on an internal error. Details are in the server log.")
 
 
 def _friendly_error(exc: Exception) -> str:

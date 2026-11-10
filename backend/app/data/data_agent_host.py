@@ -3,14 +3,31 @@
 from __future__ import annotations
 
 import logging
+import mimetypes
 from pathlib import Path
 
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 
 from app.config import settings
+from app.security import ISOLATED_FILE_CSP, file_headers
 
 logger = logging.getLogger(__name__)
+
+
+class IsolatedStaticFiles(StaticFiles):
+    """Static files that can never run as the application's own origin."""
+
+    def file_response(self, full_path, stat_result, scope, status_code=200):
+        response = super().file_response(full_path, stat_result, scope, status_code)
+        name = Path(full_path).name
+        headers = file_headers(mimetypes.guess_type(name)[0], name)
+        response.headers.update(headers)
+        # A generic type also keeps the host page's HTML middleware from
+        # replacing the sandbox policy on this response.
+        if headers.get("Content-Security-Policy") == ISOLATED_FILE_CSP and "content-type" in response.headers:
+            response.headers["content-type"] = "application/octet-stream"
+        return response
 
 
 def attach_data_agent(app: FastAPI) -> None:
@@ -51,8 +68,8 @@ def attach_data_agent(app: FastAPI) -> None:
         }
 
     if ls.FILE_STORAGE_MODE == "local":
-        app.mount("/uploads", StaticFiles(directory=str(UPLOADS_DIR)), name="data-uploads")
-        app.mount("/images", StaticFiles(directory=str(IMAGES_DIR)), name="data-images")
+        app.mount("/uploads", IsolatedStaticFiles(directory=str(UPLOADS_DIR)), name="data-uploads")
+        app.mount("/images", IsolatedStaticFiles(directory=str(IMAGES_DIR)), name="data-images")
 
     logger.info(
         "Data agent mounted at /api/v1 (storage=%s, code=%s, workspace=%s)",

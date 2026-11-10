@@ -12,10 +12,12 @@ a Tavily/Exa stand-in). Optional upgrades, in order:
 from __future__ import annotations
 
 import asyncio
+import ipaddress
 import logging
 import re
+import socket
 from typing import Any
-from urllib.parse import urlparse
+from urllib.parse import urljoin, urlparse, urlsplit, urlunsplit
 
 import httpx
 
@@ -26,6 +28,7 @@ logger = logging.getLogger(__name__)
 
 _TAG = re.compile(r"<[^>]+>")
 _WS = re.compile(r"\s+")
+MAX_REDIRECTS = 5
 
 
 def _clean(text: str, limit: int = 400) -> str:
@@ -52,6 +55,37 @@ def _safe_url(url: str) -> bool:
         except ValueError:
             pass
     return True
+
+
+def _is_public_ip(value: str) -> bool:
+    ip = ipaddress.ip_address(value.split("%", 1)[0])
+    if isinstance(ip, ipaddress.IPv6Address):
+        if ip.sixtofour is not None or ip.teredo is not None:
+            return False
+        ip = ip.ipv4_mapped or ip
+    return ip.is_global and not ip.is_multicast and not ip.is_reserved
+
+
+async def _public_address(url: str) -> str | None:
+    """The address to connect to, or None unless every resolved address is public."""
+    parts = urlsplit(url)
+    port = parts.port or (443 if parts.scheme == "https" else 80)
+    try:
+        resolved = await asyncio.get_running_loop().getaddrinfo(parts.hostname, port, type=socket.SOCK_STREAM)
+    except OSError:
+        return None
+    addresses = [item[4][0] for item in resolved]
+    return addresses[0] if addresses and all(_is_public_ip(a) for a in addresses) else None
+
+
+def _pinned_request(client: httpx.AsyncClient, url: str, address: str) -> httpx.Request:
+    """A request that connects to the checked address, so DNS cannot change after the check."""
+    parts = urlsplit(url)
+    literal = f"[{address}]" if ":" in address else address
+    netloc = f"{literal}:{parts.port}" if parts.port else literal
+    host = f"{parts.hostname}:{parts.port}" if parts.port else parts.hostname
+    return client.build_request("GET", urlunsplit((parts.scheme, netloc, parts.path or "/", parts.query, "")),
+                                headers={"Host": host}, extensions={"sni_hostname": parts.hostname})
 
 
 def _format_hits(hits: list[dict]) -> str:
@@ -226,11 +260,19 @@ class WebFetchTool(Tool):
 
     async def run(self, ctx: ToolContext, url: str = "", **_: Any) -> ToolResult:
         target = (url or "").strip()
-        if not _safe_url(target):
-            return ToolResult(ok=False, output="", error="Only public http(s) URLs can be fetched.")
         await ctx.progress(f"Fetching {target}")
-        async with httpx.AsyncClient(timeout=20.0, follow_redirects=True, headers={"User-Agent": "MatOpt/1.0"}) as client:
-            r = await client.get(target)
+        current = target
+        async with httpx.AsyncClient(timeout=20.0, follow_redirects=False, headers={"User-Agent": "MatOpt/1.0"}) as client:
+            for _hop in range(MAX_REDIRECTS + 1):
+                address = await _public_address(current) if _safe_url(current) else None
+                if address is None:
+                    return ToolResult(ok=False, output="", error="Only public http(s) URLs can be fetched.")
+                r = await client.send(_pinned_request(client, current, address))
+                if not r.has_redirect_location:
+                    break
+                current = urljoin(current, r.headers["location"])
+            else:
+                return ToolResult(ok=False, output="", error="Too many redirects.")
             r.raise_for_status()
             raw = r.text or ""
         text = _WS.sub(" ", _TAG.sub(" ", raw)).strip()[:8_000]

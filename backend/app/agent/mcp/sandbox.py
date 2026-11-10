@@ -12,6 +12,7 @@ from fastmcp.apps.config import AppConfig
 from fastmcp.tools import ToolResult as McpResult
 from mcp.types import AudioContent, ImageContent, ResourceLink, TextContent
 
+from app.agent.approvals import ApprovalBroker, ApprovalContext
 from app.agent.events import Event, ToolResult
 from app.agent.execution import SessionExecutionReceipt, restore_execution_state
 from app.agent.tools.base import ToolContext
@@ -21,6 +22,9 @@ from app.ui.mcp_apps import VIEWER_URI, project_surface, verify_token, viewer_ht
 from app.ui.store import UIConflict
 
 
+OWNER_KEY = "mcp_owner"
+
+
 def _runtime():
     from app.runtime import get_runtime
     return get_runtime()
@@ -28,6 +32,21 @@ def _runtime():
 
 def _valid_identity(cid: str) -> bool:
     return isinstance(cid, str) and re.fullmatch(r"[A-Za-z0-9_-]{1,128}", cid) is not None
+
+
+def _principal() -> str | None:
+    """Who owns workspaces on this request, when callers can be told apart.
+
+    Only OAuth distinguishes callers. Stdio, no auth and the static bearer all
+    mean the operator, who may open any conversation.
+    """
+    from app.agent.mcp.auth import STATIC_CLIENT_ID
+    from fastmcp.server.dependencies import get_access_token
+
+    token = get_access_token()
+    if token is None or token.client_id == STATIC_CLIENT_ID:
+        return None
+    return str((token.claims or {}).get("sub") or token.client_id)
 
 
 def _protocol_result(result: ToolResult, ctx: ToolContext | None = None) -> McpResult:
@@ -65,6 +84,13 @@ class McpSandbox:
     def runtime(self):
         return self._runtime if self._runtime is not None else _runtime()
 
+    def _accessible(self, conversation_id: str) -> bool:
+        conversation = self.runtime.db.get_conversation(conversation_id)
+        if conversation is None:
+            return False
+        principal = _principal()
+        return principal is None or (conversation.get("meta") or {}).get(OWNER_KEY) == principal
+
     def open_workspace(self, conversation_id: str = "") -> dict:
         rt = self.runtime
         if conversation_id:
@@ -72,15 +98,24 @@ class McpSandbox:
                 raise ValueError("Invalid conversation_id")
             if rt.db.get_conversation(conversation_id) is None:
                 rt.db.create_conversation(title="MCP sandbox", conversation_id=conversation_id)
+                self._claim(conversation_id)
+            elif not self._accessible(conversation_id):
+                raise ValueError("Invalid conversation_id")
             cid = conversation_id
         else:
             cid = rt.db.create_conversation(title="MCP sandbox")["id"]
+            self._claim(cid)
         return {"conversation_id": cid, "files": rt.workspace(cid).list_files(),
                 "instructions": "Pass this conversation_id on every workspace tool call."}
 
+    def _claim(self, conversation_id: str) -> None:
+        principal = _principal()
+        if principal is not None:
+            self.runtime.db.update_conversation(conversation_id, meta={OWNER_KEY: principal})
+
     def _surface(self, conversation_id: str, surface_id: str) -> tuple[dict | None, McpResult | None]:
         rt = self.runtime
-        if not _valid_identity(conversation_id) or rt.db.get_conversation(conversation_id) is None:
+        if not _valid_identity(conversation_id) or not self._accessible(conversation_id):
             return None, _protocol_result(ToolResult(ok=False, error="Unknown conversation_id.", meta={"code": "MCP_WORKSPACE_UNKNOWN"}))
         surface = None
         if isinstance(surface_id, str) and re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_.:-]{0,95}", surface_id):
@@ -166,7 +201,7 @@ class McpSandbox:
 
     async def execute(self, name: str, conversation_id: str, arguments: dict, mcp_context: Context | None = None) -> McpResult:
         rt = self.runtime
-        if not _valid_identity(conversation_id) or rt.db.get_conversation(conversation_id) is None:
+        if not _valid_identity(conversation_id) or not self._accessible(conversation_id):
             return _protocol_result(ToolResult(ok=False, error="Unknown conversation_id. Call open_workspace first.",
                                                meta={"code": "MCP_WORKSPACE_UNKNOWN"}))
         tool = rt.tools.get(name)
@@ -200,6 +235,11 @@ class McpSandbox:
                     # the separate public projection, never this raw channel.
                     await mcp_context.info(str(event.data.get("delta", "")))
 
+            # MCP has nobody to answer an approval, so anything that would
+            # need one is refused once approvals are configured.
+            reviewer = getattr(rt.executions.settings, "approvals_reviewer", "off")
+            state["approvals"] = ApprovalContext(reviewer="off" if reviewer == "off" else "deny",
+                                                 broker=ApprovalBroker(), emit=emit)
             ctx = ToolContext(conversation_id, rt.workspace(conversation_id), emit, cancel,
                               call_id=new_id("mcp_"), state=state, kernels=rt.kernels,
                               settings=rt.executions.settings)

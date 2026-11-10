@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 import asyncio
+import collections
 import logging
+import time
 from functools import lru_cache
 
 from app.agent.harness import AgentHarness
@@ -37,13 +39,22 @@ from app.agent.tools.ui_tools import CreateUIAppTool, RegisterUIActionTool, Rend
 from app.agent.workspace import Workspace
 from app.config import settings
 from app.llm.registry import providers
+from app.log_context import install_log_context
 from app.storage.db import Database
+
+logger = logging.getLogger(__name__)
+
+LAG_SAMPLE_SECONDS = 0.5
+LAG_WARNING_SECONDS = 1.0
+MAINTENANCE_SECONDS = 30.0
+PRUNE_SECONDS = 6 * 3600.0
 
 
 class Runtime:
     def __init__(self):
         from app.agent.hooks import HookEngine
         from app.agent.plugins import PluginManager
+        install_log_context()
         self.db = Database(settings.db_path)
         self.kernels = KernelPool(lambda cid: Workspace(cid, settings.workspace_dir), idle_seconds=settings.kernel_idle_seconds)
         self.plugins = PluginManager(settings)
@@ -65,6 +76,10 @@ class Runtime:
         self.executions = ToolExecutionService(
             settings, hooks=HookEngine.from_settings(settings, extra=self.plugins.hook_config()))
         self._memory_task: asyncio.Task | None = None
+        self._background: list[asyncio.Task] = []
+        self._lag_samples: collections.deque[float] = collections.deque(maxlen=120)  # the last minute
+        self._stalled_runs = 0
+        self._started = False
         self.harness = AgentHarness(
             self.db, self.kernels, settings, providers, self.tools,
             skills=self.skills, tool_router=self.tool_router, executions=self.executions,
@@ -76,6 +91,9 @@ class Runtime:
         await self.runs.recover()
         self.harness.ui.store.recover_pending()
         self.kernels.start_reaper()
+        self._background = [asyncio.create_task(self._lag_loop(), name="event-loop-lag"),
+                            asyncio.create_task(self._maintenance_loop(), name="maintenance")]
+        self._started = True
         if settings.memories_enabled:
             self._memory_task = asyncio.create_task(self._memory_loop(), name="memories")
         if settings.mcp_enabled:
@@ -98,7 +116,53 @@ class Runtime:
                 logging.getLogger(__name__).warning("Memory pass failed", exc_info=True)
             await asyncio.sleep(3600)
 
+    async def _lag_loop(self) -> None:
+        """How late a timer fires is how long something held the event loop."""
+        while True:
+            started = time.monotonic()
+            await asyncio.sleep(LAG_SAMPLE_SECONDS)
+            lag = max(0.0, time.monotonic() - started - LAG_SAMPLE_SECONDS)
+            self._lag_samples.append(lag)
+            if lag >= LAG_WARNING_SECONDS:
+                logger.warning("The event loop was blocked for %.2fs", lag)
+
+    async def maintain(self, prune: bool) -> None:
+        self._stalled_runs = self.runs.check_stalled(settings.run_stall_seconds)
+        if prune and settings.run_event_retention_days:
+            cutoff = time.time() - settings.run_event_retention_days * 86400
+            removed = await asyncio.to_thread(self.db.prune_run_events, cutoff)
+            if removed:
+                logger.info("Pruned %d run journal events past retention", removed)
+
+    async def _maintenance_loop(self) -> None:
+        next_prune = 0.0
+        while True:
+            try:
+                due = time.monotonic() >= next_prune
+                await self.maintain(due)
+                if due:
+                    next_prune = time.monotonic() + PRUNE_SECONDS
+            except Exception:  # noqa: BLE001 - housekeeping must keep running
+                logger.warning("Maintenance pass failed", exc_info=True)
+            await asyncio.sleep(MAINTENANCE_SECONDS)
+
+    def health(self) -> dict:
+        """Liveness of the background work a static "ok" cannot show."""
+        reaper = self.kernels.reaper_status()
+        samples = self._lag_samples
+        return {
+            "status": "degraded" if self._started and not reaper["running"] else "ok",
+            "kernel_reaper": reaper,
+            "event_loop_lag_ms": {"last": round(samples[-1] * 1000, 1) if samples else None,
+                                  "max_last_minute": round(max(samples) * 1000, 1) if samples else None},
+            "runs": {"active": self.runs.active_count, "stalled": self._stalled_runs},
+        }
+
     async def stop(self) -> None:
+        for task in self._background:
+            task.cancel()
+        await asyncio.gather(*self._background, return_exceptions=True)
+        self._background = []
         if self._memory_task is not None:
             self._memory_task.cancel()
             await asyncio.gather(self._memory_task, return_exceptions=True)
@@ -111,6 +175,8 @@ class Runtime:
             await shell.sessions.shutdown()
         await self.kernels.shutdown_all()
         self.db.close()
+        # Its database is closed now, so the next caller must get a new runtime.
+        _cached_runtime.cache_clear()
 
     def workspace(self, conversation_id: str) -> Workspace:
         return Workspace(conversation_id, settings.workspace_dir)
@@ -159,5 +225,9 @@ def build_tools(skills: SkillRegistry | None = None) -> ToolRegistry:
 
 
 @lru_cache(maxsize=1)
-def get_runtime() -> Runtime:
+def _cached_runtime() -> Runtime:
     return Runtime()
+
+
+def get_runtime() -> Runtime:
+    return _cached_runtime()

@@ -109,7 +109,7 @@ def create_app() -> FastAPI:
     async def health():
         rt = get_runtime()
         return {
-            "status": "ok",
+            **rt.health(),
             "providers": rt.providers.configured_ids(),
             "tools": rt.tools.names(),
             "skills": rt.skills.names(),

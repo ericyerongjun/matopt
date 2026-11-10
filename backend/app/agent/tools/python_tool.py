@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import re
 from typing import Any
 
@@ -140,7 +141,7 @@ class PythonTool(Tool):
             await session.restart()
         limit = min(int(timeout or self.default_timeout), self.max_timeout)
 
-        before = ctx.workspace.snapshot()
+        before = await asyncio.to_thread(ctx.workspace.snapshot)
 
         async def on_stream(name: str, text: str) -> None:
             await ctx.progress(text)
@@ -152,7 +153,7 @@ class PythonTool(Tool):
         try:
             res = await session.execute(code, timeout=limit, on_stream=on_stream, cancel=ctx.cancel, **extra)
         finally:
-            changed = ctx.workspace.changed_since(before)
+            changed = await asyncio.to_thread(ctx.workspace.changed_since, before)
             read_state_meta = invalidate_execution_changes(ctx.state, ctx.workspace, before, changed)
 
         # Files created/modified by the cell (figures already captured are deduplicated by path).

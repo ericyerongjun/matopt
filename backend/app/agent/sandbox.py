@@ -40,6 +40,8 @@ the bubblewrap backend and a per-workspace container go further.
 
 from __future__ import annotations
 
+import hashlib
+import logging
 import os
 import shutil
 import sys
@@ -51,6 +53,10 @@ from urllib.parse import urlsplit
 
 SandboxMode = Literal["off", "workspace-write", "read-only", "external"]
 SEATBELT = "/usr/bin/sandbox-exec"
+# Parent of the per-conversation temp directories. Short on purpose: Python's
+# multiprocessing puts Unix sockets under TMPDIR, limited to ~104 characters.
+TEMP_PARENT = "mo-c"
+logger = logging.getLogger(__name__)
 
 # The backend user's credential stores, relative to their real home directory.
 CREDENTIAL_PATHS = (".ssh", ".aws", ".gnupg", ".netrc", ".git-credentials", ".docker", ".kube",
@@ -76,8 +82,11 @@ class SandboxPolicy:
     unix_sockets: tuple[Path, ...] = ()
     # Loopback ports serving MatOpt's own API, closed even with network on so a
     # child cannot call the unsandboxed backend. Seatbelt only: bubblewrap can
-    # only drop all networking, so on Linux use API_AUTH_TOKEN or network off.
+    # only drop all networking, so build_policy drops it unless API_AUTH_TOKEN
+    # already stops a child from using the API.
     blocked_loopback_ports: tuple[int, ...] = ()
+    # This conversation's temp directory, exported as TMPDIR.
+    temp_dir: Optional[str] = None
 
     @property
     def active(self) -> bool:
@@ -90,6 +99,8 @@ class SandboxPolicy:
         env = {"MATOPT_SANDBOX": self.backend if self.active else self.mode}
         if not self.network:
             env["MATOPT_SANDBOX_NETWORK_DISABLED"] = "1"
+        if self.temp_dir:
+            env.update(TMPDIR=self.temp_dir, TMP=self.temp_dir, TEMP=self.temp_dir)
         return env
 
 
@@ -105,6 +116,14 @@ def _temp_roots() -> list[Path]:
     if os.path.isdir("/tmp"):
         roots.add(_resolve("/tmp"))
     return sorted(roots)
+
+
+def _conversation_temp(workspace: Path) -> tuple[Path, Path]:
+    """(parent of every conversation's temp directory, this conversation's)."""
+    parent = Path(tempfile.gettempdir()) / TEMP_PARENT
+    own = parent / hashlib.sha256(str(workspace).encode()).hexdigest()[:10]
+    own.mkdir(parents=True, exist_ok=True, mode=0o700)
+    return parent, own
 
 
 def select_backend(preference: str) -> str:
@@ -134,20 +153,33 @@ def build_policy(settings: Any, workspace_root: Path, *, extra_writable: Sequenc
     if mode not in ("workspace-write", "read-only"):
         return SandboxPolicy(mode=mode, network=bool(getattr(settings, "sandbox_network", True)))
     workspace = _resolve(workspace_root)
-    writable = [*_temp_roots(), *(_resolve(p) for p in extra_writable)]
+    temp_parent, temp_dir = _conversation_temp(workspace)
+    writable = [*_temp_roots(), _resolve(temp_dir), *(_resolve(p) for p in extra_writable)]
     if mode == "workspace-write":
         writable.insert(0, workspace)
     home = _resolve(os.environ.get("HOME") or Path.home())
     deny = [_resolve(settings.data_dir)]
     backend_env = Path(__file__).resolve().parents[2] / ".env"
     deny.append(backend_env)
+    # Server definitions in mcp.json can carry bearer tokens.
+    mcp_config = getattr(settings, "resolved_mcp_config_path", None)
+    if callable(mcp_config):
+        deny.append(_resolve(mcp_config()))
+    deny.append(_resolve(temp_parent))
     deny += [home / rel for rel in CREDENTIAL_PATHS]
-    allow = [workspace, *(_resolve(p) for p in extra_readable)]
+    allow = [workspace, _resolve(temp_dir), *(_resolve(p) for p in extra_readable)]
+    backend = select_backend(getattr(settings, "sandbox_backend", "auto"))
+    network = bool(getattr(settings, "sandbox_network", True))
+    if backend == "bwrap" and network and not getattr(settings, "api_auth_token", None):
+        # With networking on, a child shares the backend's loopback and could
+        # call its open API: read other conversations, approve its own requests.
+        logger.warning("Sandbox network is off: on Linux it needs API_AUTH_TOKEN so children cannot call the API.")
+        network = False
     return SandboxPolicy(
-        mode=mode, backend=select_backend(getattr(settings, "sandbox_backend", "auto")),
+        mode=mode, backend=backend,
         writable_roots=tuple(dict.fromkeys(writable)), deny_read=tuple(dict.fromkeys(deny)),
-        allow_read=tuple(dict.fromkeys(allow)), network=bool(getattr(settings, "sandbox_network", True)),
-        blocked_loopback_ports=_backend_ports(settings))
+        allow_read=tuple(dict.fromkeys(allow)), network=network,
+        blocked_loopback_ports=_backend_ports(settings), temp_dir=str(temp_dir))
 
 
 def _within(path: Path, parent: Path) -> bool:
@@ -206,6 +238,11 @@ def bwrap_argv(policy: SandboxPolicy, bwrap: str = "bwrap") -> list[str]:
             "--proc", "/proc", "--unshare-user", "--unshare-pid", "--unshare-ipc"]
     if not policy.network:
         argv.append("--unshare-net")
+    # Mount order matters: a later bind of /tmp would uncover a mask beneath it.
+    masked = lambda root: any(_within(root, path) for path in policy.deny_read)
+    for root in policy.writable_roots:
+        if root.exists() and not masked(root):
+            argv += ["--bind", str(root), str(root)]
     for path in policy.deny_read:
         if path.is_dir():
             argv += ["--tmpfs", str(path)]
@@ -216,7 +253,7 @@ def bwrap_argv(policy: SandboxPolicy, bwrap: str = "bwrap") -> list[str]:
         if path.exists() and path not in policy.writable_roots:
             argv += ["--ro-bind", str(path), str(path)]
     for root in policy.writable_roots:
-        if root.exists():
+        if root.exists() and masked(root):
             argv += ["--bind", str(root), str(root)]
     return argv + ["--"]
 

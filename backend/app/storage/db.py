@@ -111,6 +111,9 @@ class Database:
         self._conn = sqlite3.connect(str(self.path), check_same_thread=False, isolation_level=None)
         self._conn.row_factory = sqlite3.Row
         self._conn.execute("PRAGMA journal_mode=WAL")
+        # WAL stays consistent at NORMAL and does not fsync every commit; only
+        # an OS crash or power loss can drop the last few commits.
+        self._conn.execute("PRAGMA synchronous=NORMAL")
         self._conn.execute("PRAGMA foreign_keys=ON")
         with self._lock:
             self._conn.executescript(SCHEMA)
@@ -301,6 +304,25 @@ class Database:
             ).fetchall()
         return [{"seq": row["seq"], "time": row["time"], "type": row["type"], "data": json.loads(row["data"])} for row in rows]
 
+    def prune_run_events(self, updated_before: float, batch_size: int = 5000) -> int:
+        """Delete replay journals of runs that finished before the cutoff.
+
+        Only the public replay of finished runs goes: the run row, the saved
+        messages and the private session log stay. Works in batches so other
+        requests can take the lock in between.
+        """
+        removed = 0
+        while True:
+            with self._lock:
+                cur = self._conn.execute(
+                    "DELETE FROM run_events WHERE rowid IN (SELECT e.rowid FROM run_events e "
+                    "JOIN runs r ON r.id=e.run_id WHERE r.status NOT IN ('queued','running','paused') "
+                    "AND r.updated_at<? LIMIT ?)", (updated_before, batch_size),
+                )
+            removed += cur.rowcount
+            if cur.rowcount < batch_size:
+                return removed
+
     # ── durable sessions ────────────────────────────────────────────────
 
     def list_session_events(self, cid: str, from_seq: int = -1, limit: int | None = None) -> list[dict]:
@@ -314,8 +336,13 @@ class Database:
             rows = self._conn.execute(sql, values).fetchall()
         return [self._event_row(row) for row in rows]
 
-    def append_session_events(self, cid: str, events: list[dict]) -> None:
+    def append_session_events(self, cid: str, events: list[dict], *, prevalidated: bool = False) -> None:
         """Atomically append a validated batch and update the legacy UI view.
+
+        ``prevalidated`` is for a SessionLog, which has already checked the
+        batch against its whole prefix: only contiguity with the stored rows is
+        checked here, so a flush does not re-read the conversation under the
+        database lock. Every other caller gets the full prefix validation.
 
         SQLite commits whole rows/batches, so torn JSON tails are impossible.
         An interrupted lifecycle is repaired by SessionLog.open; malformed
@@ -330,11 +357,18 @@ class Database:
         with self._lock:
             self._conn.execute("BEGIN IMMEDIATE")
             try:
-                rows = self._conn.execute(
-                    "SELECT * FROM session_events WHERE conversation_id=? ORDER BY seq", (cid,),
-                ).fetchall()
-                prior = [self._event_row(row) for row in rows]
-                validate_events(prior + batch)
+                if prevalidated:
+                    expected = self._conn.execute(
+                        "SELECT COALESCE(MAX(seq),-1)+1 FROM session_events WHERE conversation_id=?", (cid,),
+                    ).fetchone()[0]
+                    if batch[0]["seq"] != expected:
+                        raise ValueError(f"Session sequence must be contiguous: expected {expected}")
+                else:
+                    rows = self._conn.execute(
+                        "SELECT * FROM session_events WHERE conversation_id=? ORDER BY seq", (cid,),
+                    ).fetchall()
+                    prior = [self._event_row(row) for row in rows]
+                    validate_events(prior + batch)
                 for event in batch:
                     self._conn.execute(
                         "INSERT INTO session_events (conversation_id,seq,time,type,data,surface_op,source_seqs,ignorable) "

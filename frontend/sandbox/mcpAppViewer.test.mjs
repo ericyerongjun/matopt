@@ -35,16 +35,33 @@ async function mount() {
     const attach = window.Element.prototype.attachShadow;
     window.Element.prototype.attachShadow = function (init) { const root = attach.call(this, init); shadows.push(root); return root; };
   } });
-  const deliver = async (data, source = host) => { view.dispatchEvent(new view.MessageEvent("message", { data, source })); await tick(); };
+  // jsdom does not load srcdoc, so the nested frame is a second window wired the way a browser wires it.
+  let inner;
+  const clone = (value) => JSON.parse(JSON.stringify(value));
+  const attachFrame = () => {
+    const frame = view.document.querySelector("iframe");
+    if (!frame || inner) return;
+    const channel = new JSDOM("").window;
+    channel.postMessage = (data) => view.dispatchEvent(new view.MessageEvent("message", { data: clone(data), source: frame.contentWindow }));
+    frame.contentWindow.postMessage = (data) => inner.dispatchEvent(new inner.MessageEvent("message", { data: clone(data), source: channel }));
+    new JSDOM(frame.getAttribute("srcdoc"), { runScripts: "dangerously", pretendToBeVisual: true, beforeParse(window) {
+      inner = window;
+      Object.defineProperty(window, "parent", { value: channel, configurable: true });
+      window.ResizeObserver = class { observe() {} };
+    } });
+  };
+  const deliver = async (data, source = host) => { view.dispatchEvent(new view.MessageEvent("message", { data, source })); attachFrame(); await tick(); };
   const reply = (id, result) => deliver({ jsonrpc: "2.0", id, result });
   const buttons = () => [...(shadows.at(-1)?.querySelectorAll("button") || [])];
   const notice = () => shadows.at(-1)?.querySelector("[role=status]")?.textContent;
   const about = () => shadows.at(-1)?.querySelector("details p")?.textContent;
   const userClick = (element) => fireAnEvent("click", idlUtils.implForWrapper(element), MouseEvent, { bubbles: true });
-  const out = () => view.document.getElementById("out")?.textContent;
+  const out = () => inner?.document.getElementById("out")?.textContent;
+  const bump = (n) => inner.bump(n);
+  const srcdoc = () => view.document.querySelector("iframe")?.getAttribute("srcdoc");
   const calls = (name) => sent.filter((m) => m.method === "tools/call" && m.params.name === name);
   await tick();
-  return { view, sent, deliver, reply, buttons, notice, about, userClick, out, calls };
+  return { view, sent, deliver, reply, buttons, notice, about, userClick, out, calls, bump, srcdoc };
 }
 
 async function start(capabilities = {}, surface = SURFACE, theme = "dark") {
@@ -73,9 +90,9 @@ test("viewer completes the MCP Apps handshake and adopts host theme and style va
 });
 
 test("tool result renders the saved mini-app with only its declared state", async () => {
-  const { view, sent, deliver, out, buttons } = await start();
+  const { sent, deliver, out, buttons, bump } = await start();
   assert.equal(out(), '{"frequency":2} dark');
-  view.bump();
+  bump();
   assert.equal(out(), '{"frequency":5} dark');
   assert.ok(sent.some((m) => m.method === "ui/notifications/size-changed" && m.params.height >= 160));
   // Hosts without server tools or messages get no viewer controls and no saves.
@@ -88,8 +105,8 @@ test("tool result renders the saved mini-app with only its declared state", asyn
 });
 
 test("control edits save debounced with the surface token and rebase on conflicts", async () => {
-  const { view, sent, reply, calls } = await start(ALL);
-  view.bump(3); view.bump(4);
+  const { sent, reply, calls, bump } = await start(ALL);
+  bump(3); bump(4);
   await tick(450);
   const [save] = calls("save_ui_state");
   assert.deepEqual(save.params.arguments, { conversation_id: "c1", surface_id: "sine-wave", token: "secret-token", revision: 1, state: { frequency: 4 } });
@@ -103,10 +120,10 @@ test("control edits save debounced with the surface token and rebase on conflict
 });
 
 test("only a user click runs the host-owned action and the result updates the app", async () => {
-  const { view, sent, reply, buttons, notice, about, userClick, out, calls } = await start(ALL);
+  const { sent, reply, buttons, notice, about, userClick, out, calls, bump } = await start(ALL);
   assert.deepEqual(buttons().map((b) => b.textContent), ["Recompute", "Explain"]);
   assert.equal(about(), "Frequency 2.");
-  view.bump(6);
+  bump(6);
   assert.match(notice(), /Recompute to update/);
   buttons()[0].click();  // scripted clicks, as generated code could issue, are ignored
   await tick();
@@ -134,7 +151,7 @@ test("only a user click runs the host-owned action and the result updates the ap
   assert.equal(message.params.role, "user");
   assert.match(message.params.content[0].text, /Explain the current result in “Sine wave” \(surface sine-wave, revision 3\)[\s\S]*Frequency 6\./);
   // The view keeps its original token: later results never carry one.
-  view.bump(7);
+  bump(7);
   await tick(450);
   assert.equal(calls("save_ui_state").at(-1).params.arguments.token, "secret-token");
 });
@@ -147,6 +164,14 @@ test("a failed computation keeps the previous result and explains why", async ()
   await reply(run.id, { isError: true, content: [{ type: "text", text: "Numerical calculation failed" }], structuredContent: { code: "UI_ACTION_FAILED", revision: 1 } });
   assert.equal(out(), '{"frequency":2} dark');
   assert.equal(notice(), "Numerical calculation failed");
+});
+
+test("generated HTML runs in a nested sandboxed frame without the surface token", async () => {
+  const { view, srcdoc } = await start(ALL);
+  assert.equal(view.document.querySelector("iframe").getAttribute("sandbox"), "allow-scripts");
+  assert.match(srcdoc(), /connect-src 'none'/);
+  assert.ok(!srcdoc().includes("secret-token"));
+  assert.equal(view.matopt, undefined);
 });
 
 test("errors, native surfaces and foreign messages fall back to text", async () => {

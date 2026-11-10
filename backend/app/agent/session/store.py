@@ -24,4 +24,5 @@ class SQLiteSessionStore:
         return events
 
     def append(self, events: list[dict]) -> None:
-        self.db.append_session_events(self.conversation_id, events)
+        # SessionLog validated this batch against its whole prefix in memory.
+        self.db.append_session_events(self.conversation_id, events, prevalidated=True)
