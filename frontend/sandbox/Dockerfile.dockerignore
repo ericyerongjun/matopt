@@ -2,9 +2,11 @@
 #
 # Docker prefers this file over the context-root `.dockerignore`, which
 # excludes `frontend/` for the backend image. The sandbox image needs only
-# the three static files its Dockerfile copies.
+# the static runtime and the locked dependency manifests for its local Plotly library.
 
 *
+!frontend/package.json
+!frontend/package-lock.json
 !frontend/sandbox/index.html
 !frontend/sandbox/runtime.js
 !frontend/sandbox/nginx.conf
