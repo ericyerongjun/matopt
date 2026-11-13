@@ -6,6 +6,7 @@ import MarkdownRenderer from "../../components/MarkdownRenderer.tsx";
 import { hasBindings, resolveBindings } from "./model.ts";
 import { useUiWorkspace, type SurfaceRecord } from "./UiWorkspace.tsx";
 import { TableOverflow } from "./TableOverflow.tsx";
+import { withKatexOptions } from "../../utils/mathRenderOptions.ts";
 
 const PlotRenderer = lazy(() => import("../../components/PlotRenderer.tsx"));
 const MermaidBlock = lazy(() => import("../../zcode/components/ai-elements/mermaid-block.tsx").then((module) => ({ default: module.MermaidBlock })));
@@ -32,7 +33,7 @@ function SurfaceNode({ node, record }: { node: UINode; record: SurfaceRecord }) 
     switch (node.type) {
         case "markdown": return <div data-ui-node={node.id}><MarkdownRenderer content={text(props.text)} conversationId={workspace.conversationId} /></div>;
         case "equation": return <div className="ui-equation" data-ui-node={node.id} aria-label={text(props.label, text(props.latex))}
-            dangerouslySetInnerHTML={{ __html: katex.renderToString(text(props.latex), { displayMode: props.inline !== true, throwOnError: false, trust: false, strict: "ignore", output: "htmlAndMathml" }) }} />;
+            dangerouslySetInnerHTML={{ __html: katex.renderToString(text(props.latex), withKatexOptions({ displayMode: props.inline !== true })) }} />;
         case "stack": return <div data-ui-node={node.id} className={`ui-node-stack ${props.direction === "horizontal" ? "ui-node-row" : ""}`}>{children}</div>;
         case "grid": return <div data-ui-node={node.id} className="ui-node-grid" style={{ "--ui-grid-columns": Math.max(1, Math.min(4, numeric(props.columns, 2)!)) } as React.CSSProperties}>{children}</div>;
         case "comparison": return <Comparison node={node} props={props} />;

@@ -52,3 +52,21 @@ test('starting a turn closes an already open effort menu and disables its trigge
     assert.equal(document.querySelector('[role="menu"]'), null);
     assert.equal(container!.querySelector<HTMLButtonElement>('button')!.disabled, true);
 });
+
+test('demo speed is an explicit option and selecting a thinking level exits it', async () => {
+    const selected: ReasoningLevel[] = [], toggles: boolean[] = [];
+    container = document.createElement('div'); document.body.append(container); root = createRoot(container);
+    act(() => root?.render(<ModelPicker catalog={null} provider="deepseek" model="deepseek-flash" label="Flash"
+        levels={levels} reasoning="off" ultrafast onUltrafastChange={(value) => toggles.push(value)}
+        onSelect={() => {}} onReasoningChange={(value) => selected.push(value)} />));
+    const trigger = container.querySelector('button')!;
+    assert.match(trigger.textContent!, /Ultrafast/);
+    act(() => trigger.focus()); press(trigger, 'Enter'); await tick();
+    const toggle = document.querySelector<HTMLElement>('[role="menuitemcheckbox"]')!;
+    assert.equal(toggle.textContent, 'Ultrafast demo'); assert.equal(toggle.getAttribute('aria-checked'), 'true');
+    act(() => toggle.click()); await tick();
+    assert.deepEqual(toggles, [false]);
+    act(() => trigger.focus()); press(trigger, 'Enter'); await tick();
+    act(() => document.querySelectorAll<HTMLElement>('[role="menuitemradio"]')[1].click()); await tick();
+    assert.deepEqual(selected, ['low']);
+});

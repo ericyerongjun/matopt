@@ -122,7 +122,8 @@ class SpeechService:
         self._kokoro_zh = None
         self._zh_g2p = None
         self._ja_g2p = None
-        self._lock = threading.Lock()
+        # Independent downloads must not block microphone readiness behind TTS.
+        self._load_locks = {name: threading.Lock() for name in ("whisper", "kokoro", "kokoro_zh", "japanese")}
         self._whisper_lock = threading.Lock()
         self._kokoro_lock = threading.Lock()
 
@@ -138,12 +139,13 @@ class SpeechService:
             "synthesis": settings.speech_enabled and installed("kokoro_onnx"),
             "whisper_model": settings.whisper_model,
             "languages": [{"code": lang.code, "label": lang.label, "voice": lang.voice} for lang in LANGUAGES.values()],
-            "loaded": {"transcription": self._whisper is not None, "synthesis": self._kokoro is not None},
+            "loaded": {"transcription": self._whisper is not None, "synthesis": self._kokoro is not None,
+                       "synthesis_zh": self._kokoro_zh is not None},
         }
 
     # ── models ──────────────────────────────────────────────────────────
     def _whisper_model(self):
-        with self._lock:
+        with self._load_locks["whisper"]:
             if self._whisper is None:
                 try:
                     from faster_whisper import WhisperModel
@@ -154,7 +156,7 @@ class SpeechService:
             return self._whisper
 
     def _kokoro_model(self):
-        with self._lock:
+        with self._load_locks["kokoro"]:
             if self._kokoro is None:
                 try:
                     from kokoro_onnx import Kokoro
@@ -166,7 +168,7 @@ class SpeechService:
 
     def _kokoro_zh_model(self):
         """The Mandarin model and its G2P; English words inside Chinese use espeak."""
-        with self._lock:
+        with self._load_locks["kokoro_zh"]:
             if self._kokoro_zh is None:
                 try:
                     from kokoro_onnx import Kokoro
@@ -182,7 +184,7 @@ class SpeechService:
 
     def _japanese_g2p(self):
         """Japanese readings from OpenJTalk; espeak cannot read kanji."""
-        with self._lock:
+        with self._load_locks["japanese"]:
             if self._ja_g2p is None:
                 try:
                     from misaki import ja
@@ -250,13 +252,13 @@ class SpeechService:
 
     def prefetch(self) -> None:
         """Download and load the models in the background so the first voice request is quick."""
-        def run() -> None:
-            for load in (self._kokoro_model, self._whisper_model, self._kokoro_zh_model):
-                try:
-                    load()
-                except Exception:  # noqa: BLE001 - voice stays optional; requests report their own errors
-                    logger.warning("Speech model prefetch failed", exc_info=True)
-        threading.Thread(target=run, name="speech-prefetch", daemon=True).start()
+        def run(load) -> None:
+            try:
+                load()
+            except Exception:  # noqa: BLE001 - voice stays optional; requests report their own errors
+                logger.warning("Speech model prefetch failed", exc_info=True)
+        for name, load in (("microphone", self._whisper_model), ("voice", self._kokoro_model), ("mandarin", self._kokoro_zh_model)):
+            threading.Thread(target=run, args=(load,), name=f"speech-prefetch-{name}", daemon=True).start()
 
     async def transcribe(self, audio: bytes, language: Optional[str] = None) -> dict:
         if not settings.speech_enabled:

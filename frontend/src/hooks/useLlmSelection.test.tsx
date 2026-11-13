@@ -56,3 +56,27 @@ test("stale provider/model/medium preferences migrate to Flash/high and arbitrar
     assert.equal(hook.provider, "deepseek"); assert.equal(hook.model, "deepseek-flash"); assert.equal(hook.reasoning, "high");
     assert.equal(window.localStorage.getItem("matopt.reasoning"), "high");
 });
+
+test("demo speed persists, uses non-thinking inference and restores the selected thinking level", async () => {
+    Object.defineProperty(globalThis, "localStorage", { value: window.localStorage, configurable: true });
+    window.localStorage.setItem("matopt.ultrafast", "1");
+    window.localStorage.setItem("matopt.reasoning", "high");
+    apiClient.defaults.adapter = async (config) => ({data: catalog, config, headers: {}, status: 200, statusText: "OK"});
+    container = document.createElement("div"); document.body.appendChild(container); root = createRoot(container);
+    act(() => root?.render(<Harness />)); await tick();
+    assert.equal(hook.ultrafast, true); assert.equal(hook.reasoning, "off");
+    act(() => hook.selectUltrafast(false));
+    assert.equal(hook.reasoning, "high");
+    act(() => hook.selectUltrafast(true));
+    act(() => hook.selectReasoning("low"));
+    assert.equal(hook.ultrafast, false); assert.equal(hook.reasoning, "low");
+    assert.equal(window.localStorage.getItem("matopt.ultrafast"), "0");
+});
+
+test("fresh selection honors the server's configured reasoning default", async () => {
+    Object.defineProperty(globalThis, "localStorage", { value: window.localStorage, configurable: true });
+    apiClient.defaults.adapter = async (config) => ({data: {...catalog, default_reasoning: "off"}, config, headers: {}, status: 200, statusText: "OK"});
+    container = document.createElement("div"); document.body.appendChild(container); root = createRoot(container);
+    act(() => root?.render(<Harness />)); await tick();
+    assert.equal(hook.reasoning, "off"); assert.equal(hook.ultrafast, false);
+});

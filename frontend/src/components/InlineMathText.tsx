@@ -1,5 +1,6 @@
 import katex from "katex";
 import { Fragment, useMemo } from "react";
+import { withKatexOptions } from "../utils/mathRenderOptions.ts";
 
 // Pandoc/remark-math rule: no space just inside the dollars and no digit after
 // the closing one, so prices such as "$5 and $10" stay text.
@@ -26,6 +27,6 @@ export function InlineMathText({ text }: { text: string }) {
     const segments = useMemo(() => splitInlineMath(text), [text]);
     return <>{segments.map((segment, index) => segment.kind === "text"
         ? <Fragment key={index}>{segment.value}</Fragment>
-        : <span key={index} dangerouslySetInnerHTML={{ __html: katex.renderToString(segment.value, {
-            displayMode: false, throwOnError: false, trust: false, strict: "ignore", output: "htmlAndMathml" }) }} />)}</>;
+        : <span key={index} dangerouslySetInnerHTML={{ __html: katex.renderToString(segment.value,
+            withKatexOptions({ displayMode: false })) }} />)}</>;
 }

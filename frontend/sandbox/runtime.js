@@ -44,20 +44,39 @@
   });
   Object.defineProperty(window, "matopt", { value: api, writable: false, configurable: false });
 
-  function render(html) {
-    if (typeof html !== "string" || html.length > 2_000_000) return;
+  const fail = () => post("matopt:error");
+  addEventListener("error", () => { if (initialized) fail(); });
+  addEventListener("unhandledrejection", () => { if (initialized) fail(); });
+  let plotly;
+  function loadPlotly() {
+    // Use only our locked local dependency, never the URL supplied by generated HTML.
+    return plotly ??= new Promise((resolve, reject) => {
+      const script = document.createElement("script");
+      script.src = "/plotly.min.js";
+      script.onload = resolve;
+      script.onerror = reject;
+      document.head.appendChild(script);
+    });
+  }
+  async function render(html) {
+    if (typeof html !== "string" || html.length > 2_000_000) throw new Error("Preview exceeds size limit");
     const parsed = new DOMParser().parseFromString(html, "text/html");
-    // Navigation, forms, external scripts and assets are blocked again by HTTP CSP
+    // Navigation, forms, unapproved external scripts and assets are blocked by HTTP CSP
     // and the embedding document's frame-src policy. Keep the runtime header intact.
-    parsed.querySelectorAll("base, meta[http-equiv], link, script[src]").forEach((node) => node.remove());
+    parsed.querySelectorAll("base, meta[http-equiv], link").forEach((node) => node.remove());
     const executableType = (script) => !script.type || ["module", "text/javascript", "application/javascript"].includes(script.type.toLowerCase());
     for (const node of [...parsed.head.children]) {
       if (node.tagName === "STYLE" || (node.tagName === "SCRIPT" && !executableType(node))) document.head.appendChild(document.importNode(node, true));
     }
-    const scripts = [...parsed.querySelectorAll("script")].filter(executableType).map((script) => ({ text: script.textContent || "", type: script.type }));
+    const scripts = [...parsed.querySelectorAll("script")].filter(executableType).map((script) => ({ text: script.textContent || "", type: script.type, src: script.getAttribute("src") }));
     parsed.querySelectorAll("script").forEach((script) => { if (executableType(script)) script.remove(); });
     document.body.replaceChildren(...[...parsed.body.childNodes].map((node) => document.importNode(node, true)));
     for (const script of scripts) {
+      if (script.src !== null) {
+        if (!/^https:\/\/cdn\.plot\.ly\/plotly-(?:\d+\.\d+\.\d+|latest)\.min\.js$/.test(script.src) && script.src !== "/plotly.min.js") throw new Error("Unsupported external library");
+        await loadPlotly();
+        continue;
+      }
       if (script.type && !["module", "text/javascript", "application/javascript"].includes(script.type)) continue;
       const executable = document.createElement("script");
       if (script.type) executable.type = script.type;
@@ -72,7 +91,7 @@
     if (event.source !== parent || !message || message.version !== 1 || message.channel !== channel || message.surfaceId !== surfaceId) return;
     if (message.type === "matopt:init" && !initialized) {
       if (!validState(message.state) || typeof message.html !== "string") return;
-      initialized = true; state = copy(message.state); setTheme(message.theme); render(message.html);
+      initialized = true; state = copy(message.state); setTheme(message.theme); void render(message.html).catch(fail);
     } else if (initialized && message.type === "matopt:state") setState(message.state, false);
     else if (initialized && message.type === "matopt:theme") setTheme(message.theme);
   });
