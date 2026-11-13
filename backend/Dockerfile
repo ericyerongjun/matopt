@@ -42,6 +42,7 @@ COPY skills ./skills
 # The code stays root-owned so agent code cannot rewrite the server; only data is writable.
 RUN mkdir -p /app/data/workspaces /app/data/data_agent \
     && useradd -m matopt && chmod -R a+rX /app && chown -R matopt:matopt /app/data
+COPY backend/pnpm-config.yaml /home/matopt/.config/pnpm/config.yaml
 USER matopt
 
 ENV DATA_DIR=/app/data \
