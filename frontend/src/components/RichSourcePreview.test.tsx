@@ -113,6 +113,17 @@ test("incomplete, invalid, and oversized rich documents retain readable source w
     assert.match(doc.textContent || "", /too large to preview/);
 });
 
+test("minified HTML artifacts allow omitted document end tags while preserving complete-content checks", () => {
+    const source = '<!DOCTYPE html><html lang=en><style>body{margin:0}</style><title>Welcome</title><body><div id=root></div><script type="module">document.getElementById("root").textContent="Welcome";</script>';
+    assert.equal(richSourcePreviewIssue(source, "html"), null);
+    assert.ok(richSourcePreviewIssue('<html><body><div>Unfinished', "html"));
+    assert.ok(richSourcePreviewIssue('<html><body><script>Unfinished', "html"));
+    const doc = mount(<RichSourcePreview source={source} kind="html" defaultView="preview" />);
+    assert.ok(doc.querySelector('iframe[sandbox="allow-scripts"]'));
+    act(() => button("Code").click());
+    assert.equal(doc.querySelector("pre code")?.textContent, source);
+});
+
 test("typed Markdown artifacts render tables and equations and preserve their source on demand", () => {
     const source = "## Results\n\n| x | y |\n|---|---|\n| 1 | 2 |\n\nThe answer is $x^2$.\n";
     const doc = mount(<ArtifactView artifact={{ kind: "markdown", name: "results.md", data: source }} />);

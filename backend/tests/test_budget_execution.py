@@ -251,7 +251,8 @@ async def test_ocr_global_deadline_cancels_provider_and_propagates_control_witho
 
     provider = ctx.state["document_provider"] = PausedVision()
     records = install_ocr_recorder(ctx, budget)
-    src = make_pdf(ctx)
+    # One provider call keeps the gate independent of parallel page-render timing.
+    src = make_pdf(ctx, pages=1)
     actual_wait, observed = asyncio.wait, []
 
     async def gated_wait(tasks, *, timeout=None, return_when=asyncio.ALL_COMPLETED):
