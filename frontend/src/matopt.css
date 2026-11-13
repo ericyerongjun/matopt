@@ -107,10 +107,12 @@ html:has(.matopt-shell), body:has(.matopt-shell), #root:has(.matopt-shell) { ove
 .matopt-run-buttons button { display: inline-flex; align-items: center; gap: 5px; min-height: 32px; padding: 4px 8px; border: 0; border-radius: var(--mo-radius-sm); background: transparent; color: var(--mo-text-muted); cursor: pointer; }
 .matopt-run-buttons button:hover { background: var(--mo-surface-secondary); color: var(--mo-text); }
 .matopt-run-buttons button:disabled { opacity: .5; cursor: default; }
-.katex { letter-spacing: normal; }
+.katex { font-size: 1.1em; letter-spacing: normal; }
 .katex * { box-sizing: content-box; }
 .katex .fbox, .katex .fcolorbox, .katex .angl { box-sizing: border-box; }
-.katex-display { overflow-x: auto; overflow-y: hidden; max-width: 100%; }
+.katex-display { overflow-x: auto; overflow-y: hidden; max-width: 100%; padding-block: .25em; }
+/* Center short equations; let wide ones start at the scrollable left edge. */
+.katex-display > .katex { width: max-content; min-width: 100%; }
 
 @media (max-width: 1100px) {
   :root { --mo-navigation-width: 224px; }
