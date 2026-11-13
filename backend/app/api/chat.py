@@ -32,6 +32,7 @@ class ChatStreamRequest(BaseModel):
     provider: Optional[str] = None
     model: Optional[str] = None
     reasoning: Optional[str] = None
+    ultrafast: bool = False
     verify: bool = False
     temperature: Optional[float] = None
     skills: list[str] = Field(default_factory=list)
@@ -66,6 +67,7 @@ async def chat_stream(body: ChatStreamRequest, request: Request):
         provider_id=body.provider,
         model_id=body.model,
         reasoning=body.reasoning,
+        ultrafast=body.ultrafast,
         verify=body.verify,
         temperature=body.temperature,
         skills=body.skills,

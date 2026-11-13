@@ -528,7 +528,8 @@ class AgentHarness:
             provider = self.providers.get(spec.id)
             state.provider_id = spec.id
             state.context_window = model.context_window
-            requested_level = canonical_reasoning(req.reasoning)
+            requested_level = canonical_reasoning("off" if req.ultrafast else
+                req.reasoning if req.reasoning is not None else getattr(self.settings, "default_reasoning", None))
             level = requested_level if requested_level in model.reasoning_levels else model.default_reasoning
             conv = self.db.get_conversation(cid) if cid else None
             if conv is None:
@@ -549,6 +550,10 @@ class AgentHarness:
                 await on_claim(cid)
             self.db.update_conversation(cid, provider=spec.id, model=model.id, reasoning=level)
             prior_messages = self.db.list_messages(cid)
+            if req.ultrafast and not prior_messages and conv["title"] == "New chat":
+                # The web client creates the chat before starting its first run.
+                conv["title"] = _heuristic_title(original_user_text)
+                self.db.update_conversation(cid, title=conv["title"])
             if getattr(self.settings, "session_log_enabled", True):
                 state.session = await self._open_session(cid)
                 if not state.session.has_surface:
@@ -716,7 +721,17 @@ class AgentHarness:
                 hook_context=hook_context,
                 mode_section=mode_prompt(state.mode, can_switch=bool(ctx.state.get("mode_can_switch")))
                 if state.mode is not None else "")
-            if not prior_messages and conv["title"] in ("New chat", _heuristic_title(req.text)):
+            if req.ultrafast:
+                turn_context["content"] += (
+                    "\n\n# Live demo pace\n"
+                    "Prioritize the requested working result. Batch independent reads and calculations, "
+                    "use existing tools and installed libraries, and avoid optional exploration or delegation. "
+                    "For interactive visualizations, start with one compact working view and the requested controls. "
+                    "Keep narration brief and the final answer concise, while preserving requested derivations, "
+                    "computed results, links, and limitations. Verify numerical claims with tools; "
+                    "do not trade correctness for speed or claim unfinished work is complete."
+                )
+            if not req.ultrafast and not prior_messages and conv["title"] in ("New chat", _heuristic_title(req.text)):
                 # Titles depend only on the first request; starting once setup
                 # succeeds lets the header update while the agent works. A title
                 # the user chose is never replaced.
@@ -796,7 +811,10 @@ class AgentHarness:
                 break
             if cancel.is_set():
                 raise Stopped()
-            if not direct and not req.strict_final and not state.answer_truncated and final_text.strip():
+            reuse_answer = (req.ultrafast and not req.verify and not state.applied_steers
+                            and not state.notice and state.last_finish_reason == "stop"
+                            and not _current_published_results(state.parts))
+            if not direct and not req.strict_final and not state.answer_truncated and final_text.strip() and not reuse_answer:
                 await self._begin_final(state, original_emit, message_id)
                 final_text = await self._final_response(provider, options, req, final_text, history, ctx, state, emit)
             if state.answer_truncated:

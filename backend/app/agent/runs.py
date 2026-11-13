@@ -235,6 +235,9 @@ class RunManager:
     def _fingerprint(req: RunRequest, cid: str) -> str:
         payload = dataclasses.asdict(req)
         payload.pop("run_id", None)
+        # Keep old idempotency keys valid across deployment of this opt-in field.
+        if not req.ultrafast:
+            payload.pop("ultrafast", None)
         payload["conversation_id"] = cid
         return hashlib.sha256(json.dumps(payload, sort_keys=True, ensure_ascii=False, allow_nan=False).encode()).hexdigest()
 

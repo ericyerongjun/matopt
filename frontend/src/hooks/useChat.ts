@@ -20,6 +20,7 @@ interface Options {
     model: string | null;
     reasoning: string | null;
     verify: boolean;
+    ultrafast?: boolean;
     /** Composer mode sent with every new turn; steers keep the running turn's mode. */
     mode?: ChatMode;
     /** Reply language chosen in the UI; null lets the model follow the user's language. */
@@ -323,6 +324,7 @@ export function useChat(options: Options) {
             if (!opts.activeId) optionsRef.current.setActiveId(cid);
             return await monitor(session, { conversation_id: cid, client_run_id: crypto.randomUUID(), message: trimmed, attachments,
                 provider: opts.provider, model: opts.model, reasoning: opts.reasoning, verify: opts.verify,
+                ultrafast: opts.ultrafast || undefined,
                 skills: skills.length ? skills : undefined, tools: tools.length ? tools : undefined, ui_version: 1,
                 language: opts.language || undefined, mode: opts.mode ?? "auto" }, accepted);
         } catch (error) {
