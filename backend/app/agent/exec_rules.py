@@ -166,7 +166,9 @@ def split_segments(command: str) -> Optional[list[list[str]]]:
             segments.append([])
         else:
             segments[-1].append(token)
-    return [_strip_wrappers(seg) for seg in segments if seg]
+    # Assignment-only lines and bare wrappers have no program left to inspect.
+    # Keep later segments: they must still pass the command rules.
+    return [argv for seg in segments if seg if (argv := _strip_wrappers(seg))]
 
 
 def _rm_recursive_root(argv: list[str]) -> bool:

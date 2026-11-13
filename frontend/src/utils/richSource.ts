@@ -80,7 +80,10 @@ function hasCompleteMarkup(source: string, kind: "html" | "svg"): boolean {
         }
         cursor = end + 1;
     }
-    return elements > 0 && stack.length === 0 && (kind !== "svg" || roots === 1);
+    // HTML minifiers may omit the document containers' closing tags at EOF.
+    // Content elements and raw script/style text must still be complete.
+    const complete = stack.length === 0 || (kind === "html" && stack.every((name) => ["html", "head", "body"].includes(name)));
+    return elements > 0 && complete && (kind !== "svg" || roots === 1);
 }
 
 export function richSourcePreviewIssue(source: string, kind: RichSourceKind): string | null {
