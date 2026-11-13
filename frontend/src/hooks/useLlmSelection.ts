@@ -15,6 +15,7 @@ const PROVIDER_KEY = "matopt.provider";
 const MODEL_KEY = "matopt.model";
 const REASONING_KEY = "matopt.reasoning";
 const VERIFY_KEY = "matopt.verify";
+const ULTRAFAST_KEY = "matopt.ultrafast";
 
 function readStored() {
     try {
@@ -43,6 +44,7 @@ export function useLlmSelection() {
     const [model, setModel] = useState<string | null>("deepseek-flash");
     const [reasoning, setReasoning] = useState<ReasoningLevel>("high");
     const [verify, setVerify] = useState(false);
+    const [ultrafast, setUltrafast] = useState(false);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
 
@@ -58,6 +60,7 @@ export function useLlmSelection() {
                 const allowed = spec?.reasoning_levels ?? ["off", "low", "high", "max"];
                 const nextReasoning: ReasoningLevel =
                     (stored.reasoning && allowed.includes(stored.reasoning) && stored.reasoning) ||
+                    (allowed.includes(data.default_reasoning) && data.default_reasoning) ||
                     spec?.default_reasoning ||
                     "high";
                 setProvider("deepseek");
@@ -65,6 +68,7 @@ export function useLlmSelection() {
                 writeStored({ [PROVIDER_KEY]: "deepseek", [MODEL_KEY]: "deepseek-flash", [REASONING_KEY]: nextReasoning });
                 setReasoning(nextReasoning);
                 setVerify(stored.verify);
+                try { setUltrafast(localStorage.getItem(ULTRAFAST_KEY) === "1"); } catch { /* private mode */ }
             })
             .catch((err: unknown) => {
                 if (!active) return;
@@ -114,8 +118,15 @@ export function useLlmSelection() {
     const selectReasoning = useCallback((level: ReasoningLevel) => {
         if (!(modelSpec?.reasoning_levels ?? ["off", "low", "high", "max"]).includes(level)) return;
         setReasoning(level);
+        setUltrafast(false);
+        writeStored({ [ULTRAFAST_KEY]: "0" });
         writeStored({ [REASONING_KEY]: level });
     }, [modelSpec]);
+
+    const selectUltrafast = useCallback((value: boolean) => {
+        setUltrafast(value);
+        writeStored({ [ULTRAFAST_KEY]: value ? "1" : "0" });
+    }, []);
 
     const selectVerify = useCallback((value: boolean) => {
         setVerify(value);
@@ -134,7 +145,8 @@ export function useLlmSelection() {
         provider,
         model,
         modelSpec,
-        reasoning,
+        reasoning: ultrafast ? "off" as const : reasoning,
+        ultrafast,
         verify,
         allowedLevels,
         selectedLabel,
@@ -142,6 +154,7 @@ export function useLlmSelection() {
         error,
         select,
         selectReasoning,
+        selectUltrafast,
         selectVerify,
     };
 }

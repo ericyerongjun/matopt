@@ -43,6 +43,7 @@ export interface ChatStreamBody {
     model?: string | null;
     reasoning?: string | null;
     verify?: boolean;
+    ultrafast?: boolean;
     strict_final?: boolean;
     temperature?: number;
     skills?: string[];

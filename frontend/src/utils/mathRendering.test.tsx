@@ -6,6 +6,7 @@ import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import MarkdownRenderer from "../components/MarkdownRenderer.tsx";
 import { ZCodeIntlProvider } from "../zcode/i18n/IntlProvider.js";
+import { InlineMathText } from "../components/InlineMathText.tsx";
 
 function rendered(source: string) {
     const html = renderToStaticMarkup(<ZCodeIntlProvider initialLocale="en-US"><MarkdownRenderer content={source} conversationId="math-regression" /></ZCodeIntlProvider>);
@@ -13,6 +14,22 @@ function rendered(source: string) {
 }
 
 describe("MatOpt math with native ZCode prose", () => {
+    it("uses layout classes matching the current stylesheet in Markdown and inline math", () => {
+        const markdown = rendered("$x^2 + \\sqrt{y}$");
+        const inline = new JSDOM(renderToStaticMarkup(<InlineMathText text={"$x^2 + \\sqrt{y}$"} />));
+        try {
+            const css = readFileSync(new URL("../../node_modules/katex/dist/katex.min.css", import.meta.url), "utf8");
+            for (const dom of [markdown, inline]) {
+                const doc = dom.window.document;
+                assert.ok(doc.querySelector(".katex-base"), "KaTeX output must match the stylesheet's prefixed layout classes");
+                assert.ok(doc.querySelector(".katex-strut"));
+                assert.equal(doc.querySelector(".base, .strut"), null);
+                assert.ok(css.includes(".katex-base"));
+                assert.ok(css.includes(".katex-strut"));
+            }
+        } finally { markdown.window.close(); inline.window.close(); }
+    });
+
     it("renders the complete spaced regression equation without inserting inline math into it", () => {
         const body = String.raw`\hat a=\frac{\sum_i(x_i-\bar x)(y_i-\bar y)}{\sum_i(x_i-\bar x)^2}=2,\qquad \hat b=\bar y-\hat a\bar x=1.`;
         for (const formula of [body, body.replace(",\\qquad", ",\n\\qquad")]) {

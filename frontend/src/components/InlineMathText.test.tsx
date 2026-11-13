@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { renderToStaticMarkup } from "react-dom/server";
+import { JSDOM } from "jsdom";
 import { InlineMathText, splitInlineMath } from "./InlineMathText.tsx";
 
 describe("InlineMathText", () => {
@@ -17,5 +18,16 @@ describe("InlineMathText", () => {
         assert.match(html, /class="katex"/);
         assert.doesNotMatch(html, /\$H\(1,1\)\$/);
         assert.match(html, /&lt;b&gt;now&lt;\/b&gt;/);
+    });
+
+    it("shares Markdown macros and isolates definitions between equations", () => {
+        const html = renderToStaticMarkup(<InlineMathText text={String.raw`$x\in\R$ $\gdef\leaked{SECRET}x$ $\leaked$`} />);
+        const dom = new JSDOM(html);
+        try {
+            const visible = [...dom.window.document.querySelectorAll(".katex-html")].map((node) => node.textContent).join(" ");
+            assert.equal(dom.window.document.querySelector(".mathbb")?.textContent, "R");
+            assert.doesNotMatch(visible, /SECRET/);
+            assert.match(visible, /\\leaked/);
+        } finally { dom.window.close(); }
     });
 });

@@ -6,6 +6,34 @@ from app.main import app
 from app.speech import SpeechUnavailable, speakable, speech
 
 
+def test_voice_models_prefetch_independently(tmp_path, monkeypatch):
+    import threading
+    from app.speech import SpeechService
+
+    service = SpeechService(tmp_path)
+    ready = [threading.Event() for _ in range(3)]
+    release = threading.Event()
+    finished = [threading.Event() for _ in range(3)]
+
+    def load(index):
+        ready[index].set()
+        try:
+            assert release.wait(5)
+            if index == 1:
+                raise SpeechUnavailable("One voice is unavailable")
+        finally:
+            finished[index].set()
+
+    for index, name in enumerate(("_whisper_model", "_kokoro_model", "_kokoro_zh_model")):
+        monkeypatch.setattr(service, name, lambda index=index: load(index))
+    try:
+        service.prefetch()
+        assert all(event.wait(2) for event in ready), "A TTS loader must not block microphone prefetch"
+    finally:
+        release.set()
+        assert all(event.wait(2) for event in finished)
+
+
 def test_speakable_summarises_code_tables_and_display_math_but_keeps_inline_meaning():
     answer = (
         "## Result\nThe gradient is $\\frac{\\partial L}{\\partial w}$ and **important**.\n\n"

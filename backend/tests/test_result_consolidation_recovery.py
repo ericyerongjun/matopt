@@ -54,11 +54,12 @@ def install(rig, provider):
 
 
 @pytest.mark.asyncio
-async def test_final_writer_retains_answer_that_only_existed_in_published_result(rig):
+@pytest.mark.parametrize("ultrafast", [False, True])
+async def test_final_writer_retains_answer_that_only_existed_in_published_result(rig, ultrafast):
     finding = 'The computed value is **123**.'
     provider = ConsolidatingProvider([publish(finding), {'text': 'Completed the calculation.'}])
     install(rig, provider)
-    capture = Capture(rig.harness, RunRequest(rig.cid, 'Calculate the value and explain the answer.')).start()
+    capture = Capture(rig.harness, RunRequest(rig.cid, 'Calculate the value and explain the answer.', ultrafast=ultrafast)).start()
     try:
         await capture.finish()
         payload = provider.publication_inputs[0]

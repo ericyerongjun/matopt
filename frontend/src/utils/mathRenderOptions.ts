@@ -16,11 +16,11 @@ export const KATEX_MACROS: Readonly<Record<string, string>> = Object.freeze({
  * of `macros` returns a fresh copy; renderers spread the options per equation.
  */
 export function withKatexOptions<T extends object>(base: T): T & typeof KATEX_OPTIONS {
-    return Object.defineProperty({ ...base, output: "htmlAndMathml" as const, throwOnError: false, strict: false as const }, "macros", {
+    return Object.defineProperty({ ...base, output: "htmlAndMathml" as const, throwOnError: false, trust: false as const, strict: false as const }, "macros", {
         enumerable: true,
         get: () => ({ ...KATEX_MACROS }),
     }) as T & typeof KATEX_OPTIONS;
 }
 
-export const KATEX_OPTIONS: { output: "htmlAndMathml"; throwOnError: false; strict: false; macros: Record<string, string> } =
+export const KATEX_OPTIONS: { output: "htmlAndMathml"; throwOnError: false; trust: false; strict: false; macros: Record<string, string> } =
     withKatexOptions({}) as never;

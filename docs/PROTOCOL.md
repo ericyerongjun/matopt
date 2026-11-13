@@ -331,10 +331,14 @@ requests keep their original labels.
 `POST /api/chat/stream` with
 ```ts
 { conversation_id?: string; message: string; attachments?: Attachment[]; provider?: string; model?: string;
-  reasoning?: string; verify?: boolean; strict_final?: boolean; temperature?: number;
+  reasoning?: string; verify?: boolean; strict_final?: boolean; temperature?: number; ultrafast?: boolean;
   skills?: string[]; tools?: string[]; web_search?: boolean; ui_version?: number; client_run_id?: string;
   mode?: "auto" | "mat" | "opt" }
 ```
+`ultrafast: true` opts into demo pacing: non-thinking inference, concise working results, a local title,
+and reuse of a completed answer when no verification, steering, notice or published-result consolidation
+requires the normal final-writing pass. It does not disable tools, approvals or explicit checking. The
+default is false; see [the live demo guide](DEMO.md).
 `mode` selects Mat (chat and explain: answers, math, Python calculations and figures, file reading, but no
 file edits or shell) or Opt (work on files, folders and code: the full toolset); `auto` classifies each
 message, and an automatic Mat turn can upgrade itself with `switch_to_opt`. Omitting `mode` keeps the full
