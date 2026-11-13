@@ -38,6 +38,11 @@ def test_segments_strip_wrappers_and_split_lists():
     assert split_segments("echo 'unterminated") is None
 
 
+def test_assignment_only_segments_do_not_hide_later_commands():
+    assert split_segments("WS=/tmp/demo\nA=1 B=2\nenv\nls") == [["ls"]]
+    assert not ExecPolicy().evaluate("WS=/tmp/demo\nsudo id").allowed
+
+
 def test_strictest_rule_wins_and_examples_are_validated():
     policy = ExecPolicy([_rule(["git"], "allow"), _rule(["git", ["push", "reset"]], "forbidden", "history")])
     assert policy.evaluate("git push").decision == "forbidden"

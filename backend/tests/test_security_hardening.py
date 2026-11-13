@@ -54,6 +54,20 @@ def test_nested_commands_reach_the_rules(sandboxed, command):
     assert approval_trigger(tool("bash", exec_policy=ExecPolicy()), {"command": command})[0] == "exec_rule_prompt"
 
 
+@pytest.mark.parametrize("command", [
+    "export PATH=/tmp/node/bin:$PATH\nWS=/tmp/welcome-demo\nls $WS/skills/\ncd /tmp && echo ready",
+    "bash -c 'WS=/tmp/demo; echo ready'",
+    "env",
+])
+def test_assignment_only_shell_segments_do_not_crash_approval(sandboxed, command):
+    assert approval_trigger(tool("bash", exec_policy=ExecPolicy()), {"command": command}) is None
+
+
+def test_assignments_do_not_skip_nested_command_approval(sandboxed):
+    command = "WS=/tmp/demo\nbash -c 'A=1; git push origin main'"
+    assert approval_trigger(tool("bash", exec_policy=ExecPolicy()), {"command": command})[0] == "exec_rule_prompt"
+
+
 def test_ordinary_code_does_not_ask_inside_the_sandbox(sandboxed):
     assert approval_trigger(tool("python"), {"code": 'import subprocess\nsubprocess.run(["git", "status"])\nx = 1 != 2'}) is None
     assert approval_trigger(tool("bash", exec_policy=ExecPolicy()), {"command": "git status"}) is None

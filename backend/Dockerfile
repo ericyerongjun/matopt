@@ -1,6 +1,9 @@
 # Build from the repository root:
 #   docker build -f backend/Dockerfile .
 # docker compose does this automatically.
+FROM node:22-bookworm-slim AS artifact-runtime
+RUN npm install --global pnpm@12.18.0
+
 FROM python:3.12-slim
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -22,6 +25,15 @@ RUN pip install --no-cache-dir --upgrade pip \
 
 # Japanese speech readings: fetch OpenJTalk's dictionary while site-packages is writable.
 RUN python -c "import pyopenjtalk; pyopenjtalk.g2p('テスト')"
+
+# Web-artifact skills build with Node and pnpm. Install these before dropping
+# privileges so demo runs never need global installs or runtime downloads.
+COPY --from=artifact-runtime /usr/local/bin/node /usr/local/bin/node
+COPY --from=artifact-runtime /usr/local/lib/node_modules /usr/local/lib/node_modules
+RUN ln -s ../lib/node_modules/npm/bin/npm-cli.js /usr/local/bin/npm \
+    && ln -s ../lib/node_modules/npm/bin/npx-cli.js /usr/local/bin/npx \
+    && ln -s ../lib/node_modules/pnpm/bin/pnpm.cjs /usr/local/bin/pnpm \
+    && ln -s ../lib/node_modules/pnpm/bin/pnpx.cjs /usr/local/bin/pnpx
 
 COPY backend/ ./
 COPY skills ./skills
