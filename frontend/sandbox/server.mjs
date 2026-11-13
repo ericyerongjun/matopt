@@ -6,6 +6,7 @@ export const SANDBOX_CSP = "default-src 'none'; script-src 'self' 'unsafe-inline
 const assets = new Map([
   ["/", ["text/html; charset=utf-8", readFileSync(new URL("./index.html", import.meta.url))]],
   ["/runtime.js", ["application/javascript; charset=utf-8", readFileSync(new URL("./runtime.js", import.meta.url))]],
+  ["/plotly.min.js", ["application/javascript; charset=utf-8", readFileSync(new URL("../node_modules/plotly.js/dist/plotly.min.js", import.meta.url))]],
 ]);
 
 /** Static routes only: never proxy API calls or expose workspace files. */

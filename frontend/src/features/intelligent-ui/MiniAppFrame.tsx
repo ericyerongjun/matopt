@@ -13,6 +13,7 @@ export function MiniAppFrame({ surfaceId, title, html, state = {}, onStateChange
     const [height, setHeight] = useState(320);
     const [ready, setReady] = useState(false);
     const [unavailable, setUnavailable] = useState(false);
+    const [failed, setFailed] = useState(false);
     // New document, new channel: `html` is a deliberate dependency that remounts the frame.
     // eslint-disable-next-line react-hooks/exhaustive-deps
     const identity = useMemo(() => ({ channel: crypto.randomUUID(), surfaceId }), [surfaceId, html]);
@@ -22,7 +23,7 @@ export function MiniAppFrame({ surfaceId, title, html, state = {}, onStateChange
     const theme = () => document.documentElement.classList.contains("dark") ? "dark" : "light";
 
     useEffect(() => {
-        setReady(false); setUnavailable(false); setHeight(320);
+        setReady(false); setUnavailable(false); setFailed(false); setHeight(320);
         if (!source) return;
         const timeout = setTimeout(() => setUnavailable(true), 10_000);
         const receive = (event: MessageEvent) => {
@@ -34,6 +35,7 @@ export function MiniAppFrame({ surfaceId, title, html, state = {}, onStateChange
                 frame.current.contentWindow?.postMessage({ type: "matopt:init", version: 1, ...identity, html: latest.current.html, state: latest.current.state, theme: theme() }, "*");
                 clearTimeout(timeout); setReady(true); setUnavailable(false);
             } else if (message.type === "matopt:resize") setHeight(message.height);
+            else if (message.type === "matopt:error") setFailed(true);
             else if (message.type === "matopt:state") latest.current.onStateChange?.(message.state);
         };
         const observer = new MutationObserver(() => frame.current?.contentWindow?.postMessage({ type: "matopt:theme", version: 1, ...identity, theme: theme() }, "*"));
@@ -49,7 +51,8 @@ export function MiniAppFrame({ surfaceId, title, html, state = {}, onStateChange
     return <div className="ui-mini-app">
         {!ready && !unavailable && <p className="ui-surface-note" role="status">Loading interactive preview…</p>}
         {unavailable && <p className="ui-surface-note" role="status">{fallback} Start the isolated preview runtime to enable it.</p>}
+        {failed && <p className="ui-surface-note" role="status">{fallback} The generated HTML could not run with the supported local libraries.</p>}
         <iframe ref={frame} key={source} src={source} title={title} sandbox="allow-scripts" referrerPolicy="no-referrer"
-            className="ui-mini-app-frame" style={{ height, visibility: ready ? "visible" : "hidden", ...(unavailable ? { height: 0 } : {}) }} />
+            className="ui-mini-app-frame" style={{ height, visibility: ready && !failed ? "visible" : "hidden", ...(unavailable || failed ? { height: 0 } : {}) }} />
     </div>;
 }
