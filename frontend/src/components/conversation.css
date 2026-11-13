@@ -44,7 +44,7 @@
 .matopt-answer-document [data-response-streaming] li { line-height: 1.65; }
 .matopt-answer-document [data-response-streaming] li p { margin-bottom: 8px; }
 .matopt-answer-document [data-response-streaming] blockquote { padding: 4px 0 4px 18px; border-left: 2px solid var(--color-border-hover); color: var(--color-foreground-subtle); }
-.matopt-answer-document [data-response-streaming] .katex-display { padding-block: 8px; margin-block: 20px 26px; }
+.matopt-answer-document [data-response-streaming] .katex-display { padding-block: .4em; margin-block: 1.25em; }
 .matopt-answer-document [data-response-streaming] :is(p,li,td) > code { padding: 1px 5px; border-radius: 4px; background: var(--color-surface); font-family: var(--font-mono); font-size: .8em; }
 .matopt-answer-document [data-streamdown="table"] { font-family: var(--font-sans); font-size: var(--matopt-text-compact); font-variant-numeric: tabular-nums; }
 .matopt-answer-document [data-streamdown="table"] th { background: var(--color-surface); color: var(--color-foreground-subtle); font-size: var(--text-ui-xs); font-weight: 600; letter-spacing: .04em; text-transform: uppercase; padding-block: 11px; }
