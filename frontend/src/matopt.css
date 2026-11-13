@@ -68,6 +68,7 @@ html:has(.matopt-shell), body:has(.matopt-shell), #root:has(.matopt-shell) { ove
 .matopt-model-trigger { max-width: 310px; gap: 7px; min-width: 0; color: var(--mo-text-muted); }
 .matopt-model-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .matopt-model-effort { padding-left: 7px; border-left: 1px solid var(--mo-border-strong); font-size: var(--text-ui-xs); font-weight: 400; color: var(--mo-text-muted); }
+.matopt-model-trigger[data-ultrafast=true] .matopt-model-effort { display: inline; flex-shrink: 0; }
 .matopt-model-trigger > svg { color: var(--mo-text-faint); flex-shrink: 0; }
 .matopt-model-menu { min-width: 268px; }
 .matopt-model-description { display: flex; flex-direction: column; gap: 5px; padding: 10px 10px 12px; }

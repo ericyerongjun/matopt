@@ -101,7 +101,7 @@ export default function MatOptApp() {
   const quotePassage = (quote: QuoteRef) => setQuoteRequest({ ...quote, id: crypto.randomUUID(), conversationId: convos.activeId });
   const chat = useChat({ activeId: convos.activeId, messages: convos.messages, setMessages: convos.setMessages,
     setActiveId: convos.setActiveId, createConversation: convos.create, refreshList: convos.refreshList,
-    provider: llm.provider, model: llm.model, reasoning: llm.reasoning, verify: llm.verify, language: voiceLanguage, mode: chatMode,
+    provider: llm.provider, model: llm.model, reasoning: llm.reasoning, verify: llm.verify, ultrafast: llm.ultrafast, language: voiceLanguage, mode: chatMode,
     onArtifacts: () => { void files.refresh(); } });
   const attachedRun = Boolean(chat.streaming && chat.overlay?.cid === convos.activeId);
   const messages = attachedRun && chat.overlay ? chat.overlay.messages : convos.messages;
@@ -182,7 +182,7 @@ export default function MatOptApp() {
       </DropdownMenuRadioGroup>
     </DropdownMenuContent>
   </DropdownMenu>;
-  const toolbar = <>{!attachedRun && <ModeSwitch value={chatMode} disabled={chat.streaming} onChange={(next) => setChatMode(persistChatMode(next))} />}<ModelPicker catalog={llm.catalog} provider={llm.provider} model={llm.model} label={llm.selectedLabel} onSelect={llm.select} disabled={chat.streaming} levels={llm.allowedLevels} reasoning={llm.reasoning} onReasoningChange={llm.selectReasoning} menuUp /><LanguagePicker disabled={chat.streaming} /></>;
+  const toolbar = <>{!attachedRun && <ModeSwitch value={chatMode} disabled={chat.streaming} onChange={(next) => setChatMode(persistChatMode(next))} />}<ModelPicker catalog={llm.catalog} provider={llm.provider} model={llm.model} label={llm.selectedLabel} onSelect={llm.select} disabled={chat.streaming} levels={llm.allowedLevels} reasoning={llm.reasoning} onReasoningChange={llm.selectReasoning} ultrafast={llm.ultrafast} onUltrafastChange={llm.selectUltrafast} menuUp /><LanguagePicker disabled={chat.streaming} /></>;
   const composer = <MathInput key={convos.activeId ?? "draft"} onSubmit={handleSend} onStop={() => void chat.stop()} loading={attachedRun}
     quoteRequest={quoteRequest?.conversationId === convos.activeId ? quoteRequest : undefined}
     stopControl={attachedRun && messages.length > 0 ? "external" : "inline"} voiceLanguage={voiceLanguage} onVoiceTranscript={handleVoiceTranscript}

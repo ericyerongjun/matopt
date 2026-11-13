@@ -13807,9 +13807,9 @@
     {
       "path": "frontend/src/MatOptApp.tsx",
       "mode": "host-adapter",
-      "expected_sha256": "e1db7735e686e74cb36de21eb349dc78333e353e72cfe6794019130f8b4685a6",
+      "expected_sha256": "a268e55a2e4e0a5eb26f8e10549f7763f6b619b0cb150907570b494dd8aa6685",
       "sources": [],
-      "notes": "MatOpt-owned workspace orchestrator with editable task starters, conversation-scoped quote requests, persistent results/files/activity panes, and actual model/effort controls. Composes licensed ZCode primitives; not a verbatim upstream application. Voice tutor: avatar panel, reply-language picker, spoken replies and hands-free conversation. Folio mark on the welcome screen and a Fonts settings dialog. Mat/Opt composer switch, Settings dialog, Agents and Jobs inspector tabs, approval cards and Changes pane. Subscribes to voice preferences by selector, memoizes turn projections, moves run speech to useRunSpeech, and adds the hold-to-talk setting."
+      "notes": "MatOpt-owned workspace orchestrator with editable task starters, conversation-scoped quote requests, persistent results/files/activity panes, and actual model/effort controls. Composes licensed ZCode primitives; not a verbatim upstream application. Voice tutor: avatar panel, reply-language picker, spoken replies and hands-free conversation. Folio mark on the welcome screen and a Fonts settings dialog. Mat/Opt composer switch, Settings dialog, Agents and Jobs inspector tabs, approval cards and Changes pane. Subscribes to voice preferences by selector, memoizes turn projections, moves run speech to useRunSpeech, and adds the hold-to-talk setting. Wires the opt-in Ultrafast demo preset through model selection and chat requests."
     },
     {
       "path": "frontend/src/components/ChartRenderer.css",
@@ -13849,9 +13849,9 @@
     {
       "path": "frontend/src/components/ModelPicker.tsx",
       "mode": "host-adapter",
-      "expected_sha256": "320363e080e17ca60669302f74645a4683ad8fee7acfa57d06a6fe4a3af835f9",
+      "expected_sha256": "a1eb9e73721eecae04ebe86c7e7f88622c5ec03106804edf0862e98bfc0587cd",
       "sources": [],
-      "notes": "MatOpt configured Flash model and reasoning-effort control using native Radix menu primitives. Actual model label, upward composer placement, viewport collision padding and streaming disable state."
+      "notes": "MatOpt configured Flash model and reasoning-effort control using native Radix menu primitives. Actual model label, upward composer placement, viewport collision padding and streaming disable state. Adds the Ultrafast demo toggle, an active badge, and a return to explicit thinking levels."
     },
     {
       "path": "frontend/src/components/PlotRenderer.css",

@@ -63,6 +63,7 @@ class RunRequest:
     run_id: Optional[str] = None
     language: Optional[str] = None  # reply language chosen in the UI (app.speech.LANGUAGES code)
     mode: Optional[str] = None      # "auto" | "mat" (chat and explain) | "opt" (work on files); app/agent/intent.py
+    ultrafast: bool = False  # opt-in demo profile; uses real non-thinking inference
 
 
 @dataclass
