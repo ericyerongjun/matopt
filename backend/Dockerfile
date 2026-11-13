@@ -30,9 +30,9 @@ RUN python -c "import pyopenjtalk; pyopenjtalk.g2p('テスト')"
 # privileges so demo runs never need global installs or runtime downloads.
 COPY --from=artifact-runtime /usr/local/bin/node /usr/local/bin/node
 COPY --from=artifact-runtime /usr/local/lib/node_modules /usr/local/lib/node_modules
+COPY --chmod=755 backend/pnpm.sh /usr/local/bin/pnpm
 RUN ln -s ../lib/node_modules/npm/bin/npm-cli.js /usr/local/bin/npm \
     && ln -s ../lib/node_modules/npm/bin/npx-cli.js /usr/local/bin/npx \
-    && ln -s ../lib/node_modules/pnpm/pnpm /usr/local/bin/pnpm \
     && ln -s ../lib/node_modules/pnpm/pnpx /usr/local/bin/pnpx \
     && node --version && npm --version && pnpm --version
 
@@ -42,7 +42,6 @@ COPY skills ./skills
 # The code stays root-owned so agent code cannot rewrite the server; only data is writable.
 RUN mkdir -p /app/data/workspaces /app/data/data_agent \
     && useradd -m matopt && chmod -R a+rX /app && chown -R matopt:matopt /app/data
-COPY backend/pnpm-config.yaml /home/matopt/.config/pnpm/config.yaml
 USER matopt
 
 ENV DATA_DIR=/app/data \
