@@ -33,7 +33,7 @@ Saved task state, guarded SSE overlays, task-scoped file requests and durable
 trajectory/usage retain their existing backend owners. Task switching must
 prevent stale output and file previews. New task detaches the old overlay
 immediately. The execution model remains exclusively `deepseek-flash` with
-reasoning off/low/high/max; historical ledger requests stay unchanged.
+Ultrafast Demo enabled by default and no manual reasoning-effort menu; historical ledger requests stay unchanged.
 
 Acceptance: TypeScript production build; meaningful frontend regression
 checks; browser verification of tasks, streaming/stop, files/source/formulas,

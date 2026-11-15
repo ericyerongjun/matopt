@@ -1,136 +1,190 @@
 # MatOpt
 
-An agent development environment for mathematics, statistics, ML and CS.
-The frontend centers the conversation, with a collapsible chat sidebar and an
-optional canvas for interactive results. It uses a MatOpt theme with system
-typography and licensed ZCode primitives. A persistent Python
-kernel, bash, document OCR, verification, Agent Skills and MCP tools execute
-through the streaming harness.
+MatOpt is a learning and analysis assistant for mathematics, statistics, machine
+learning and computer science. It combines chat with persistent Python
+computation, document reading, interactive visualizations and a speaking 3D tutor.
 
-## Quick start
+**Use Docker Compose to run MatOpt.** It builds and starts the backend,
+web interface and isolated visualization runtime together. No host Python or
+Node.js installation is required.
 
-MatOpt runs directly on your machine and does not need Docker. You need Node.js
-22+, a DeepSeek API key, and [uv](https://docs.astral.sh/uv/) (recommended, it
-also provides Python) or Python 3.11+.
+## Run with Docker
 
-**1. Add your key** (first time only):
+Run all commands below from the repository root, beside `docker-compose.yml`.
 
-```bash
+### 1. Prepare Docker and the API key
+
+Start Docker Desktop, or Docker Engine with the Compose plugin on Linux. Use
+Linux containers. Check that the daemon and Compose are available:
+
+```sh
+docker info
+docker compose version
+```
+
+For the first setup, create the backend configuration. If `backend/.env` already
+exists, keep it and edit that file instead of copying over it.
+
+```sh
 cp backend/.env.example backend/.env
 ```
 
-Then set `DEEPSEEK_API_KEY=` in `backend/.env`.
+Open `backend/.env` and fill in `DEEPSEEK_API_KEY`. Keep the key private. The
+remaining defaults are sufficient for the local demo; Compose sets
+the container paths, listening address and execution mode automatically.
 
-**2. Start everything:**
+### 2. Build and start
 
-```bash
-./scripts/start.sh
+```sh
+docker compose up --build -d
+docker compose ps
 ```
 
-The first run installs the dependencies, which takes a few minutes. After that
-it starts the backend and frontend, waits until they answer, and opens
-http://localhost:5173. Press Ctrl-C to stop both services.
+Open **[http://localhost:3000](http://localhost:3000)**. The first build downloads
+dependencies, and the first backend start downloads speech models in the
+background. An internet connection is also required for model requests and
+online research. Wait for `backend` to become healthy; speech may still be warming.
 
-### Before a demo
+| Service | Local address | Purpose |
+| --- | --- | --- |
+| `frontend` | http://localhost:3000 | Main application; proxies API requests to the backend |
+| `backend` | http://localhost:8000 | FastAPI, agent execution and persistent Python kernels |
+| `ui-sandbox` | http://localhost:3001 | Isolated HTML and JavaScript previews; opened by the app |
 
-1. Run `./scripts/start.sh` once ahead of time on a good connection. The first
-   start installs the dependencies and downloads about 800 MB of speech models
-   in the background.
-2. Stop it and start it again right before presenting. It is ready in seconds.
-3. Present from the machine running MatOpt, because it only accepts connections
-   from that machine.
+All three ports are published on `127.0.0.1`. Use the main application on port
+3000 for the demonstration. The preview service on 3001 is not a second chat UI.
 
-| If you see | Do this |
+### 3. Verify before presenting
+
+Check the API and the frontend proxy:
+
+```sh
+docker compose exec -T backend curl -fsS http://127.0.0.1:8000/health
+```
+
+Also open [http://localhost:3000/health](http://localhost:3000/health) in the
+browser. A successful health check confirms the server is reachable; it does
+not validate the API key against the provider or test the microphone.
+
+In the main app, allow microphone access, open the Tutor panel and test one
+spoken question and its audio reply. This exercises the browser and model as
+well as speech. Keep **Ultrafast Demo** enabled. Speech download/loading status
+is available at [the speech status endpoint](http://localhost:3000/api/speech/status).
+Follow [the demo guide](docs/DEMO.md) for prompts and rehearsal steps; an optional
+command-line speech check is in [the development guide](docs/DEVELOPMENT.md#speech-preflight).
+
+## Everyday commands and saved data
+
+| Action | Command |
 | --- | --- |
-| `add your key to backend/.env` | Set `DEEPSEEK_API_KEY=` in `backend/.env`. |
-| `port 8000 is already in use` | Stop the other program, often an earlier MatOpt. |
-| `Refusing to listen on 0.0.0.0` | You started `main.py` directly with an older `.env`. Set `HOST=127.0.0.1` there, or use `./scripts/start.sh`. |
-| `install bubblewrap` or `bubblewrap cannot create a sandbox` (Linux) | Follow the command in the message, or set `SANDBOX_MODE=off` in `backend/.env`. |
+| Start again using the existing images | `docker compose up -d` |
+| Inspect services | `docker compose ps` |
+| Follow backend logs | `docker compose logs -f --tail=100 backend` |
+| Rebuild after source or dependency changes | `docker compose up --build -d` |
+| Apply changes to `backend/.env` | `docker compose up -d --force-recreate` |
+| Stop and remove containers, keeping saved data | `docker compose down` |
 
-### Other ways to run it
+Chats, uploaded files, workspaces and speech models live under `/app/data` in
+the named `backend-data` volume. Rebuilding or recreating containers keeps that
+volume, but running Python kernels restart and lose memory-only variables.
+`docker compose down -v` deletes the volume and its saved data; do not use it for
+an ordinary shutdown. Configuration stays in the host's `backend/.env`.
 
-**Docker (optional):** `docker compose up --build`, then open
-http://localhost:3000. The mini-app runtime is on port 3001. Use this only for
-packaging: all conversations share one container, so they are less isolated from
-each other than in a native run.
+## Troubleshooting
 
-**Two terminals, for development:** run `./scripts/setup.sh` once, then
-`cd backend && .venv/bin/python main.py` and `cd frontend && npm run dev`. The
-frontend also starts an isolated mini-app runtime on port 5174. Restart both
-services after updating. [Interactive UI setup and architecture](docs/INTELLIGENT-UI.md).
+| Symptom | Check or action |
+| --- | --- |
+| Cannot connect to the Docker daemon | Start Docker Desktop and wait for its engine to be ready; check `docker info`. |
+| `backend/.env` is missing | Complete the first setup step and enter the API key. |
+| Port 3000, 3001 or 8000 is already allocated | Stop the earlier instance or the program using that port. Do not run native and Docker backends together on port 8000. |
+| Backend is unhealthy or the frontend reports 502 | Read `docker compose logs --tail=100 backend frontend`; resolve the reported startup failure, then run `docker compose up -d`. |
+| API key changes are not taking effect | Recreate the services with `docker compose up -d --force-recreate`; a plain restart does not reload Compose's environment file. |
+| Speech is slow or unavailable | Allow the first model downloads to finish, check backend logs and retry the voice interaction. Use localhost and grant browser microphone permission. |
+| Chat works but an HTML preview fails | Check `docker compose ps ui-sandbox` and its logs. Keep port 3001 available; arbitrary external libraries and network requests are restricted. |
 
-The only live model is **DeepSeek V4.1 Flash**, using API ID `deepseek-flash`
-for the harness, verification, auxiliary requests and the data agent. Thinking effort
-is Off, Low, High or Max. [Official model documentation](https://api-docs.deepseek.com/quick_start/pricing/).
-ZCode source mappings and UI checks: [ADE migration](docs/ZCODE-ADE-MIGRATION.md).
-See [docs/PROTOCOL.md](docs/PROTOCOL.md) and [backend/README.md](backend/README.md).
+## Implemented features
 
-Shared [academic response guidance](backend/app/academic_guidance.md) governs
-mathematical notation, derivations, research rigor, and adaptive explanation depth.
-It applies to the main assistant, final answer writer, verifier, and the data
-agent. Role-specific evidence limits and output formats still apply. Edit this
-document and restart the backend to update the guidance; no new API setting is needed.
+### Basic features
 
-Attach a PDF or screenshot and ask your question. The configured DeepSeek vision
-model reads it before the reasoning turn, preserving equations and tables in a
-page-labelled Markdown file. Progress, page coverage and any unreadable content
-are reported in the conversation. Originals stay in the workspace; native PDF
-text extraction remains available as a fallback. See
-[document reading and limits](backend/README.md#pdfs-screenshots-and-scanned-documents) for the
-configuration and supported formats.
+- Domain-specific dialogue: explain concepts, solve typical mathematical and
+  statistical questions, discuss algorithms, and respond to follow-up questions.
+- English and multilingual responses, formatted with readable Markdown and LaTeX.
+- Essential analytical tasks: use Python to compute, inspect uploaded data, fit
+  models and produce charts, retaining variables within a conversation.
 
-## Security defaults
+### Additional features
 
-The API runs code, so the backend listens on `127.0.0.1` and refuses any other
-address unless `API_AUTH_TOKEN` (16+ characters) is set. Browsers then sign in
-at `/api/auth/login`, and `ALLOWED_HOSTS` must name the public host. Compose
-publishes its ports on this machine only. Agent code runs in an OS sandbox
-(`SANDBOX_MODE=workspace-write`): Seatbelt on macOS, bubblewrap on Linux, where
-it must be installed. Containers use `SANDBOX_MODE=external`, which relies on
-the container boundary.
+| Feature | Implementation and capability | Limits or prerequisites |
+| --- | --- | --- |
+| Voice interaction | Browser recording, local faster-whisper transcription, Kokoro synthesis, read-aloud and interruptible hands-free conversation. | Microphone permission, downloaded speech models and adequate CPU; mathematical speech can be imperfect. |
+| Animated 3D tutor | Three.js and VRM render a tutor with mouth motion, blinking and speaking/listening/working states; custom VRM import. | Approximate lip sync, WebGL support and avatar asset licenses. |
+| Interactive explanations | Validated native controls, equations, tables, charts and diagrams; isolated HTML mini-apps; shared inline/canvas state and registered Python recomputation. | Generated apps can fail; controls only recompute through declared actions; the separate mini-app runtime must run. |
+| PDF and image understanding | Page-oriented vision processing preserves a Markdown extraction, original files and page-coverage reporting. | API access, OCR mistakes and extra per-page time; unreadable pages must be acknowledged. |
+| Persistent computational workspace | A per-conversation Python kernel, files, shell tools, notebook capture and previews. | Kernel restarts lose in-memory variables; code execution remains subject to sandbox and tool policy. |
+| Bounded agent execution | Operation-specific repeated-failure checks, shared request/tool/time budgets, cancellation and limited optional subagents. | Stops bound work but do not prove correctness or guarantee quick completion. |
+| Result verification | Optional Check results runs at most two checks and one full correction; provisional results stay labelled. Optional Lean proof checking. | LLM checking can miss errors; Lean/Mathlib must be installed and only submitted formal proofs are checked. |
+| Durable conversations | SQLite-backed runs and events, reconnect, stop, pause/resume, mid-run steering, conversation management and exports. | Persistence does not preserve arbitrary kernel state across a process restart. |
+| Session and personal memory | Rolling compaction, recall and structured session notes; optional cross-chat retrieval and learned memory. | Personal memory is opt-in; retrieval can miss relevant facts and is not a complete course knowledge base. |
+| Skills and MCP | Slash-command skills, tool discovery, external MCP integrations, local plugin/config import and MCP export. | Connectors require their own services/credentials; bundled workflows are not all demonstrated integrations. |
+| Mat and Opt task modes | Mat focuses on explanation/computation; Opt permits workspace editing; Auto routes each turn. | Routing is heuristic and may need an explicit mode selection. |
+| Execution controls | Container boundary, execution rules, filtered child environments and optional human/guardian review. Native development also supports OS sandboxing. | Compose conversations share one backend container; they are not separately isolated containers. |
+| Automation and inspection | Scheduled/repeated prompts, background jobs, file changes, activity summaries and opt-in detailed diagnostics. | Requires the backend to remain running; optional features need configuration. |
+| Ultrafast Demo | Enabled by default in a fresh browser; real non-thinking inference, concise output, heuristic titles and safe reuse of completed answers. | No latency guarantee. The only toggle is Ultrafast Demo; off uses the configured model default. Check results still works. |
 
-## Voice tutor
+**Model integration:** MatOpt calls a pretrained DeepSeek API model. It does
+not train or fine-tune an LLM. Skills, prompts, tools and memory supply the specialization.
 
-- **Talk:** hold **Right ⌥ Option** (browsers cannot see the fn/Globe key) or click the composer's mic. Speech is transcribed on the backend by Whisper (`small`, CPU) and placed in the composer; quick taps and Option+letter typing never record.
-- **Listen:** turn on *Speak* in the **Tutor** panel, or use **Read aloud** on any answer. Replies are voiced locally by Kokoro (English, 中文, 日本語, Español, Français, Italiano, Português, हिन्दी) and start in about a second; code, tables and display equations are summarised rather than read out.
-- **Hands-free:** *Talk* mode sends what you say and speaks the reply; talking interrupts it.
-- **Avatar:** the tutor is a fan-made anime tribute to Andrej Karpathy, built from VRoid's CC0 base model by `scripts/build_tutor_avatar.py` and not affiliated with him. It lip-syncs, blinks, thinks while the agent works and smiles when it is done. The panel's picture button loads your own `.vrm` instead (for example from VRoid Studio); it is kept only in your browser.
-- **Language:** the composer's language picker sets the reply language, the voice and the transcription hint; *Auto* follows you.
-- Speech models (~800 MB) download once into the data volume at first start. `SPEECH_ENABLED=false` turns voice off; see the GPL note for espeak-ng in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
+## Using the interface
 
-## Quality, cost and observability
+- **Compute and explain:** attach data, ask a question, then ask a follow-up in
+  the same conversation to reuse its Python variables. Use **Mat** for analysis,
+  **Opt** for workspace changes or **Auto** for per-turn routing.
+- **Speak and listen:** click the microphone or hold Right Option on macOS
+  (Right Alt elsewhere). Use **Read aloud** or enable **Speak** in the Tutor
+  panel. Hands-free **Talk** mode sends speech and plays replies; speaking again
+  interrupts playback. The language picker coordinates replies and speech.
+- **Explore results:** use **Open in canvas** to expand an interactive result,
+  **Files** for saved artifacts and **Activity** for progress and usage.
+- **Control a run:** stop, pause/resume or send a follow-up while work is running.
+  Enable **Check results** when a bounded verification pass is useful.
+- **Choose response behavior:** **Ultrafast Demo** is enabled by default and is
+  the only response-profile toggle. Turning it off uses the configured model
+  default. There is no manual reasoning-effort menu.
+- **Extend a task:** type `/` to browse skills and tools. Optional memory,
+  connectors and other capabilities are managed in Settings.
 
-- **Evals:** [`evals/`](evals/README.md) holds graded problems with computed reference answers; `scripts/run_evals.py` runs them through the live harness and reports pass rate, time, tokens and prompt-cache reuse against a saved baseline.
-- **Prompt caching:** the system prompt is stable across turns and per-turn facts travel in a `<turn-context>` message, so the provider cache covers earlier history ([measurement](docs/PROMPT-CACHE-EXPERIMENT.md)). Long chats are compacted into a rolling summary instead of dropping turns.
-- **Memory:** two separate layers ([design and sources](docs/MEMORY.md)). *Session memory* (on by default) lets the agent `recall` earlier turns of the chat, including turns compacted into the rolling summary, and keep `session_notes` (goal, notation, results) that survive compaction. *Personal memory* (Settings → Features → Memories, opt-in) learns from each finished chat and carries preferences and project facts into new ones; it can also search past chats. Retrieval is hybrid: SQLite FTS5 BM25, optional local embeddings, and a LinearRAG-style term graph, fused with RRF.
-- **Formal proofs:** `scripts/setup_lean.sh` installs Lean 4 (optionally with Mathlib); the `lean_check` tool then machine-checks proofs and rejects `sorry`, `admit` and new axioms.
-- **Tracing:** `pip install -r backend/requirements-otel.txt` and set `OTEL_EXPORTER_OTLP_ENDPOINT` to export each turn as OpenTelemetry GenAI spans (Langfuse, Phoenix, Jaeger).
-- **Pinned installs:** `backend/constraints.txt` records versions verified together; setup and Docker install with it. CI runs backend and frontend tests, the build, the vendor provenance check and `docker compose build`.
+The avatar is a fan-made tribute, not an endorsement by Andrej Karpathy. Custom
+VRM models can be loaded in the Tutor panel; see the asset credits in
+[THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
 
-## Skills and MCP
+## Documentation
 
-- Catalog: [`skills/`](skills/README.md) — MatOpt playbooks, data-analysis skills (`/data-eda`, `/data-report`, `/data-slides`, `/data-notebook`, `/data-agent`), plus the full [anthropics/skills](https://github.com/anthropics/skills) tree.
-- Workflow commands ([`skills/workflow/`](skills/workflow/README.md)): spec-driven development with OpenSpec (`/openspec-propose`, `/openspec-review`, `/openspec-apply`, `/openspec-archive`), `/plan-mode`, `/review`, `/review-bugbot`, `/review-security`, `/canvas`, `/goal`, `/side` (`/btw`), `/shell`, `/autopilot`, `/split-to-prs`, `/create-hook`, `/create-rule`, `/create-skill`, `/create-subagent`, `/prompt-blame`, `/migrate-to-skills`, `/matopt-sdk`, and `/prepare-reading-batch`.
-- Automations: `/loop` repeats a prompt or quietly watches a workspace file until a long job finishes or fails; `/automate` runs work on a cron schedule in a time zone and remembers what it already reported. Manage them in **Settings → Automations**.
-- Data agent: the data-analysis backend lives in `backend/data_agent_app/`, and the harness tool `data_agent` calls it directly.
-- Type `/` in the composer for a Cursor/Claude-style list of skills and tools. `/frontend-design` (or `/python`) loads that playbook or prefers that tool — including mid-turn steering, not only the first prompt.
-- Select `/web-search` or `/web-fetch` to enable web tools for the current turn (open-source `ddgs`, or SearXNG / Tavily / Brave). Skills and tools share the slash menu; selecting one never sends the message.
-- Interactive results appear in the conversation. **Open in canvas** expands a selected result and shares its parameters with the inline view. **Files** opens document previews; **Activity** contains safe work labels, the bounded verification outcome and usage. Internal reasoning, agent exchanges and raw tool traces stay private. While the agent is running, type to steer the current turn.
-- Requested verification runs before final publication, with at most two checks and one complete correction. Final text streams from the checked result, then the chat refreshes its saved state in place without losing the next draft.
-- Native controls, charts and tables use validated schemas. More complex mini-apps run on the isolated origin. Python recomputations happen only through declared host actions, with saved parameters, explicit cancellation and replay protection.
-- The harness **routes** the user turn against skill descriptions and file types, auto-loads the best match, and resolves tool-name aliases/typos.
-- Inspect the catalog: `GET /api/skills`, `GET /api/tools`.
-- The conversation kernel is also an MCP server at `http://localhost:8000/mcp` (stdio: `cd backend && .venv/bin/python -m app.agent.mcp`). Its `open_ui_app` tool shows saved mini-apps in MCP Apps hosts ([docs/MCP-APPS-EVALUATION.md](docs/MCP-APPS-EVALUATION.md)). Set `MCP_AUTH_TOKEN` or the `MCP_OAUTH_*` settings before exposing HTTP `/mcp` beyond this machine. Extra MCP servers: copy `mcp.json.example` to `mcp.json`, or use **Settings → Integrations → Connect apps** for one-click connectors (Microsoft Learn, GitHub, Context7, Hugging Face, Wolfram, MATLAB, Jupyter, Playwright, Notion, Linear, Sentry and more); tokens are stored in `backend/data/mcp.env`, never in `mcp.json`.
-- Use MatOpt from other apps: `cd backend && .venv/bin/python -m app.agent.mcp.export cursor --write` (also `claude-desktop`, `claude-code`, `vscode`, `windsurf`, `codex`, `gemini`, `zed`), or copy the snippet from **Settings → Integrations**.
+| Guide | Contents |
+| --- | --- |
+| [Demo guide](docs/DEMO.md) | Docker warmup, sample data, prompts and timing |
+| [Rehearsal report](docs/DEMO-VERIFICATION.md) | Real model tests, measured durations, failures and checked fallbacks |
+| [Backend reference](backend/README.md) | Configuration, document processing, budgets, persistence and MCP |
+| [Development guide](docs/DEVELOPMENT.md) | Optional native setup, tests, evaluation and debugging |
+| [API protocol](docs/PROTOCOL.md) | Requests, streaming events and inspection routes |
+| [Interactive UI](docs/INTELLIGENT-UI.md) | Native surfaces, mini-app isolation and actions |
+| [Skills catalog](skills/README.md) | Bundled playbooks and skill discovery |
+| [Memory](docs/MEMORY.md) | Session recall and optional personal memory |
+| [Codex integration](docs/CODEX-INTEGRATION.md) | Adapted agent mechanisms and contribution boundaries |
 
 ## License and authorship
 
-MatOpt was created by **Rongjun (Eric) Ye**, who holds the copyright to its
-first-party code. It is released under the [Apache License 2.0](LICENSE): you
-may use, modify and redistribute it, provided you keep the copyright and
-[`NOTICE`](NOTICE) attribution and mark the files you changed. The licence does
-not let you use the MatOpt name or the author's name to promote derived work.
-To cite MatOpt, use [`CITATION.cff`](CITATION.cff).
+MatOpt's original application author is **Rongjun (Eric) Ye**. New original
+material first distributed under the current [academic evaluation license](LICENSE)
+may be inspected, run and retained for this course's assessment. Commercial use,
+public redistribution and unrelated reuse of that covered material require
+separate written permission. Keep author credits and do not claim another
+person's work as your own. Contact: yerongjun03@gmail.com.
 
-Third-party components keep their own licences; see
-[`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md) and [`NOTICE`](NOTICE).
+**Existing rights remain:** material already distributed under Apache 2.0,
+including baseline commit `61adff93`, retains that license and its commercial
+permissions. The new terms cannot revoke those rights. The earlier text is in
+[LICENSES/Apache-2.0-legacy.txt](LICENSES/Apache-2.0-legacy.txt).
+This repository has mixed licensing; the new academic terms are source-available,
+not an open-source license. Third-party and AMA-CMFAI contributors' material keeps
+its applicable terms; see [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) and
+[NOTICE](NOTICE). To cite MatOpt, use [CITATION.cff](CITATION.cff).

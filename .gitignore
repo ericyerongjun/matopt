@@ -76,3 +76,7 @@ frontend/*.tsbuildinfo
 
 # Claude Code local state
 .claude/
+
+# Local rehearsal evidence and generated submission archives
+output/verification/
+output/submission/

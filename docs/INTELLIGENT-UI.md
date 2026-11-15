@@ -10,7 +10,7 @@ Type `/` at a command boundary to search skills and tools. Arrow keys navigate;
 Enter or Tab selects a removable command chip. Selection and dismissal preserve
 the surrounding draft and attachments. `/web-search` and `/web-fetch` enable web
 tools for the submitted turn, including steering. There is no persistent web
-search toggle. Attachments, model effort and Send/Stop remain visible.
+search toggle. Attachments, the Ultrafast Demo toggle and Send/Stop remain visible.
 
 ## Final answer and activity
 

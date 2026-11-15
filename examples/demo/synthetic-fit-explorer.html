@@ -1,0 +1,32 @@
+<!DOCTYPE html><html><head><meta charset="utf-8">
+<style>body{margin:0;padding:8px;font:13px system-ui,sans-serif;background:var(--matopt-bg,#0d0f14);color:var(--matopt-text,#e9e9ef)}
+#bar{display:flex;align-items:center;gap:10px;margin-bottom:6px}
+#bar input{flex:1;accent-color:#2a7fbf}#ampv{font-variant-numeric:tabular-nums;min-width:5.5em;text-align:right}
+#pt{width:100%;height:420px}</style>
+<script src="https://cdn.plot.ly/plotly-2.35.2.min.js" charset="utf-8"></script></head><body>
+<div id="bar"><label for="amp">Amplitude <i>A</i></label><input id="amp" type="range" min="1" max="3" step="0.001"><span id="ampv">2.006</span></div>
+<div id="pt"></div>
+<script>
+(function(){
+ var X=[20.0, 30.0, 40.0, 50.0, 60.0, 70.0, 80.0, 90.0, 100.0, 110.0, 120.0, 130.0], Y=[0.1, 0.06750814, 0.05068197, 0.04008467, 0.03295493, 0.02816046, 0.02489522, 0.02244122, 0.02029681, 0.01829421, 0.01653066, 0.01515385], G=[18.0, 18.5729, 19.1457, 19.7186, 20.2915, 20.8643, 21.4372, 22.0101, 22.5829, 23.1558, 23.7286, 24.3015, 24.8744, 25.4472, 26.0201, 26.593, 27.1658, 27.7387, 28.3116, 28.8844, 29.4573, 30.0302, 30.603, 31.1759, 31.7487, 32.3216, 32.8945, 33.4673, 34.0402, 34.6131, 35.1859, 35.7588, 36.3317, 36.9045, 37.4774, 38.0503, 38.6231, 39.196, 39.7688, 40.3417, 40.9146, 41.4874, 42.0603, 42.6332, 43.206, 43.7789, 44.3518, 44.9246, 45.4975, 46.0704, 46.6432, 47.2161, 47.7889, 48.3618, 48.9347, 49.5075, 50.0804, 50.6533, 51.2261, 51.799, 52.3719, 52.9447, 53.5176, 54.0905, 54.6633, 55.2362, 55.809, 56.3819, 56.9548, 57.5276, 58.1005, 58.6734, 59.2462, 59.8191, 60.392, 60.9648, 61.5377, 62.1106, 62.6834, 63.2563, 63.8291, 64.402, 64.9749, 65.5477, 66.1206, 66.6935, 67.2663, 67.8392, 68.4121, 68.9849, 69.5578, 70.1307, 70.7035, 71.2764, 71.8492, 72.4221, 72.995, 73.5678, 74.1407, 74.7136, 75.2864, 75.8593, 76.4322, 77.005, 77.5779, 78.1508, 78.7236, 79.2965, 79.8693, 80.4422, 81.0151, 81.5879, 82.1608, 82.7337, 83.3065, 83.8794, 84.4523, 85.0251, 85.598, 86.1709, 86.7437, 87.3166, 87.8894, 88.4623, 89.0352, 89.608, 90.1809, 90.7538, 91.3266, 91.8995, 92.4724, 93.0452, 93.6181, 94.191, 94.7638, 95.3367, 95.9095, 96.4824, 97.0553, 97.6281, 98.201, 98.7739, 99.3467, 99.9196, 100.4925, 101.0653, 101.6382, 102.2111, 102.7839, 103.3568, 103.9296, 104.5025, 105.0754, 105.6482, 106.2211, 106.794, 107.3668, 107.9397, 108.5126, 109.0854, 109.6583, 110.2312, 110.804, 111.3769, 111.9497, 112.5226, 113.0955, 113.6683, 114.2412, 114.8141, 115.3869, 115.9598, 116.5327, 117.1055, 117.6784, 118.2513, 118.8241, 119.397, 119.9698, 120.5427, 121.1156, 121.6884, 122.2613, 122.8342, 123.407, 123.9799, 124.5528, 125.1256, 125.6985, 126.2714, 126.8442, 127.4171, 127.9899, 128.5628, 129.1357, 129.7085, 130.2814, 130.8543, 131.4271, 132.0], A0=2.006449352686209;
+ var cur=A0, M=window.matopt||{};
+ var el=document.getElementById('amp'), lab=document.getElementById('ampv'), PT=document.getElementById('pt');
+ function curve(a){return G.map(function(g){return a/g;});}
+ function lay(a){return {margin:{l:56,r:12,t:80,b:46},showlegend:true,legend:{orientation:'h',x:0,y:1.02,yanchor:'bottom'},
+   title:{text:'Synthetic data and A / x fit',x:0.5,y:0.98,yanchor:'top',font:{size:14}},
+   xaxis:{title:{text:'impact parameter b'},range:[15,135]},
+   yaxis:{title:{text:'deflection'},range:[0,Math.max.apply(null,curve(a))*1.08]}};}
+ function traces(a){return [
+   {x:X,y:Y,mode:'markers',type:'scatter',name:'synthetic measurements',marker:{size:9,color:'#2a7fbf'}},
+   {x:G,y:curve(a),mode:'lines',type:'scatter',name:'fit A/b',line:{color:'#d1495b',width:2}}];}
+ function set(a,fromInput){
+   cur=a; el.value=String(a); lab.textContent=a.toFixed(3);
+   if(!PT.data) Plotly.newPlot(PT,traces(a),lay(a),{displayModeBar:false,responsive:true});
+   else Plotly.react(PT,traces(a),lay(a),{displayModeBar:false,responsive:true});
+   if(fromInput&&M.setState) M.setState({amp:a});
+ }
+ el.addEventListener('input',function(){set(parseFloat(el.value),true);});
+ if(M.onStateChange) M.onStateChange(function(st){ if(st&&typeof st.amp==='number'&&isFinite(st.amp)&&Math.abs(st.amp-cur)>1e-12) set(st.amp,false); });
+ set(A0,false);
+})();
+</script></body></html>

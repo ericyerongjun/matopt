@@ -11,3 +11,4 @@ backend/.env.*
 backend/data
 backend/tests
 **/*.pyc
+output

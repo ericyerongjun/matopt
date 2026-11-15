@@ -1,159 +1,74 @@
-/**
- * Load provider catalog and remember provider + model + reasoning + verify.
- */
-
-import { useCallback, useEffect, useMemo, useState } from "react";
+/** Load the fixed model and remember verification and the demo profile. */
+import { useCallback, useEffect, useState } from "react";
 import { fetchProviders } from "../services/providers.ts";
-import type {
-    ProviderCatalog,
-    ProviderId,
-    ProviderModel,
-    ReasoningLevel,
-} from "../types/protocol";
 
-const PROVIDER_KEY = "matopt.provider";
-const MODEL_KEY = "matopt.model";
-const REASONING_KEY = "matopt.reasoning";
 const VERIFY_KEY = "matopt.verify";
 const ULTRAFAST_KEY = "matopt.ultrafast";
 
-function readStored() {
+function readPreference(key: string, fallback: boolean): boolean {
     try {
-        return {
-            provider: localStorage.getItem(PROVIDER_KEY) as ProviderId | null,
-            model: localStorage.getItem(MODEL_KEY),
-            reasoning: localStorage.getItem(REASONING_KEY) as ReasoningLevel | null,
-            verify: localStorage.getItem(VERIFY_KEY) === "1",
-        };
+        // The old effort picker also stored ultrafast=0 when selecting a level.
+        // Migrate that retired configuration to the new default once.
+        if (key === ULTRAFAST_KEY && localStorage.getItem("matopt.reasoning") !== null) return true;
+        const value = localStorage.getItem(key);
+        return value === "1" ? true : value === "0" ? false : fallback;
     } catch {
-        return { provider: null, model: null, reasoning: null, verify: false };
+        return fallback;
     }
 }
 
-function writeStored(partial: Record<string, string>) {
-    try {
-        for (const [key, value] of Object.entries(partial)) localStorage.setItem(key, value);
-    } catch {
-        /* private mode */
-    }
+function writePreference(key: string, value: boolean) {
+    try { localStorage.setItem(key, value ? "1" : "0"); } catch { /* private mode */ }
 }
 
 export function useLlmSelection() {
-    const [catalog, setCatalog] = useState<ProviderCatalog | null>(null);
-    const [provider, setProvider] = useState<ProviderId | null>("deepseek");
-    const [model, setModel] = useState<string | null>("deepseek-flash");
-    const [reasoning, setReasoning] = useState<ReasoningLevel>("high");
-    const [verify, setVerify] = useState(false);
-    const [ultrafast, setUltrafast] = useState(false);
+    const [selectedLabel, setSelectedLabel] = useState("DeepSeek V4.1 Flash");
+    const [verify, setVerify] = useState(() => readPreference(VERIFY_KEY, false));
+    const [ultrafast, setUltrafast] = useState(() => readPreference(ULTRAFAST_KEY, true));
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
 
     useEffect(() => {
         let active = true;
+        // Old thinking-level selections must never override the model default.
+        try {
+            if (localStorage.getItem("matopt.reasoning") !== null) localStorage.setItem(ULTRAFAST_KEY, "1");
+            localStorage.removeItem("matopt.reasoning");
+            localStorage.setItem("matopt.provider", "deepseek");
+            localStorage.setItem("matopt.model", "deepseek-flash");
+        } catch { /* private mode */ }
         fetchProviders()
             .then((data) => {
                 if (!active) return;
-                const flash = data.providers.find((p) => p.id === "deepseek");
-                setCatalog({ ...data, providers: flash ? [{ ...flash, models: flash.models.filter((m) => m.id === "deepseek-flash") }] : [] });
-                const stored = readStored();
-                const spec = flash?.models.find((m) => m.id === "deepseek-flash");
-                const allowed = spec?.reasoning_levels ?? ["off", "low", "high", "max"];
-                const nextReasoning: ReasoningLevel =
-                    (stored.reasoning && allowed.includes(stored.reasoning) && stored.reasoning) ||
-                    (allowed.includes(data.default_reasoning) && data.default_reasoning) ||
-                    spec?.default_reasoning ||
-                    "high";
-                setProvider("deepseek");
-                setModel("deepseek-flash");
-                writeStored({ [PROVIDER_KEY]: "deepseek", [MODEL_KEY]: "deepseek-flash", [REASONING_KEY]: nextReasoning });
-                setReasoning(nextReasoning);
-                setVerify(stored.verify);
-                try { setUltrafast(localStorage.getItem(ULTRAFAST_KEY) === "1"); } catch { /* private mode */ }
+                const model = data.providers.find((p) => p.id === "deepseek")?.models.find((m) => m.id === "deepseek-flash");
+                if (model) setSelectedLabel(model.label);
             })
             .catch((err: unknown) => {
-                if (!active) return;
-                setError(err instanceof Error ? err.message : "Failed to load models");
+                if (active) setError(err instanceof Error ? err.message : "Failed to load models");
             })
-            .finally(() => {
-                if (!active) return;
-                setLoading(false);
-            });
-        return () => {
-            active = false;
-        };
+            .finally(() => { if (active) setLoading(false); });
+        return () => { active = false; };
     }, []);
-
-    const modelSpec: ProviderModel | null = useMemo(() => {
-        if (!catalog || !provider || !model) return null;
-        return catalog.providers.find((p) => p.id === provider)?.models.find((m) => m.id === model) ?? null;
-    }, [catalog, provider, model]);
-
-    const allowedLevels = useMemo(() => {
-        const order = catalog?.levels.map((l) => l.id) ?? ["off", "low", "medium", "high", "max"];
-        const allowed = new Set(modelSpec?.reasoning_levels ?? order);
-        return (catalog?.levels ?? []).filter((l) => allowed.has(l.id));
-    }, [catalog, modelSpec]);
-
-    const select = useCallback(
-        (nextProvider: ProviderId, nextModel: string) => {
-            if (nextProvider !== "deepseek" || nextModel !== "deepseek-flash") return;
-            setProvider(nextProvider);
-            setModel(nextModel);
-            const spec = catalog?.providers.find((p) => p.id === nextProvider)?.models.find((m) => m.id === nextModel);
-            const allowed = spec?.reasoning_levels;
-            let nextReasoning = reasoning;
-            if (allowed && !allowed.includes(reasoning)) {
-                nextReasoning = spec?.default_reasoning ?? "high";
-                setReasoning(nextReasoning);
-            }
-            writeStored({
-                [PROVIDER_KEY]: nextProvider,
-                [MODEL_KEY]: nextModel,
-                [REASONING_KEY]: nextReasoning,
-            });
-        },
-        [catalog, reasoning]
-    );
-
-    const selectReasoning = useCallback((level: ReasoningLevel) => {
-        if (!(modelSpec?.reasoning_levels ?? ["off", "low", "high", "max"]).includes(level)) return;
-        setReasoning(level);
-        setUltrafast(false);
-        writeStored({ [ULTRAFAST_KEY]: "0" });
-        writeStored({ [REASONING_KEY]: level });
-    }, [modelSpec]);
 
     const selectUltrafast = useCallback((value: boolean) => {
         setUltrafast(value);
-        writeStored({ [ULTRAFAST_KEY]: value ? "1" : "0" });
+        writePreference(ULTRAFAST_KEY, value);
     }, []);
-
     const selectVerify = useCallback((value: boolean) => {
         setVerify(value);
-        writeStored({ [VERIFY_KEY]: value ? "1" : "0" });
+        writePreference(VERIFY_KEY, value);
     }, []);
 
-    const selectedLabel = useMemo(() => {
-        if (!catalog || !provider || !model) return "DeepSeek V4.1 Flash";
-        const group = catalog.providers.find((p) => p.id === provider);
-        const option = group?.models.find((m) => m.id === model);
-        return option?.label ?? "DeepSeek V4.1 Flash";
-    }, [catalog, provider, model]);
-
     return {
-        catalog,
-        provider,
-        model,
-        modelSpec,
-        reasoning: ultrafast ? "off" as const : reasoning,
+        provider: "deepseek",
+        model: "deepseek-flash",
+        // The server applies the demo override or the configured model default.
+        reasoning: null,
         ultrafast,
         verify,
-        allowedLevels,
         selectedLabel,
         loading,
         error,
-        select,
-        selectReasoning,
         selectUltrafast,
         selectVerify,
     };

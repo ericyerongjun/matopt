@@ -11,6 +11,17 @@ skills/
   spec/         # format notes and the upstream template
 ```
 
+## Docker setup
+
+The standard Compose setup mounts this repository's `skills/` directory
+read-only at `/app/skills` and configures all four skill groups. Edit or add
+skills on the host, then run `docker compose restart backend` so the catalog is
+loaded again. Restarting the backend also restarts its Python kernels.
+
+The host's `~/.matopt/skills/` is not mounted by default. To distribute custom workflows with MatOpt,
+keep their skills in the repository so they are included with the source.
+Scripts run inside the backend container and need their dependencies there.
+
 ## How the harness uses them
 
 1. **Discovery** — only `name` + `description` sit in the system prompt (and in `search_skills`). The composer `/` menu lists skills and tools with a one-line intro.
@@ -20,4 +31,7 @@ skills/
 
 A skill with `disable-model-invocation: true` in its frontmatter is a command: it is listed and loadable but never auto-activated.
 
-Add a math/stats playbook under `skills/matopt/`, a data-analysis deliverable under `skills/data/`, or a user skill in `~/.matopt/skills/`. The next backend start picks it up. See `skill-creator` for the authoring workflow.
+Add a math/stats playbook under `skills/matopt/` or a data-analysis deliverable
+under `skills/data/`. Native development also discovers user skills in
+`~/.matopt/skills/`. The next backend start picks them up. See `skill-creator`
+for the authoring workflow.

@@ -108,20 +108,19 @@ Copyright 2026 Rongjun (Eric) Ye <yerongjun03@gmail.com>
 Original author and copyright holder: Rongjun (Eric) Ye
 Source: https://github.com/ericyerongjun/matopt
 
-MatOpt's first-party code is licensed under the Apache License, Version 2.0
-(see [`LICENSE`](LICENSE)). Under §4(d) of that licence, any redistribution of
-MatOpt or of a derivative work must keep this attribution, and derivative works
-must carry prominent notices stating that they changed the files (§4(b)).
-The licence does not grant permission to use the name "MatOpt" or the author's
-name to endorse or promote derived products (§6).
+New original material first released under the current terms is covered by the
+MatOpt Academic Evaluation License 1.0 (see [`LICENSE`](LICENSE)). Previously
+Apache-licensed material retains its existing permissions; the earlier license
+is preserved in [`LICENSES/Apache-2.0-legacy.txt`](LICENSES/Apache-2.0-legacy.txt).
+This notice does not restrict previously granted rights or upstream licenses.
 
-Third-party components keep their own licences and are excluded from the grant
-above: everything under `skills/anthropic/` (vendored Anthropic Agent Skills;
+Third-party components keep their own licences and are excluded from the
+academic license above: everything under `skills/anthropic/` (vendored Anthropic Agent Skills;
 each skill's `LICENSE.txt` applies, and `docx`, `pdf`, `pptx` and `xlsx` are
 source-available rather than open source), `frontend/public/material-icons/`,
 and the vendored files listed in [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md).
 
 The data agent (`backend/data_agent_app/`, `skills/data/`) was developed within
 the AMA-CMFAI group, of which the author is a member. Copyright in those parts
-remains with their respective contributors; the grant in `LICENSE` covers them
-to the extent of the author's rights.
+remains with their respective contributors; the new academic license does not
+relicense their existing contributions.

@@ -19,6 +19,7 @@ scripts
 vendor
 skills
 data_agent_app
+output
 **/.venv
 **/__pycache__
 **/.pytest_cache

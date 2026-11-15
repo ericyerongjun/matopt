@@ -182,7 +182,7 @@ export default function MatOptApp() {
       </DropdownMenuRadioGroup>
     </DropdownMenuContent>
   </DropdownMenu>;
-  const toolbar = <>{!attachedRun && <ModeSwitch value={chatMode} disabled={chat.streaming} onChange={(next) => setChatMode(persistChatMode(next))} />}<ModelPicker catalog={llm.catalog} provider={llm.provider} model={llm.model} label={llm.selectedLabel} onSelect={llm.select} disabled={chat.streaming} levels={llm.allowedLevels} reasoning={llm.reasoning} onReasoningChange={llm.selectReasoning} ultrafast={llm.ultrafast} onUltrafastChange={llm.selectUltrafast} menuUp /><LanguagePicker disabled={chat.streaming} /></>;
+  const toolbar = <>{!attachedRun && <ModeSwitch value={chatMode} disabled={chat.streaming} onChange={(next) => setChatMode(persistChatMode(next))} />}<ModelPicker label={llm.selectedLabel} disabled={chat.streaming} ultrafast={llm.ultrafast} onUltrafastChange={llm.selectUltrafast} menuUp /><LanguagePicker disabled={chat.streaming} /></>;
   const composer = <MathInput key={convos.activeId ?? "draft"} onSubmit={handleSend} onStop={() => void chat.stop()} loading={attachedRun}
     quoteRequest={quoteRequest?.conversationId === convos.activeId ? quoteRequest : undefined}
     stopControl={attachedRun && messages.length > 0 ? "external" : "inline"} voiceLanguage={voiceLanguage} onVoiceTranscript={handleVoiceTranscript}

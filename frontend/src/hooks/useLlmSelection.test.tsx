@@ -3,7 +3,6 @@ import assert from "node:assert/strict";
 import { afterEach, test } from "node:test";
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
-import type { ApiRequestConfig, ApiResponse } from "../services/api.ts";
 import apiClient from "../services/api.ts";
 import { useLlmSelection } from "./useLlmSelection.ts";
 import type { ProviderCatalog, ProviderModel } from "../types/protocol.ts";
@@ -36,47 +35,58 @@ const catalog: ProviderCatalog = { default_provider: "legacy", default_model: "o
         { id: "deepseek", label: "DeepSeek", configured: true, env_key: "DEEPSEEK", docs_url: "", default_model: "deepseek-flash", models: [model("deepseek-flash"), model("other-deepseek")] },
     ] };
 
-test("stale provider/model/medium preferences migrate to Flash/high and arbitrary selections stay rejected", async () => {
+async function mountSelection() {
     Object.defineProperty(globalThis, "localStorage", { value: window.localStorage, configurable: true });
-    window.localStorage.setItem("matopt.provider", "legacy"); window.localStorage.setItem("matopt.model", "old-model");
-    window.localStorage.setItem("matopt.reasoning", "medium"); window.localStorage.setItem("matopt.verify", "1");
-    let request: { config: ApiRequestConfig; resolve: (value: ApiResponse) => void } | undefined;
-    apiClient.defaults.adapter = (config) => new Promise<ApiResponse>((resolve) => { request = { config, resolve }; });
+    apiClient.defaults.adapter = async (config) => ({ data: catalog, config, headers: {}, status: 200, statusText: "OK" });
     container = document.createElement("div"); document.body.appendChild(container); root = createRoot(container);
-    act(() => root?.render(<Harness />)); await tick();
-    assert.equal(request?.config.url, "/providers"); assert.equal(hook.loading, true);
-    act(() => request!.resolve({ data: catalog, config: request!.config, headers: {}, status: 200, statusText: "OK" })); await tick();
-    assert.equal(hook.loading, false); assert.equal(hook.provider, "deepseek"); assert.equal(hook.model, "deepseek-flash");
-    assert.equal(hook.reasoning, "high"); assert.equal(hook.verify, true); assert.equal(hook.selectedLabel, "DeepSeek V4.1 Flash");
-    assert.deepEqual(hook.catalog?.providers.map((provider) => [provider.id, provider.models.map((entry) => entry.id)]), [["deepseek", ["deepseek-flash"]]]);
-    assert.deepEqual(hook.allowedLevels.map((level) => level.id), ["off", "low", "high", "max"]);
+    act(() => root?.render(<Harness />));
+    for (let i = 0; hook.loading && i < 50; i++) await tick();
+}
+
+test("fresh selection defaults to Ultrafast without a manual reasoning override", async () => {
+    await mountSelection();
+    assert.equal(hook.loading, false);
+    assert.equal(hook.ultrafast, true);
+    assert.equal(hook.reasoning, null);
+    assert.equal(hook.provider, "deepseek");
+    assert.equal(hook.model, "deepseek-flash");
+    assert.equal(hook.selectedLabel, "DeepSeek V4.1 Flash");
+});
+
+test("legacy effort and model preferences cannot override automatic model selection", async () => {
+    window.localStorage.setItem("matopt.provider", "legacy");
+    window.localStorage.setItem("matopt.model", "old-model");
+    window.localStorage.setItem("matopt.reasoning", "max");
+    window.localStorage.setItem("matopt.ultrafast", "0");
+    window.localStorage.setItem("matopt.verify", "1");
+    await mountSelection();
+    assert.equal(hook.reasoning, null);
+    assert.equal(hook.verify, true);
+    assert.equal(hook.ultrafast, true);
+    assert.equal(window.localStorage.getItem("matopt.reasoning"), null);
     assert.equal(window.localStorage.getItem("matopt.provider"), "deepseek");
-    assert.equal(window.localStorage.getItem("matopt.model"), "deepseek-flash"); assert.equal(window.localStorage.getItem("matopt.reasoning"), "high");
-    act(() => { hook.select("legacy", "old-model"); hook.select("deepseek", "other-deepseek"); hook.selectReasoning("medium"); });
-    assert.equal(hook.provider, "deepseek"); assert.equal(hook.model, "deepseek-flash"); assert.equal(hook.reasoning, "high");
-    assert.equal(window.localStorage.getItem("matopt.reasoning"), "high");
-});
-
-test("demo speed persists, uses non-thinking inference and restores the selected thinking level", async () => {
-    Object.defineProperty(globalThis, "localStorage", { value: window.localStorage, configurable: true });
-    window.localStorage.setItem("matopt.ultrafast", "1");
-    window.localStorage.setItem("matopt.reasoning", "high");
-    apiClient.defaults.adapter = async (config) => ({data: catalog, config, headers: {}, status: 200, statusText: "OK"});
-    container = document.createElement("div"); document.body.appendChild(container); root = createRoot(container);
-    act(() => root?.render(<Harness />)); await tick();
-    assert.equal(hook.ultrafast, true); assert.equal(hook.reasoning, "off");
+    assert.equal(window.localStorage.getItem("matopt.model"), "deepseek-flash");
     act(() => hook.selectUltrafast(false));
-    assert.equal(hook.reasoning, "high");
-    act(() => hook.selectUltrafast(true));
-    act(() => hook.selectReasoning("low"));
-    assert.equal(hook.ultrafast, false); assert.equal(hook.reasoning, "low");
+    assert.equal(hook.reasoning, null);
+    assert.equal(hook.ultrafast, false);
     assert.equal(window.localStorage.getItem("matopt.ultrafast"), "0");
+    act(() => root?.unmount()); root = null; container?.remove();
+    await mountSelection();
+    assert.equal(hook.ultrafast, false);
+    assert.equal(hook.reasoning, null);
+    act(() => hook.selectUltrafast(true));
+    assert.equal(window.localStorage.getItem("matopt.ultrafast"), "1");
 });
 
-test("fresh selection honors the server's configured reasoning default", async () => {
-    Object.defineProperty(globalThis, "localStorage", { value: window.localStorage, configurable: true });
-    apiClient.defaults.adapter = async (config) => ({data: {...catalog, default_reasoning: "off"}, config, headers: {}, status: 200, statusText: "OK"});
+test("unavailable local storage preserves the default and leaves the toggle usable", async () => {
+    Object.defineProperty(globalThis, "localStorage", { configurable: true, get() { throw new Error("Storage denied"); } });
+    apiClient.defaults.adapter = async (config) => ({ data: catalog, config, headers: {}, status: 200, statusText: "OK" });
     container = document.createElement("div"); document.body.appendChild(container); root = createRoot(container);
-    act(() => root?.render(<Harness />)); await tick();
-    assert.equal(hook.reasoning, "off"); assert.equal(hook.ultrafast, false);
+    act(() => root?.render(<Harness />));
+    for (let i = 0; hook.loading && i < 50; i++) await tick();
+    assert.equal(hook.ultrafast, true);
+    assert.equal(hook.reasoning, null);
+    act(() => { hook.selectUltrafast(false); hook.selectVerify(true); });
+    assert.equal(hook.ultrafast, false);
+    assert.equal(hook.verify, true);
 });
