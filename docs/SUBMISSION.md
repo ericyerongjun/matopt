@@ -8,7 +8,7 @@ Thursday class, 2026/27. The group roster is in the root README.
   demo examples and the new academic-evaluation license for covered original work.
 - Local `codex/comp4431-assignment`: the same application plus this guide,
   the course README, presentation handoff and source packager. Do not push it.
-- Production base: `3f5ee6eb` (`Simplify demo model controls and document Docker setup`).
+- Production base: `0196a161` (includes the demo update and patched dnspython pin).
   The archive manifest records the full assignment commit and production base.
 
 Existing Apache grants and all third-party licenses remain intact in both versions.
