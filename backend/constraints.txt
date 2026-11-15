@@ -99,7 +99,7 @@ mcp-types==2.3.0
 mdurl==0.1.2
 misaki-fork==0.9.6
 more-itertools==11.2.1
-mpmath==1.3.0
+mpmath==1.4.1
 narwhals==2.27.1
 nbformat==5.11.1
 nest-asyncio2==1.7.4
