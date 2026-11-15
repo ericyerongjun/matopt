@@ -4,9 +4,24 @@ MatOpt is a learning and analysis assistant for mathematics, statistics, machine
 learning and computer science. It combines chat with persistent Python
 computation, document reading, interactive visualizations and a speaking 3D tutor.
 
-**Use Docker Compose to run MatOpt.** It builds and starts the backend,
+**Use Docker Compose to run the assignment.** It builds and starts the backend,
 web interface and isolated visualization runtime together. No host Python or
 Node.js installation is required.
+
+## Group information
+
+**COMP4431 Artificial Intelligence 2026/27 — Thursday class**
+
+| Student English name | Student ID |
+| --- | --- |
+| DENG Xiyue | 23110509d |
+| YE Rongjun | 24127428d |
+| ZHANG Feihe | 24100781d |
+
+YE Rongjun (Eric) developed the MatOpt application and integration code and will
+handle technical Q&A. Third-party components and earlier AMA-CMFAI data-agent
+contributions retain their credits in [NOTICE](NOTICE) and
+[THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
 
 ## Run with Docker
 
@@ -161,6 +176,8 @@ VRM models can be loaded in the Tutor panel; see the asset credits in
 
 | Guide | Contents |
 | --- | --- |
+| [Presentation handoff](output/doc/MatOpt_Presentation_Handoff.docx) | Feature implementation, challenges, limitations, presentation notes and Q&A |
+| [Submission guide](docs/SUBMISSION.md) | Local branch, source ZIP, checksums and delivery contents |
 | [Demo guide](docs/DEMO.md) | Docker warmup, sample data, prompts and timing |
 | [Rehearsal report](docs/DEMO-VERIFICATION.md) | Real model tests, measured durations, failures and checked fallbacks |
 | [Backend reference](backend/README.md) | Configuration, document processing, budgets, persistence and MCP |
@@ -170,6 +187,17 @@ VRM models can be loaded in the Tutor panel; see the asset credits in
 | [Skills catalog](skills/README.md) | Bundled playbooks and skill discovery |
 | [Memory](docs/MEMORY.md) | Session recall and optional personal memory |
 | [Codex integration](docs/CODEX-INTEGRATION.md) | Adapted agent mechanisms and contribution boundaries |
+
+## Submission packaging
+
+This is the local-only `codex/comp4431-assignment` branch. The production code
+is shared with GitHub `main`; the group roster, handoff document and packaging
+instructions are kept on this local branch. Do not push this branch.
+
+The source ZIP contains the application, Docker setup, sample data, rehearsed
+HTML examples, feature documentation, presentation handoff and license notices.
+The presentation PPTX is a separate deliverable prepared by the presentation
+member. See [the submission guide](docs/SUBMISSION.md).
 
 ## License and authorship
 
