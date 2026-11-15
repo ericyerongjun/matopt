@@ -82,6 +82,12 @@ Keep the warmed services and the rehearsed conversation open for the presentatio
   available for the additional source-repository comparison.
 - Docker images built and the application ran with the real provider as above.
 
+The first post-push CI audit flagged the existing `dnspython==2.9.0` constraint
+for [CVE-2026-128089](https://github.com/rthalley/dnspython/security/advisories/GHSA-vvf4-9x63-8xvv).
+The final source pins the upstream patched release, 2.9.2. This dependency
+maintenance followed the model rehearsal; it does not change the recorded turn
+durations or turn those results into a general security assessment.
+
 For delivery, use the current prompts in [DEMO.md](DEMO.md), verify generated
 controls before speaking about them, and keep the [prepared examples](../examples/demo/README.md)
 available if a fresh generation is slow or incorrect.

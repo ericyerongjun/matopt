@@ -33,7 +33,7 @@ ddgs==9.16.0
 debugpy==1.8.22
 defusedxml==0.7.1
 dlinfo==2.0.0
-dnspython==2.9.0
+dnspython==2.9.2
 docstring_parser==0.18.0
 email-validator==2.3.0
 espeakng-loader==0.2.4
