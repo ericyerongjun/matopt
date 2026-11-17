@@ -1,5 +1,5 @@
 cff-version: 1.2.0
-message: "If you use MatOpt or build on it, please cite it as below. See LICENSE for current terms and the preserved licenses for earlier and third-party material."
+message: "Use this metadata when citing MatOpt. Citation does not grant reuse permission; see LICENSE and THIRD_PARTY_NOTICES.md."
 title: "MatOpt: an agent development environment for mathematics, statistics, ML and CS"
 type: software
 authors:

@@ -106,13 +106,12 @@ MatOpt's own; it reuses Codex's fixed `system-fcntl` deny.
 MatOpt
 Copyright 2026 Rongjun (Eric) Ye <yerongjun03@gmail.com>
 Original author and copyright holder: Rongjun (Eric) Ye
-Source: https://github.com/ericyerongjun/matopt
-
-New original material first released under the current terms is covered by the
-MatOpt Academic Evaluation License 1.0 (see [`LICENSE`](LICENSE)). Previously
-Apache-licensed material retains its existing permissions; the earlier license
-is preserved in [`LICENSES/Apache-2.0-legacy.txt`](LICENSES/Apache-2.0-legacy.txt).
-This notice does not restrict previously granted rights or upstream licenses.
+The current distribution of original material owned by Rongjun (Eric) Ye is
+covered by the MatOpt Academic Evaluation License 1.1 (see [LICENSE](LICENSE)).
+Ownership remains with the author. Receipt for assessment does not authorize
+commercial, research, teaching or other project reuse beyond that license.
+Valid independent prior grants remain intact. Third-party terms apply only to
+their respective components, not as a license for the entire MatOpt project.
 
 Third-party components keep their own licences and are excluded from the
 academic license above: everything under `skills/anthropic/` (vendored Anthropic Agent Skills;
@@ -122,5 +121,5 @@ and the vendored files listed in [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.
 
 The data agent (`backend/data_agent_app/`, `skills/data/`) was developed within
 the AMA-CMFAI group, of which the author is a member. Copyright in those parts
-remains with their respective contributors; the new academic license does not
+remains with their respective contributors; the academic license does not
 relicense their existing contributions.

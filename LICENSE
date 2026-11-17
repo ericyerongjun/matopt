@@ -1,25 +1,28 @@
-MatOpt Academic Evaluation License 1.0
-Effective date: 15 November 2026
+MatOpt Academic Evaluation License 1.1
+Effective date: 17 November 2026
 Copyright 2026 Rongjun (Eric) Ye <yerongjun03@gmail.com>
 
-1. Scope and existing rights
+1. Scope of this distribution
 
-This license applies only to original copyrightable material owned by Rongjun
-(Eric) Ye and first distributed under these terms, including new original
-modifications after baseline commit 61adff93. It grants rights only to the
-extent the Licensor owns or is authorized to license that material.
+This distribution offers MatOpt's original source code, documentation and
+other copyrightable material owned by Rongjun (Eric) Ye (the Licensor) under
+this license. This is the "Covered Material". Coverage is not limited to
+newly added files or recent changes. The Licensor grants rights only to the
+extent that the Licensor owns or is authorized to license the material.
 
-It does not revoke, restrict, or replace rights already granted under Apache
-License 2.0 or another license. Material previously distributed under Apache
-License 2.0, including material in baseline commit 61adff93, remains available
-under that license. Its license text is preserved in
-LICENSES/Apache-2.0-legacy.txt. Incorporating that material in this submission
-does not remove those existing permissions, including commercial permissions.
+This license does not revoke, restrict or replace any valid rights previously
+granted under Apache License 2.0 or another license. Anyone entitled to rely on
+such an independent grant may continue to do so for the material it covers.
+This distribution does not make a new Apache grant for the Covered Material.
 
 Third-party code, assets, models, skills, dependencies, and contributors' work
-remain under their own applicable terms. Consult NOTICE, THIRD_PARTY_NOTICES.md,
-vendor/UPSTREAM.md, and component notices. The data-agent contributions of the
-AMA-CMFAI group are not exclusively owned or relicensed by this license.
+remain under their own applicable terms and are excluded from the Covered
+Material. Consult NOTICE, THIRD_PARTY_NOTICES.md, vendor/UPSTREAM.md and component
+notices. Apache and other third-party license texts in this distribution apply
+to their identified components; they do not license the whole MatOpt project.
+The data-agent contributions of the AMA-CMFAI group are not exclusively owned
+or relicensed by this license. Where a file combines original and third-party
+material, each part retains its applicable terms.
 
 2. Academic evaluation permission
 
@@ -36,13 +39,14 @@ itself make these authorized assessment activities prohibited commercial use.
 
 3. Uses requiring separate permission
 
-For material covered by this license, no permission is granted to sell,
-sublicense, monetize, operate a paid service using, incorporate into a commercial
-product, or otherwise exploit it for commercial advantage. General teaching
-reuse, public redistribution, research reuse unrelated to assessing this
-submission, and distribution as a template for other projects also require
-separate written permission from the Licensor. This section does not limit
-permissions independently available under section 1 or applicable law.
+Outside the assessment purposes in section 2, use, copying, modification,
+redistribution or incorporation of Covered Material into another work requires
+the Licensor's separate written permission. This includes commercial use,
+sale, sublicensing, paid services, general teaching reuse, public release,
+research reuse, and use in an instructor's, university's or another person's
+own software, research or other project, whether commercial or non-commercial.
+Citing the author does not by itself authorize such reuse. This section does
+not limit independent permissions described in section 1 or rights in section 5.
 
 4. Attribution and authorship
 
@@ -50,7 +54,8 @@ Retain the copyright, license, authorship, and third-party notices with copies
 of the covered material. Identify modifications and their authors. Do not
 represent another person's work as your own, remove attribution to imply
 sole authorship, or imply endorsement by the Licensor or an upstream project.
-Being an assessor or receiving the submission does not transfer ownership.
+Being an assessor or receiving, grading, retaining or modifying the submission
+does not transfer ownership of the Covered Material.
 The project team membership does not by itself establish authorship of every
 component. See the README contribution statement and upstream notices.
 
@@ -61,6 +66,9 @@ rights that cannot lawfully be restricted, statutory exceptions, or permissions
 already granted through a binding agreement. No trademark rights are granted.
 Permission requests may be sent to yerongjun03@gmail.com.
 
+MatOpt remains under development. Delivery for assessment is not a public
+release or an authorization for production deployment.
+
 6. No warranty and limitation of liability
 
 TO THE EXTENT PERMITTED BY APPLICABLE LAW, THE COVERED MATERIAL IS PROVIDED
@@ -70,5 +78,5 @@ THE LICENSOR IS NOT LIABLE FOR CLAIMS, DAMAGES, OR OTHER LIABILITY ARISING FROM
 ITS USE, EXCEPT TO THE EXTENT SUCH LIABILITY CANNOT LAWFULLY BE EXCLUDED.
 
 This is a source-available academic evaluation license, not an OSI-approved
-open-source license. It does not change the separate licenses of excluded or
-previously licensed material.
+open-source license. It does not change the separate licenses of excluded
+material or cancel valid prior grants.

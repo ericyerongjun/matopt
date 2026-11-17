@@ -9,10 +9,11 @@ are recorded in [`vendor/UPSTREAM.md`](vendor/UPSTREAM.md). Run
 `bash scripts/vendor_check.sh` to fail a build when a vendored copy has drifted
 from the pin it was generated from.
 
-The root [`LICENSE`](LICENSE) applies academic-evaluation terms to new original
-material owned by Rongjun (Eric) Ye. Earlier Apache-licensed material retains
-its permissions; see [`LICENSES/Apache-2.0-legacy.txt`](LICENSES/Apache-2.0-legacy.txt)
-and [`NOTICE`](NOTICE). This file covers third-party components only.
+The root [LICENSE](LICENSE) applies academic-evaluation terms to original
+material owned by Rongjun (Eric) Ye in this distribution. This file concerns
+third-party components only and does not grant permission to reuse MatOpt as a
+whole. Valid independent prior grants remain intact. See [NOTICE](NOTICE) and
+[LICENSES/README.md](LICENSES/README.md) for the licensing boundaries.
 
 | Component | Upstream | Pin | Licence | In MatOpt |
 |---|---|---|---|---|
