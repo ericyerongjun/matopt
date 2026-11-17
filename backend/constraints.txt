@@ -198,4 +198,4 @@ wcwidth==0.9.3
 websockets==17.3
 wrapt==2.5.1
 xlrd==2.0.2
-xlsxwriter==3.2.9
+xlsxwriter==3.3.1
