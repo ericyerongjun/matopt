@@ -201,18 +201,20 @@ member. See [the submission guide](docs/SUBMISSION.md).
 
 ## License and authorship
 
-MatOpt's original application author is **Rongjun (Eric) Ye**. New original
-material first distributed under the current [academic evaluation license](LICENSE)
-may be inspected, run and retained for this course's assessment. Commercial use,
-public redistribution and unrelated reuse of that covered material require
-separate written permission. Keep author credits and do not claim another
-person's work as your own. Contact: yerongjun03@gmail.com.
+MatOpt's original application author is **Rongjun (Eric) Ye**. This distribution
+licenses the original material he owns for **COMP4431 assessment only**, under
+[LICENSE](LICENSE). Assessment, demonstration, marking, moderation and required
+record retention are permitted. Commercial use, public redistribution, general
+teaching reuse and use in another research or software project require separate
+written permission. Attribution alone is not permission; receiving or grading
+this submission does not transfer ownership. Contact: yerongjun03@gmail.com.
+MatOpt remains under development.
 
-**Existing rights remain:** material already distributed under Apache 2.0,
-including baseline commit `61adff93`, retains that license and its commercial
-permissions. The new terms cannot revoke those rights. The earlier text is in
-[LICENSES/Apache-2.0-legacy.txt](LICENSES/Apache-2.0-legacy.txt).
-This repository has mixed licensing; the new academic terms are source-available,
-not an open-source license. Third-party and AMA-CMFAI contributors' material keeps
-its applicable terms; see [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) and
-[NOTICE](NOTICE). To cite MatOpt, use [CITATION.cff](CITATION.cff).
+Third-party components and other contributors' work retain their own terms;
+see [NOTICE](NOTICE), [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) and
+[the license directory](LICENSES/README.md). Their license texts do not grant
+permission to reuse all of MatOpt. Valid rights independently granted under an
+earlier license remain intact. The current academic terms are source-available,
+not an open-source license. Keep author credits and do not claim another person's
+work as your own. [CITATION.cff](CITATION.cff) supplies citation metadata, not
+additional reuse permission.
