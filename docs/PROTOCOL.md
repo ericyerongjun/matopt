@@ -147,7 +147,7 @@ ordinary model narration is not promoted automatically. Raw reasoning, tool
 arguments/stdout, agent messages, and verifier reports are excluded by nested
 server allowlists. Public artifact or source links are intentional exceptions
 for inspecting outputs and evidence; an extraction link does not make it a final
-deliverable. See [live agent execution](AGENT-STREAMING.md) for UX and privacy details.
+deliverable. See [feature implementation](FEATURES.md#durable-conversations-and-execution-controls) for the execution and privacy boundaries.
 An older conversation with a separately saved partial correction can include
 `earlier_drafts` plus a `notice`. Those drafts remain explicitly labelled and
 collapsed; they are not represented as a fully corrected answer.
@@ -205,7 +205,7 @@ The previous RestrictedPython eval loop is replaced by the conversation kernel, 
   `MCP_PUBLIC_URL` (OAuth resource server; metadata at
   `/.well-known/oauth-protected-resource/mcp/`) is set. stdio never needs it.
 - MCP Apps: `open_ui_app` renders a saved mini-app in hosts that support the
-  `io.modelcontextprotocol/ui` extension. See [MCP-APPS-EVALUATION.md](MCP-APPS-EVALUATION.md).
+  `io.modelcontextprotocol/ui` extension. Host capabilities and content policies can differ.
 - Extra servers: repo-root `mcp.json` (`mcpServers` map, same shape as Claude Code). String values may
   reference `${VAR}` / `${VAR:-default}`; values come from `<data_dir>/mcp.env` (0600, written by the
   connector API) and then the process environment. A server with an unset variable is reported `failed`.

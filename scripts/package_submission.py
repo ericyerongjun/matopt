@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Create and verify a committed, credential-free COMP4431 source archive."""
+"""Create a verified COMP4431 source archive without private repository metadata."""
 
 from __future__ import annotations
 
@@ -13,17 +13,63 @@ import re
 import subprocess
 import tarfile
 import tempfile
-import time
 import zipfile
 
 
 BRANCH = "codex/comp4431-assignment"
 ROOT = Path(__file__).resolve().parents[1]
-HANDOFF = "output/doc/MatOpt_Presentation_Handoff.docx"
 BLOCKED_PARTS = {
-    ".git", "node_modules", ".venv", "venv", "__pycache__", ".pytest_cache",
-    ".mypy_cache", ".ruff_cache", ".cache", "dist", "coverage", ".DS_Store",
+    ".git", ".github", ".codex", ".agents", ".claude", ".ssh", ".aws",
+    "node_modules", ".venv", "venv", "__pycache__", ".pytest_cache",
+    ".mypy_cache", ".ruff_cache", ".cache", "dist", "coverage", ".DS_Store", "__MACOSX",
 }
+ROOT_FILES = {
+    ".dockerignore", ".gitignore", "CITATION.cff", "Dockerfile",
+    "Dockerfile.dockerignore", "LICENSE", "NOTICE", "README.md",
+    "THIRD_PARTY_NOTICES.md", "docker-compose.yml", "mcp.json.example",
+}
+SOURCE_TREES = {"backend", "frontend", "skills", "vendor", "LICENSES", "examples"}
+SUBMISSION_DOCS = {
+    "docs/FEATURES.md", "docs/DEMO.md", "docs/DEMO-VERIFICATION.md",
+    "docs/DEVELOPMENT.md", "docs/PROTOCOL.md", "docs/INTELLIGENT-UI.md",
+    "docs/MEMORY.md", "docs/CODEX-INTEGRATION.md", "docs/ZCODE-ADE-MIGRATION.md",
+    "docs/reference/zcode-frontend-manifest.json",
+    "docs/reference/zcode-frontend-provenance.md",
+}
+REQUIRED_FILES = {
+    "README.md", "docs/FEATURES.md", "LICENSE", "LICENSES/README.md",
+    "LICENSES/Apache-2.0.txt", "NOTICE", "THIRD_PARTY_NOTICES.md",
+    "docker-compose.yml", "backend/.env.example", "backend/Dockerfile",
+    "backend/requirements.txt", "backend/constraints.txt", "frontend/Dockerfile",
+    "frontend/sandbox/Dockerfile", "frontend/package-lock.json",
+    "docs/reference/zcode-frontend-manifest.json", "examples/demo/lensing.csv",
+}
+PRIVATE_MARKERS = (
+    b"github.com/ericyerongjun/matopt", b"codex/comp4431-assignment",
+    b"/Users/eric/", b"Apache-2.0-legacy.txt",
+)
+
+
+def included(name: str) -> bool:
+    """Curate the source release; omit maintainer notes, traces and handoff files."""
+    path = PurePosixPath(name)
+    if name in ROOT_FILES or name in SUBMISSION_DOCS:
+        return True
+    if path.parts[0] in SOURCE_TREES:
+        return True
+    if name in {"evals/README.md", "evals/math_core.jsonl"}:
+        return True
+    if name.startswith("scripts/"):
+        return name not in {"scripts/package_submission.py", "scripts/tests/test_package_submission.py"}
+    return False
+
+
+def submission_bytes(name: str, data: bytes) -> bytes:
+    # Citation metadata remains useful without exposing the private repository URL.
+    if name == "CITATION.cff":
+        return b"".join(line for line in data.splitlines(keepends=True)
+                        if not line.startswith(b"repository-code:"))
+    return data
 
 
 def git(*args: str) -> bytes:
@@ -44,15 +90,30 @@ def validate_path(name: str) -> None:
         raise ValueError(f"Private configuration or runtime file is tracked: {name}")
     if name.startswith(("backend/data/", "backend/static/", "backend/lean/")):
         raise ValueError(f"Local runtime data is tracked: {name}")
-    if name.startswith("output/") and name != HANDOFF:
+    if name.startswith("output/"):
         raise ValueError(f"Unexpected output artifact is tracked: {name}")
+
+
+def validate_content(name: str, data: bytes, secrets: list[bytes], commits: set[bytes]) -> None:
+    private_key = re.search(rb"-----BEGIN (?:[A-Z]+ )?PRIVATE KEY-----\r?\n[A-Za-z0-9+/=]{32,}", data)
+    if any(secret in data for secret in secrets) or private_key:
+        raise ValueError(f"Credential material detected in {name}; archive not published.")
+    if any(marker in data for marker in PRIVATE_MARKERS):
+        raise ValueError(f"Private repository metadata detected in {name}; archive not published.")
+    # Check first-party commit references, not public upstream pins or file hashes.
+    if b"\0" not in data:
+        for match in re.finditer(rb"(?<![0-9a-f])[0-9a-f]{7,40}(?![0-9a-f])", data):
+            value = match.group()
+            if value in commits:
+                raise ValueError(f"Internal commit reference detected in {name}; archive not published.")
 
 
 def local_secrets() -> list[bytes]:
     """Use known local credential values only as exclusion checks; never print them."""
     secrets = []
-    env = ROOT / "backend/.env"
-    if env.exists():
+    for env in (ROOT / "backend/.env", ROOT / ".env"):
+        if not env.exists():
+            continue
         for line in env.read_text().splitlines():
             key, sep, value = line.partition("=")
             if sep and not key.lstrip().startswith("#") and any(
@@ -73,9 +134,10 @@ def main() -> None:
     if git("diff", "HEAD", "--name-only"):
         raise SystemExit("Commit intended tracked changes before packaging; HEAD is the archive source.")
     commit = git("rev-parse", "HEAD").decode().strip()
-    base = git("merge-base", "HEAD", "main").decode().strip()
-    stamp = int(git("show", "-s", "--format=%ct", "HEAD").strip())
-    zip_time = time.gmtime(max(stamp, 315532800))[:6]
+    commits = {sha[:length] for sha in git("rev-list", "--all").splitlines()
+               for length in range(7, 41)}
+    # A release date, not a Git commit timestamp, is exposed in the ZIP metadata.
+    zip_time = (2026, 11, 17, 0, 0, 0)
     secrets = local_secrets()
     output = args.output.resolve()
     output.parent.mkdir(parents=True, exist_ok=True)
@@ -88,28 +150,25 @@ def main() -> None:
             staged, "w", compression=zipfile.ZIP_DEFLATED, compresslevel=9
         ) as result:
             for member in sorted(archive.getmembers(), key=lambda entry: entry.name):
-                if member.isdir():
+                if member.isdir() or not included(member.name):
                     continue
                 if not member.isfile():
                     raise ValueError(f"Symlink or special entry cannot be packaged: {member.name}")
                 validate_path(member.name)
                 stream = archive.extractfile(member)
                 assert stream is not None
-                data = stream.read()
-                private_key = re.search(rb"-----BEGIN (?:[A-Z]+ )?PRIVATE KEY-----\r?\n[A-Za-z0-9+/=]{32,}", data)
-                if any(secret in data for secret in secrets) or private_key:
-                    raise ValueError(f"Credential material detected in {member.name}; archive not published.")
+                data = submission_bytes(member.name, stream.read())
+                validate_content(member.name, data, secrets, commits)
                 info = zipfile.ZipInfo("MatOpt/" + member.name, zip_time)
                 info.compress_type = zipfile.ZIP_DEFLATED
                 info.external_attr = (0o100000 | member.mode) << 16
                 result.writestr(info, data)
                 records[member.name] = {"sha256": hashlib.sha256(data).hexdigest(), "bytes": len(data)}
-            for required in ("README.md", "LICENSE", "LICENSES/Apache-2.0-legacy.txt", HANDOFF,
-                             "docker-compose.yml", "backend/.env.example", "frontend/package-lock.json"):
+            for required in REQUIRED_FILES:
                 if required not in records:
                     raise ValueError(f"Required submission file is missing: {required}")
-            manifest = {"source_commit": commit, "production_base": base, "local_branch": BRANCH,
-                        "files": records, "presentation_pptx": "Separate deliverable; not included"}
+            manifest = {"schema_version": 1, "package": "COMP4431 Thursday MatOpt source",
+                        "files": records}
             info = zipfile.ZipInfo("MatOpt/SUBMISSION_MANIFEST.json", zip_time)
             info.compress_type = zipfile.ZIP_DEFLATED
             info.external_attr = 0o100644 << 16
@@ -131,7 +190,7 @@ def main() -> None:
     checksum = hashlib.sha256(output.read_bytes()).hexdigest()
     output.with_suffix(output.suffix + ".sha256").write_text(f"{checksum}  {output.name}\n")
     print(f"Verified {len(records)} committed files; archive: {output}")
-    print(f"Source: {commit}; production base: {base}")
+    print(f"Private maintainer record only (not in ZIP): source {commit}")
     print(f"SHA-256: {checksum}")
 
 

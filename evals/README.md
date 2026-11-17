@@ -21,12 +21,13 @@ model and tool calls, tokens and prompt-cache reuse:
 
 ```bash
 backend/.venv/bin/python scripts/run_evals.py --output evals/results/my-run.json
-backend/.venv/bin/python scripts/run_evals.py --tag hard --baseline evals/results/baseline-deepseek-flash-high.json --output /tmp/hard.json
+backend/.venv/bin/python scripts/run_evals.py --tag hard --output /tmp/hard.json
 ```
 
 The runner currently defaults to `high` reasoning and does not enable the
-browser's Ultrafast preset. Report results with their actual settings; saved
-results are not a benchmark of the current Ultrafast experience. The runner
+browser's Ultrafast preset. Report results with their actual settings; these
+evaluations are not a benchmark of the current Ultrafast experience. Historical
+result files are not included in the source submission. The runner
 also assumes the local API does not require an authentication token.
 
 Run it before and after a prompt, harness or model change and compare. A

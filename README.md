@@ -25,7 +25,7 @@ contributions retain their credits in [NOTICE](NOTICE) and
 
 ## Run with Docker
 
-Run all commands below from the repository root, beside `docker-compose.yml`.
+Run all commands below from the extracted `MatOpt/` folder, beside `docker-compose.yml`.
 
 ### 1. Prepare Docker and the API key
 
@@ -176,8 +176,7 @@ VRM models can be loaded in the Tutor panel; see the asset credits in
 
 | Guide | Contents |
 | --- | --- |
-| [Presentation handoff](output/doc/MatOpt_Presentation_Handoff.docx) | Feature implementation, challenges, limitations, presentation notes and Q&A |
-| [Submission guide](docs/SUBMISSION.md) | Local branch, source ZIP, checksums and delivery contents |
+| [Feature implementation and challenges](docs/FEATURES.md) | Basic and additional features, implementation, technical challenges and limitations |
 | [Demo guide](docs/DEMO.md) | Docker warmup, sample data, prompts and timing |
 | [Rehearsal report](docs/DEMO-VERIFICATION.md) | Real model tests, measured durations, failures and checked fallbacks |
 | [Backend reference](backend/README.md) | Configuration, document processing, budgets, persistence and MCP |
@@ -188,16 +187,16 @@ VRM models can be loaded in the Tutor panel; see the asset credits in
 | [Memory](docs/MEMORY.md) | Session recall and optional personal memory |
 | [Codex integration](docs/CODEX-INTEGRATION.md) | Adapted agent mechanisms and contribution boundaries |
 
-## Submission packaging
+## Source submission
 
-This is the local-only `codex/comp4431-assignment` branch. The production code
-is shared with GitHub `main`; the group roster, handoff document and packaging
-instructions are kept on this local branch. Do not push this branch.
+This package contains the application source, Docker configuration, dependency
+manifests, prompts and skills, sample data, prepared demo examples and license
+notices. [Feature details](docs/FEATURES.md) explain the implementations and
+technical challenges. `SUBMISSION_MANIFEST.json` lists each included file's size
+and SHA-256 checksum for integrity checking.
 
-The source ZIP contains the application, Docker setup, sample data, rehearsed
-HTML examples, feature documentation, presentation handoff and license notices.
-The presentation PPTX is a separate deliverable prepared by the presentation
-member. See [the submission guide](docs/SUBMISSION.md).
+No repository access or Git installation is needed. Supply your own model API
+key as described above; credentials, chats and runtime data are not included.
 
 ## License and authorship
 

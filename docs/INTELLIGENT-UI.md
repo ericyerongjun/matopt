@@ -128,8 +128,7 @@ Only complete self-contained HTML runs. Use inline CSS/JS and data/blob assets;
 external libraries and CDNs are unavailable. Inert JSON script blocks are
 preserved. Heavy local simulations should use blob Web Workers, falling back
 to the main thread on the worker's `error` event: external MCP Apps hosts may
-block `blob:` workers, and the constructor does not throw (see
-[MCP-APPS-EVALUATION.md](MCP-APPS-EVALUATION.md)). The runtime
+block `blob:` workers, and the constructor does not throw. The runtime
 exposes:
 
 ```js

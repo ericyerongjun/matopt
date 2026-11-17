@@ -49,7 +49,7 @@ describe("activeSlashToken", () => {
         assert.equal(activeSlashToken(text, text.length), null);
     });
     it("keeps URLs, paths, code and math literal", () => {
-        for (const text of ["https://example.com/web", "/Users/eric/file", "Read /tmp/file.csv", "x /", "2 /", "$x /web", "\\(x /web", "\\[x /web", "\u0060run /web", "\u0060\u0060\u0060python\n /web"]) {
+        for (const text of ["https://example.com/web", "/Users/example/file", "Read /tmp/file.csv", "x /", "2 /", "$x /web", "\\(x /web", "\\[x /web", "\u0060run /web", "\u0060\u0060\u0060python\n /web"]) {
             assert.equal(activeSlashToken(text, text.length), null, text);
         }
         assert.equal(activeSlashToken("Read /tmp/file.csv", 9), null);

@@ -156,7 +156,6 @@ results. These ceilings do not guarantee convergence or mathematical correctness
 The default operation policy blocks repeated matching failures while allowing
 corrected arguments. Unknown side effects require inspection before retrying.
 Repeated successful reads produce advisories, not proof of completion. See
-[the loop-policy analysis](../docs/LOOP-POLICY-EXPERIMENT.md) and
 [Codex integration](../docs/CODEX-INTEGRATION.md).
 
 **Check results** allows at most two checks and one complete correction per
@@ -185,8 +184,7 @@ subsequent tool call. Concurrent work in the same workspace can return
 `MCP_AUTH_TOKEN` or the `MCP_OAUTH_*` settings before exposing MCP remotely.
 
 External catalogs use exact tool IDs and explicit aliases. `search_tools`
-discovers metadata and `load_tool_schemas` loads selected schemas. See
-[the tool-discovery notes](../docs/TOOL-DISCOVERY-EXPERIMENT.md).
+discovers metadata and `load_tool_schemas` loads selected schemas.
 Container integrations need paths and services reachable from the container;
 `localhost` inside it is not the host machine. A host `mcp.json` is not mounted
 by the default Compose file. Configure a persistent container path and an
