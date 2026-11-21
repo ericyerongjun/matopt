@@ -27,7 +27,7 @@
 .mo-navigation-search > button:hover { background: var(--mo-surface-hover, var(--color-surface-hover)); }
 .mo-navigation-history { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: thin; padding: 0 12px 16px; }
 .mo-navigation-group-heading:not(:first-child) { margin-top: 18px; }
-.mo-navigation-group-heading h2 { display: flex; align-items: center; gap: 7px; min-height: 28px; margin: 0 10px 4px; color: var(--mo-text-faint, var(--color-foreground-subtle)); font-size: 11px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; }
+.mo-navigation-group-heading h2 { display: flex; align-items: center; gap: 7px; min-height: 28px; margin: 0 10px 4px; color: var(--mo-text-faint, var(--color-foreground-subtle)); font-size: var(--text-ui-xs); font-weight: 600; letter-spacing: .08em; text-transform: uppercase; }
 .mo-navigation-group-count { margin-left: auto; font-variant-numeric: tabular-nums; }
 .mo-navigation-live-dot { height: 6px; width: 6px; flex-shrink: 0; border-radius: 50%; background: var(--mo-accent, var(--color-primary)); }
 .mo-navigation-paused-icon { flex-shrink: 0; color: var(--mo-text-muted, var(--color-foreground-subtle)); }

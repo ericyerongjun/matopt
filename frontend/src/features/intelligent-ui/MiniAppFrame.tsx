@@ -3,7 +3,7 @@ import type { JSONValue } from "../../types/ui.ts";
 import { sandboxOrigin, validateFrameMessage } from "./bridge.ts";
 
 /** Only a dedicated static runtime may execute generated HTML. It has no host API proxy or same-origin privileges. */
-export function MiniAppFrame({ surfaceId, title, html, state = {}, onStateChange, fallback = "This interactive preview is unavailable." }: {
+export function MiniAppFrame({ surfaceId, title, html, state, onStateChange, fallback = "This interactive preview is unavailable." }: {
     surfaceId: string; title: string; html: string;
     state?: Record<string, JSONValue>;
     onStateChange?: (state: Record<string, JSONValue>) => void;
@@ -29,11 +29,15 @@ export function MiniAppFrame({ surfaceId, title, html, state = {}, onStateChange
         const receive = (event: MessageEvent) => {
             // The sandbox has an opaque origin, so source identity and the unguessable channel bind the frame.
             if (!frame.current || event.source !== frame.current.contentWindow) return;
-            const message = validateFrameMessage(event.data, identity, latest.current.state);
+            const message = validateFrameMessage(event.data, identity, latest.current.state ?? {});
             if (!message) return;
             if (message.type === "matopt:ready") {
-                frame.current.contentWindow?.postMessage({ type: "matopt:init", version: 1, ...identity, html: latest.current.html, state: latest.current.state, theme: theme() }, "*");
+                frame.current.contentWindow?.postMessage({ type: "matopt:init", version: 1, ...identity, html: latest.current.html,
+                    state: latest.current.state ?? {}, standalone: latest.current.state === undefined, theme: theme() }, "*");
                 clearTimeout(timeout); setReady(true); setUnavailable(false);
+            } else if (message.type === "matopt:escape") {
+                const preview = frame.current.closest(".ui-preview-content[data-expanded]");
+                preview?.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true }));
             } else if (message.type === "matopt:resize") setHeight(message.height);
             else if (message.type === "matopt:error") setFailed(true);
             else if (message.type === "matopt:state") latest.current.onStateChange?.(message.state);
@@ -44,7 +48,7 @@ export function MiniAppFrame({ surfaceId, title, html, state = {}, onStateChange
         return () => { clearTimeout(timeout); observer.disconnect(); window.removeEventListener("message", receive); };
     }, [source, identity]);
     useEffect(() => {
-        if (ready) frame.current?.contentWindow?.postMessage({ type: "matopt:state", version: 1, ...identity, state }, "*");
+        if (ready && state) frame.current?.contentWindow?.postMessage({ type: "matopt:state", version: 1, ...identity, state }, "*");
     }, [state, ready, identity]);
 
     if (!origin) return <p className="ui-surface-note" role="status">{fallback} The preview runtime must use a separate origin.</p>;

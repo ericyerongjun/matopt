@@ -2,7 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useLayoutEffect, use
 import type { Artifact } from "../../types/protocol.ts";
 import type { JSONValue, UICapabilities, UISurface } from "../../types/ui.ts";
 import { executeSurfaceAction, persistSurfaceState } from "./api.ts";
-import { actionValues, computedSurfaceState, declaredStateUpdate, initialSurfaceState, isSurface, resetSurfaceState, surfaceExplanation } from "./model.ts";
+import { actionInputsChanged, actionValues, computedSurfaceState, declaredStateUpdate, initialSurfaceState, isSurface, resetSurfaceState, surfaceExplanation } from "./model.ts";
 
 export interface SurfaceRecord {
     surface: UISurface;
@@ -11,6 +11,7 @@ export interface SurfaceRecord {
     resultState: Record<string, JSONValue>;
     viewState: Record<string, string | boolean>;
     busy: boolean;
+    pendingRecompute: boolean;
     saving: boolean;
     error: string | null;
     editVersion: number;
@@ -128,7 +129,7 @@ export function UiWorkspaceProvider({ conversationId, conversationBusy = false, 
             initialState: resetSurfaceState(surface, existing?.initialState),
             resultState: "computed_state" in surface ? computedSurfaceState(surface) : existing && (existing.busy || existing.saving || existing.editVersion > existing.savedVersion || existing.surface.revision === surface.revision) ? existing.resultState : state,
             viewState: existing?.viewState ?? {},
-            busy: existing?.busy ?? false, saving: existing?.saving ?? false, error: null,
+            busy: existing?.busy ?? false, pendingRecompute: existing?.pendingRecompute ?? false, saving: existing?.saving ?? false, error: null,
             editVersion: existing?.editVersion ?? 0, savedVersion: existing?.savedVersion ?? 0,
         });
     }, [publish]);
@@ -151,7 +152,7 @@ export function UiWorkspaceProvider({ conversationId, conversationBusy = false, 
                     const latest = live.current[id]; if (!latest) return;
                     if (surface.revision < latest.surface.revision) throw new Error("This result changed while saving. Reload its saved version to continue.");
                     publish(id, {
-                        ...latest, surface, savedVersion: record.editVersion, saving: false, error: null,
+                        ...latest, surface, savedVersion: record.editVersion, saving: false,
                         state: latest.editVersion === record.editVersion ? initialSurfaceState(surface) : latest.state,
                     });
                 } catch (error) {
@@ -166,31 +167,20 @@ export function UiWorkspaceProvider({ conversationId, conversationBusy = false, 
         return promise;
     }, [conversationId, publish]);
 
-    useEffect(() => {
-        if (!conversationBusy && !anyActionBusy) for (const record of Object.values(live.current)) {
-            if (record.editVersion > record.savedVersion) void flushState(record.surface.id).catch(() => {});
-        }
-    }, [conversationBusy, anyActionBusy, flushState]);
-
-    const updateState = useCallback((id: string, patch: Record<string, JSONValue>) => {
-        const record = live.current[id];
-        if (!record || record.busy || record.surface.status !== "committed") return;
-        const state = declaredStateUpdate(patch, record.state);
-        if (!state || JSON.stringify(state) === JSON.stringify(record.state)) return;
-        publish(id, { ...record, state, editVersion: record.editVersion + 1, error: null });
-        clearTimeout(timers.current.get(id));
-        timers.current.set(id, setTimeout(() => { timers.current.delete(id); void flushState(id).catch(() => {}); }, 400));
-    }, [flushState, publish]);
-
     const runAction = useCallback((id: string, actionId: string) => {
         const first = live.current[id];
         if (!first || !conversationId || chatBusy.current || Object.values(live.current).some((record) => record.busy) || first.surface.status !== "committed" || !(first.surface.kind === "native" ? capabilities?.native : capabilities?.mini_apps) || !first.surface.actions.some((action) => action.id === actionId)) return;
         clearTimeout(timers.current.get(id)); timers.current.delete(id);
         const runGeneration = generation.current;
         const controller = new AbortController(); controllers.current.add(controller); controllerOwners.current.set(controller, id); actionControllers.current.set(id, controller);
-        publish(id, { ...first, busy: true, error: null });
+        publish(id, { ...first, busy: true, pendingRecompute: first.pendingRecompute && first.surface.recompute_action_id !== actionId, error: null });
         void (async () => {
             try {
+                // A save already in progress yields the lease to this action after its current PATCH.
+                // Flush again as its owner to include edits that arrived during that PATCH.
+                const saving = saves.current.get(id);
+                if (saving) await saving;
+                if (controller.signal.aborted || generation.current !== runGeneration) return;
                 await flushState(id, id);
                 if (controller.signal.aborted || generation.current !== runGeneration) return;
                 const record = live.current[id];
@@ -200,7 +190,12 @@ export function UiWorkspaceProvider({ conversationId, conversationBusy = false, 
                     if (generation.current !== runGeneration || controller.signal.aborted) return;
                     const current = live.current[id];
                     if (!current || surface.id !== id || surface.revision < current.surface.revision) return;
-                    publish(id, { ...current, surface, state: initialSurfaceState(surface), initialState: resetSurfaceState(surface, current.initialState), resultState: computedSurfaceState(surface), savedVersion: current.editVersion, error: null });
+                    const state = initialSurfaceState(surface);
+                    // Adopt computed outputs, but keep controls edited since this request was sent.
+                    if (current.editVersion !== record.editVersion) for (const key of Object.keys(state)) {
+                        if (Object.hasOwn(current.state, key) && JSON.stringify(current.state[key]) !== JSON.stringify(record.state[key])) state[key] = current.state[key];
+                    }
+                    publish(id, { ...current, surface, state, initialState: resetSurfaceState(surface, current.initialState), resultState: computedSurfaceState(surface), savedVersion: record.editVersion, error: null });
                 });
             } catch (error) {
                 if (generation.current === runGeneration && controllerOwners.current.get(controller) === id && live.current[id]) {
@@ -215,6 +210,38 @@ export function UiWorkspaceProvider({ conversationId, conversationBusy = false, 
         })();
     }, [conversationId, capabilities, flushState, publish]);
 
+    const finishEdits = useCallback((id: string) => {
+        const record = live.current[id];
+        if (!record || chatBusy.current || Object.values(live.current).some((other) => other.busy)) return;
+        if (record.pendingRecompute) {
+            const action = record.surface.actions.find((item) => item.id === record.surface.recompute_action_id);
+            if (action && actionInputsChanged(action, record.state, record.resultState)) {
+                runAction(id, action.id);
+                return;
+            }
+            publish(id, { ...record, pendingRecompute: false });
+        }
+        if (record.editVersion > record.savedVersion) void flushState(id).catch(() => {});
+    }, [flushState, publish, runAction]);
+
+    useEffect(() => {
+        if (!conversationBusy && !anyActionBusy) for (const record of Object.values(live.current)) {
+            if (!timers.current.has(record.surface.id)) finishEdits(record.surface.id);
+        }
+    }, [conversationBusy, anyActionBusy, finishEdits]);
+
+    const updateState = useCallback((id: string, patch: Record<string, JSONValue>) => {
+        const record = live.current[id];
+        if (!record || record.surface.status !== "committed" || record.busy && !record.surface.recompute_action_id) return;
+        const state = declaredStateUpdate(patch, record.state);
+        if (!state || JSON.stringify(state) === JSON.stringify(record.state)) return;
+        const action = record.surface.actions.find((item) => item.id === record.surface.recompute_action_id);
+        const pendingRecompute = record.pendingRecompute || Boolean(conversationId && action && actionInputsChanged(action, state, record.state));
+        publish(id, { ...record, state, pendingRecompute, editVersion: record.editVersion + 1, error: null });
+        clearTimeout(timers.current.get(id));
+        timers.current.set(id, setTimeout(() => { timers.current.delete(id); finishEdits(id); }, 400));
+    }, [conversationId, finishEdits, publish]);
+
     const reloadSurface = useCallback((id: string) => {
         if (!conversationId || live.current[id]?.busy) return;
         const runGeneration = generation.current;
@@ -227,7 +254,7 @@ export function UiWorkspaceProvider({ conversationId, conversationBusy = false, 
                 if (runGeneration !== generation.current || controller.signal.aborted || !isSurface(body.surface)) return;
                 const record = live.current[id];
                 if (record && requested && record.editVersion === requested.editVersion && body.surface.revision >= record.surface.revision) {
-                    publish(id, { ...record, surface: body.surface, state: initialSurfaceState(body.surface), initialState: resetSurfaceState(body.surface, record.initialState), resultState: "computed_state" in body.surface ? computedSurfaceState(body.surface) : record.resultState, savedVersion: record.editVersion, error: null });
+                    publish(id, { ...record, surface: body.surface, state: initialSurfaceState(body.surface), initialState: resetSurfaceState(body.surface, record.initialState), resultState: "computed_state" in body.surface ? computedSurfaceState(body.surface) : record.resultState, savedVersion: record.editVersion, pendingRecompute: false, error: null });
                 }
             }).catch((error) => {
                 if (runGeneration === generation.current && controllerOwners.current.get(controller) === id && live.current[id]) publish(id, { ...live.current[id], error: error.message });
@@ -252,7 +279,11 @@ export function UiWorkspaceProvider({ conversationId, conversationBusy = false, 
         if (record && record.viewState[nodeId] !== viewValue) publish(id, { ...record, viewState: { ...record.viewState, [nodeId]: viewValue } });
     }, [publish]);
     const resetState = useCallback((id: string) => { const record = live.current[id]; if (record) updateState(id, record.initialState); }, [updateState]);
-    const stopAction = useCallback((id: string) => actionControllers.current.get(id)?.abort(), []);
+    const stopAction = useCallback((id: string) => {
+        const record = live.current[id];
+        if (record?.pendingRecompute) publish(id, { ...record, pendingRecompute: false });
+        actionControllers.current.get(id)?.abort();
+    }, [publish]);
     const explainSurface = useCallback((id: string) => {
         const record = live.current[id];
         if (record) callbacks.current.onExplain?.(surfaceExplanation(record.surface, record.state, record.resultState));
@@ -279,6 +310,6 @@ export function useSurface(surface: UISurface) {
     const { registerSurface } = workspace;
     useEffect(() => registerSurface(surface), [surface, registerSurface]);
     return { workspace, record: workspace.records[surface.id] ?? {
-        surface, state: initialSurfaceState(surface), initialState: resetSurfaceState(surface), resultState: computedSurfaceState(surface), viewState: {}, busy: false, saving: false, error: null, editVersion: 0, savedVersion: 0,
+        surface, state: initialSurfaceState(surface), initialState: resetSurfaceState(surface), resultState: computedSurfaceState(surface), viewState: {}, busy: false, pendingRecompute: false, saving: false, error: null, editVersion: 0, savedVersion: 0,
     } };
 }

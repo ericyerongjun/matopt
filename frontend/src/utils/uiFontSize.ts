@@ -4,7 +4,7 @@
 export const UI_FONT_SIZE_STORAGE_KEY = "matopt.uiFontSizePx";
 
 /** Un-persisted default, and the value `--ui-font-size` is declared with. */
-export const DEFAULT_UI_FONT_SIZE_PX = 14;
+export const DEFAULT_UI_FONT_SIZE_PX = 16;
 
 /** Inclusive native ZCode interface font range. */
 export const MIN_UI_FONT_SIZE_PX = 12;

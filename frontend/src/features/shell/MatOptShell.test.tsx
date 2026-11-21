@@ -4,6 +4,7 @@ import { afterEach, test } from "node:test";
 import { act, useState } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { MatOptShell } from "./MatOptShell.tsx";
+import { ExpandablePreview } from "../intelligent-ui/ExpandablePreview.tsx";
 
 let root: Root | null = null;
 let container: HTMLDivElement | null = null;
@@ -134,3 +135,48 @@ test('narrow activity keeps the selected workspace inert and restores it on Esca
   assert.equal(document.querySelector('.matopt-side-pane')?.hasAttribute('inert'), false);
   assert.equal(document.querySelector<HTMLElement>('.matopt-side-pane')?.hidden, false);
 });
+
+function PreviewHarness({ inPane = false }: { inPane?: boolean }) {
+  const [selected, setSelected] = useState<string | null>(null);
+  const [showResult, setShowResult] = useState(true);
+  const result = showResult && <ExpandablePreview title="Live result">{(toggle) =>
+    <section>{toggle}<input aria-label="Parameter" defaultValue="3" /><iframe title="Live graph" /></section>}
+  </ExpandablePreview>;
+  return <MatOptShell sidebarOpen paneOpen={inPane} expandedPreviewId={selected} onExpandedPreviewChange={setSelected}
+    onCloseSidebar={() => {}} onClosePane={() => {}} sidebar={<button>History</button>}
+    header={<button id="switch-task" onClick={() => setShowResult(false)}>Switch task</button>}
+    conversation={<><textarea defaultValue="Unsent draft" />{!inPane && result}</>}
+    sidePane={inPane && result} />;
+}
+
+for (const inPane of [false, true]) {
+  test(`expanding from ${inPane ? "canvas" : "chat"} fills the shell panel and returns the same controls on Escape`, () => {
+    container = document.createElement("div"); document.body.append(container); root = createRoot(container);
+    act(() => root?.render(<PreviewHarness inPane={inPane} />));
+    const panel = document.querySelector<HTMLElement>(".matopt-expanded-panel")!;
+    const source = document.querySelector(inPane ? ".matopt-side-pane" : ".matopt-conversation")!;
+    const toggle = source.querySelector<HTMLButtonElement>('[aria-label="Expand preview"]')!;
+    const parameter = source.querySelector<HTMLInputElement>('[aria-label="Parameter"]')!;
+    const frame = source.querySelector("iframe")!;
+    parameter.value = "7";
+    act(() => toggle.click());
+    assert.equal(panel.hidden, false);
+    assert.equal(panel.parentElement?.className, "matopt-workspace");
+    assert.equal(panel.querySelector("iframe"), frame);
+    assert.equal(panel.querySelector("input"), parameter);
+    assert.equal(source.hasAttribute("inert"), true);
+    assert.equal(document.querySelector("dialog"), null);
+    assert.equal(document.querySelector(".matopt-sidebar")?.closest("[inert]"), null);
+    assert.equal(document.activeElement, toggle);
+    act(() => toggle.dispatchEvent(new window.KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true })));
+    assert.equal(panel.hidden, true);
+    assert.equal(source.querySelector("iframe"), frame);
+    assert.equal(source.querySelector("input")?.value, "7");
+    assert.equal(document.activeElement, toggle);
+    act(() => toggle.click());
+    press("switch-task");
+    assert.equal(panel.hidden, true);
+    assert.equal(panel.childElementCount, 0);
+    assert.equal(document.querySelector("textarea")?.value, "Unsent draft");
+  });
+}

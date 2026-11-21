@@ -104,6 +104,7 @@ class UISurface(WireModel):
     state: dict[str, JsonValue] = Field(default_factory=dict)
     computed_state: dict[str, JsonValue] | None = None
     actions: list[UIAction] = Field(default_factory=list, max_length=20)
+    recompute_action_id: Identifier | None = None
 
     @model_validator(mode="after")
     def validate_tree(self):
@@ -112,6 +113,7 @@ class UISurface(WireModel):
         if self.kind == "mini_app" and self.app is None:
             raise ValueError("Mini-app surfaces require complete HTML")
         seen: set[str] = set()
+        controls: set[str] = set()
         def walk(nodes, depth):
             if depth > 8:
                 raise ValueError("UI nesting exceeds 8 levels")
@@ -119,12 +121,21 @@ class UISurface(WireModel):
                 if node.id in seen:
                     raise ValueError(f"Duplicate node id: {node.id}")
                 seen.add(node.id)
+                if node.type in {"slider", "number", "select", "toggle"}:
+                    controls.add(node.props["stateKey"])
                 if len(seen) > 128:
                     raise ValueError("UI exceeds 128 nodes")
                 walk(node.children, depth + 1)
         walk(self.nodes, 0)
         if len({a.id for a in self.actions}) != len(self.actions):
             raise ValueError("Action ids must be unique")
+        if self.recompute_action_id is not None:
+            action = next((a for a in self.actions if a.id == self.recompute_action_id), None)
+            if self.kind != "native" or action is None:
+                raise ValueError("recompute_action_id must name a registered action on a native surface")
+            inputs = action.input_schema.get("properties")
+            if not isinstance(inputs, dict) or controls.isdisjoint(inputs):
+                raise ValueError("The recompute action needs a schema property matching a native control's stateKey")
         validate_json_keys(self.model_dump(mode="json"))
         raw = json.dumps(self.model_dump(mode="json"), allow_nan=False)
         if len(raw.encode()) > 1048576:

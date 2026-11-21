@@ -1,4 +1,6 @@
-import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type CSSProperties, type Dispatch, type ReactNode, type SetStateAction } from "react";
+
+import { PreviewPanelContext } from "../intelligent-ui/ExpandablePreview.tsx";
 
 const WIDTH_KEY = "matopt.workspaceWidth";
 function initialWidth() {
@@ -7,15 +9,20 @@ function initialWidth() {
 }
 
 /** Each workspace stays mounted; only its visibility changes when opening an inspector. */
-export function MatOptShell({ sidebar, header, conversation, sidePane, inspector, sidebarOpen, paneOpen, inspectorOpen = false, onCloseSidebar, onClosePane, onCloseInspector }: {
+export function MatOptShell({ sidebar, header, conversation, sidePane, inspector, sidebarOpen, paneOpen, inspectorOpen = false, expandedPreviewId = null, onExpandedPreviewChange, onCloseSidebar, onClosePane, onCloseInspector }: {
   sidebar: ReactNode; header: ReactNode; conversation: ReactNode; sidePane: ReactNode; inspector?: ReactNode;
   sidebarOpen: boolean; paneOpen: boolean; inspectorOpen?: boolean;
+  expandedPreviewId?: string | null; onExpandedPreviewChange?: Dispatch<SetStateAction<string | null>>;
   onCloseSidebar: () => void; onClosePane: () => void; onCloseInspector?: () => void;
 }) {
   const [small, setSmall] = useState(() => window.matchMedia("(max-width: 900px)").matches);
   const [compact, setCompact] = useState(small);
   const [paneWidth, setPaneWidth] = useState(initialWidth);
   const workspaceRef = useRef<HTMLDivElement>(null);
+  const previewRef = useRef<HTMLElement>(null);
+  const previewPanel = useMemo(() => onExpandedPreviewChange
+    ? { activeId: expandedPreviewId, select: onExpandedPreviewChange, panel: previewRef } : null,
+    [expandedPreviewId, onExpandedPreviewChange]);
   const sidebarRef = useRef<HTMLElement>(null);
   const paneRef = useRef<HTMLElement>(null);
   const inspectorRef = useRef<HTMLElement>(null);
@@ -63,9 +70,9 @@ export function MatOptShell({ sidebar, header, conversation, sidePane, inspector
   }, [inspectorOpen]);
   const resize = (width: number) => setPaneWidth(Math.max(32, Math.min(68, Math.round(width))));
 
-  return <div className="matopt-shell" data-sidebar-open={sidebarOpen} data-pane-open={paneOpen} data-compact={compact} data-inspector-open={inspectorOpen}>
+  return <PreviewPanelContext.Provider value={previewPanel}><div className="matopt-shell" data-sidebar-open={sidebarOpen} data-preview-expanded={Boolean(expandedPreviewId)} data-pane-open={paneOpen} data-compact={compact} data-inspector-open={inspectorOpen}>
     {drawerOpen && <button type="button" className="matopt-sidebar-backdrop" aria-label="Close sidebar" tabIndex={-1} onClick={onCloseSidebar} />}
-    <aside ref={sidebarRef} className="matopt-sidebar" hidden={!sidebarOpen}
+    <aside ref={sidebarRef} id="matopt-chat-navigation" className="matopt-sidebar" hidden={!sidebarOpen}
       role={drawerOpen ? "dialog" : undefined} aria-modal={drawerOpen || undefined} aria-label="Chat navigation"
       onKeyDown={(event) => {
         if (!drawerOpen || event.defaultPrevented) return;
@@ -79,9 +86,9 @@ export function MatOptShell({ sidebar, header, conversation, sidePane, inspector
     <main className="matopt-main" inert={drawerOpen || undefined}>
       <header className="matopt-header">{header}</header>
       <div ref={workspaceRef} className="matopt-workspace" style={{ "--workspace-width": `${paneWidth}%` } as CSSProperties}>
-        <section className="matopt-conversation" aria-label="Conversation" inert={compact && (paneOpen || inspectorOpen) || undefined}>{conversation}</section>
+        <section className="matopt-conversation" aria-label="Conversation" inert={Boolean(expandedPreviewId) || (compact && (paneOpen || inspectorOpen)) || undefined}>{conversation}</section>
         <div className="matopt-workspace-splitter" role="separator" aria-label="Resize result workspace" aria-orientation="vertical" aria-valuemin={32} aria-valuemax={68} aria-valuenow={paneWidth} aria-valuetext={`Workspace ${paneWidth} percent`}
-          hidden={!paneOpen || compact || inspectorOpen} tabIndex={paneOpen && !compact && !inspectorOpen ? 0 : -1}
+          hidden={!paneOpen || compact || inspectorOpen || Boolean(expandedPreviewId)} tabIndex={paneOpen && !compact && !inspectorOpen && !expandedPreviewId ? 0 : -1}
           onKeyDown={(event) => {
             const next = event.key === "ArrowLeft" ? paneWidth + 2 : event.key === "ArrowRight" ? paneWidth - 2 : event.key === "Home" ? 32 : event.key === "End" ? 68 : null;
             if (next !== null) { event.preventDefault(); resize(next); }
@@ -95,13 +102,14 @@ export function MatOptShell({ sidebar, header, conversation, sidePane, inspector
           onPointerMove={(event) => { if (drag.current) resize(100 - (event.clientX - drag.current.left) / drag.current.width * 100); }}
           onPointerUp={(event) => { drag.current = null; if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId); }}
           onLostPointerCapture={() => { drag.current = null; }} />
-        <section ref={paneRef} className="matopt-side-pane" aria-label="Workspace panel" hidden={!paneOpen || inspectorOpen} inert={inspectorOpen || undefined}
+        <section ref={paneRef} className="matopt-side-pane" aria-label="Workspace panel" hidden={!paneOpen || inspectorOpen} inert={inspectorOpen || Boolean(expandedPreviewId) || undefined}
           onKeyDown={(event) => {
             if (event.key === "Escape" && !event.defaultPrevented && !(event.target as HTMLElement).closest("[role=dialog], [role=menu]")) { event.preventDefault(); event.stopPropagation(); onClosePane(); }
           }}>{sidePane}</section>
-        <aside ref={inspectorRef} className="matopt-inspector" aria-label="Activity inspector" hidden={!inspectorOpen}
+        <aside ref={inspectorRef} className="matopt-inspector" aria-label="Activity inspector" hidden={!inspectorOpen} inert={Boolean(expandedPreviewId) || undefined}
           onKeyDown={(event) => { if (event.key === "Escape" && !event.defaultPrevented) { event.preventDefault(); event.stopPropagation(); onCloseInspector?.(); } }}>{inspector}</aside>
+        <section ref={previewRef} className="matopt-expanded-panel" aria-label="Expanded preview" hidden={!expandedPreviewId} />
       </div>
     </main>
-  </div>;
+  </div></PreviewPanelContext.Provider>;
 }

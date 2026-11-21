@@ -222,6 +222,21 @@
       "maxItems": 20,
       "title": "Actions",
       "type": "array"
+    },
+    "recompute_action_id": {
+      "anyOf": [
+        {
+          "maxLength": 96,
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]*$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Recompute Action Id"
     }
   },
   "required": [

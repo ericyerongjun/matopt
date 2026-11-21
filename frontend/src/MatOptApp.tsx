@@ -1,6 +1,6 @@
 /** MatOpt conversation workspace, using the licensed ZCode component primitives. */
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Activity, Calculator, ChartNoAxesCombined, Download, FileCode2, Layers, Mic, Monitor, Moon, PanelLeft, RotateCcw, Settings, ShieldCheck, SlidersHorizontal, Smile, SquareFunction, SquarePen, Sun, Type, X, CaseSensitive } from "lucide-react";
+import { Activity, Calculator, ChartNoAxesCombined, Download, FileCode2, Layers, Mic, Monitor, Moon, PanelLeftClose, PanelLeftOpen, RotateCcw, Settings, ShieldCheck, SlidersHorizontal, Smile, SquareFunction, SquarePen, Sun, Type, X, CaseSensitive } from "lucide-react";
 import { Button } from "@/components/ui/button.js";
 import { DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu.js";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs.js";
@@ -85,6 +85,7 @@ export default function MatOptApp() {
   const pushToTalk = useVoiceStore((store) => store.pushToTalk);
   const setVoicePreference = useVoiceStore((store) => store.setPreference);
   const [sidebarVisible, setSidebarVisible] = useState(() => !window.matchMedia("(max-width: 900px)").matches);
+  const [expandedPreviewId, setExpandedPreviewId] = useState<string | null>(null);
   const [paneVisible, setPaneVisible] = useState(false);
   const [view, setView] = useState<WorkspaceView>("results");
   const [activityVisible, setActivityVisible] = useState(false);
@@ -110,28 +111,29 @@ export default function MatOptApp() {
   const closePane = useCallback(() => setPaneVisible(false), []);
   const dismissSidebar = useCallback(() => setSidebarVisible(false), []);
   const openPane = useCallback((next: WorkspaceView) => {
-    setView(next); setPaneVisible(true); setActivityVisible(false);
+    setExpandedPreviewId(null); setView(next); setPaneVisible(true); setActivityVisible(false);
     if (window.matchMedia("(max-width: 1023px)").matches) setSidebarVisible(false);
   }, []);
   const openCanvas = useCallback(() => openPane("results"), [openPane]);
-  const openActivity = useCallback(() => { setActivityView("timeline"); setActivityVisible(true); }, []);
+  const openActivity = useCallback(() => { setExpandedPreviewId(null); setActivityView("timeline"); setActivityVisible(true); }, []);
   const closeActivity = useCallback(() => setActivityVisible(false), []);
   const openFiles = () => { openPane("files"); void files.refresh(); };
   const selectChat = (id: string) => {
+    setExpandedPreviewId(null);
     if (window.matchMedia("(max-width: 900px)").matches) setSidebarVisible(false);
     if (id !== convos.activeId) { setDraftPreset(undefined); convos.select(id); }
   };
   const { abandon: abandonRun, sendMessage } = chat;
   const { newChat: startNewChat } = convos;
   const newChat = useCallback(() => {
-    setDraftPreset(undefined); void abandonRun(); startNewChat(); setPaneVisible(false); setActivityVisible(false);
+    setExpandedPreviewId(null); setDraftPreset(undefined); void abandonRun(); startNewChat(); setPaneVisible(false); setActivityVisible(false);
     if (window.matchMedia("(max-width: 900px)").matches) setSidebarVisible(false);
   }, [abandonRun, startNewChat]);
   const handleSend = useCallback((text: string, attached: File[] = [], skillNames: string[] = [], toolNames: string[] = []) => {
     if (inputDisabled) return false;
     return sendMessage(text, attached, skillNames, toolNames);
   }, [sendMessage, inputDisabled]);
-  const handleExplain = useCallback((text: string) => { void handleSend(text); }, [handleSend]);
+  const handleExplain = useCallback((text: string) => { setExpandedPreviewId(null); void handleSend(text); }, [handleSend]);
   // Hands-free conversation sends what was said; otherwise the transcript is inserted for review.
   const handleVoiceTranscript = useCallback((text: string) => {
     if (!useVoiceStore.getState().conversation) return false;
@@ -141,7 +143,7 @@ export default function MatOptApp() {
   useRunSpeech(attachedRun, messages);
   const handleUpload = async (list: File[]) => { if (!convos.activeId) return; await uploadFiles(convos.activeId, list); await files.refresh(); };
   useEffect(() => watchSystemTheme(loadTheme), []);
-  useEffect(() => { setPaneVisible(false); setActivityVisible(false); setActivityView("timeline"); setDraftPreset(undefined); setQuoteRequest(undefined); setChangesTurn(null); }, [convos.activeId]);
+  useEffect(() => { setExpandedPreviewId(null); setPaneVisible(false); setActivityVisible(false); setActivityView("timeline"); setDraftPreset(undefined); setQuoteRequest(undefined); setChangesTurn(null); }, [convos.activeId]);
   const openChanges = useCallback((turn: number) => { setChangesTurn(turn); openPane("changes"); }, [openPane]);
   const decideApproval = useCallback(async (approvalId: string, decision: "allow" | "deny") => {
     if (!chat.runId) throw new Error("This run is no longer active.");
@@ -245,11 +247,13 @@ export default function MatOptApp() {
       <TabsContent value="jobs" className="matopt-activity-content">{activityVisible && activityView === "jobs" && <JobsPanel key={convos.activeId ?? "draft"} conversationId={convos.activeId} running={attachedRun} revision={messages.length} />}</TabsContent>
     </Tabs>
   </>;
+  const sidebarLabel = sidebarVisible ? "Collapse sidebar" : "Open sidebar";
+  const SidebarIcon = sidebarVisible ? PanelLeftClose : PanelLeftOpen;
   return <UiWorkspaceProvider conversationId={convos.activeId} conversationBusy={attachedRun} surfaceIds={surfaceIds} onExplain={inputDisabled ? undefined : handleExplain} onCanvasOpen={openCanvas}>
-    <MatOptShell sidebarOpen={sidebarVisible} paneOpen={paneVisible} onCloseSidebar={dismissSidebar} onClosePane={closePane} conversation={conversation} sidePane={sidePane} inspector={inspector} inspectorOpen={activityVisible} onCloseInspector={closeActivity}
+    <MatOptShell expandedPreviewId={expandedPreviewId} onExpandedPreviewChange={setExpandedPreviewId} sidebarOpen={sidebarVisible} paneOpen={paneVisible} onCloseSidebar={dismissSidebar} onClosePane={closePane} conversation={conversation} sidePane={sidePane} inspector={inspector} inspectorOpen={activityVisible} onCloseInspector={closeActivity}
       sidebar={<ChatSidebar conversations={convos.conversations} activeId={convos.activeId} pausedConversationId={attachedRun && chat.paused ? convos.activeId : undefined} loading={convos.loadingList} onNewChat={newChat} onSelect={selectChat} onRename={convos.rename} onDelete={convos.remove} onFiles={openFiles} onClose={dismissSidebar} />}
-      header={<><div className="matopt-header-title">{!sidebarVisible && <><Button variant="ghost" size="icon-md" aria-label="Open sidebar" title="Open sidebar" onClick={() => setSidebarVisible(true)}><PanelLeft className="size-5" /></Button><Button variant="ghost" size="icon-md" aria-label="New chat" title="New chat" onClick={newChat}><SquarePen className="size-5" /></Button></>}<div className="matopt-task-identity"><h1 title={taskTitle}>{taskTitle}</h1>{taskContext && <span><i className="is-active" aria-hidden="true" />{taskContext}</span>}</div></div>
-        <div className="matopt-header-actions"><Button variant="ghost" size="sm" aria-label="Open workspace" title="Workspace" aria-expanded={paneVisible && !activityVisible} onClick={() => paneVisible && !activityVisible ? closePane() : openPane(view)}><Layers className="size-4" /><span>Workspace</span></Button><Button variant="ghost" size="sm" aria-label="Open activity" title="Activity" aria-expanded={activityVisible} onClick={() => activityVisible ? closeActivity() : openActivity()}><Activity className="size-4" /><span>Activity</span></Button><Button variant="ghost" size="sm" aria-label="Voice tutor" title="Voice tutor" aria-pressed={avatarOpen} onClick={() => setVoicePreference("avatarOpen", !avatarOpen)}><Smile className="size-4" /><span>Tutor</span></Button>{settings}<FontSettingsDialog open={fontsOpen} onOpenChange={setFontsOpen} value={fonts} onChange={(next) => setFonts(setFontPreferences(next))} />
+      header={<><div className="matopt-header-title"><Button variant="ghost" size="icon-md" aria-label={sidebarLabel} title={sidebarLabel} aria-expanded={sidebarVisible} aria-controls="matopt-chat-navigation" onClick={() => setSidebarVisible((open) => !open)}><SidebarIcon className="size-5" aria-hidden="true" /></Button>{!sidebarVisible && <Button variant="ghost" size="icon-md" aria-label="New chat" title="New chat" onClick={newChat}><SquarePen className="size-5" /></Button>}<div className="matopt-task-identity"><h1 title={taskTitle}>{taskTitle}</h1>{taskContext && <span><i className="is-active" aria-hidden="true" />{taskContext}</span>}</div></div>
+        <div className="matopt-header-actions"><Button variant="ghost" size="sm" aria-label="Open workspace" title="Workspace" aria-expanded={paneVisible && !activityVisible && !expandedPreviewId} onClick={() => paneVisible && !activityVisible && !expandedPreviewId ? closePane() : openPane(view)}><Layers className="size-4" /><span>Workspace</span></Button><Button variant="ghost" size="sm" aria-label="Open activity" title="Activity" aria-expanded={activityVisible} onClick={() => activityVisible ? closeActivity() : openActivity()}><Activity className="size-4" /><span>Activity</span></Button><Button variant="ghost" size="sm" aria-label="Voice tutor" title="Voice tutor" aria-pressed={avatarOpen} onClick={() => setVoicePreference("avatarOpen", !avatarOpen)}><Smile className="size-4" /><span>Tutor</span></Button>{settings}<FontSettingsDialog open={fontsOpen} onOpenChange={setFontsOpen} value={fonts} onChange={(next) => setFonts(setFontPreferences(next))} />
           <SettingsDialog open={settingsOpen} onOpenChange={setSettingsOpen} conversationId={convos.activeId} conversationMemory={memoryMode === "disabled" ? "disabled" : memoryMode === "enabled" ? "enabled" : undefined} /></div></>} />
   </UiWorkspaceProvider>;
 }

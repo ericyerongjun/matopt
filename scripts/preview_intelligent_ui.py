@@ -29,7 +29,8 @@ class PreviewProvider(LLMProvider):
         if messages[-1]['role'] == 'tool':
             yield StreamDelta(kind='text', text='This result is saved with the chat. Open it in canvas for more space, or export its data.'); yield StreamDelta(kind='finish',finish_reason='stop'); return
         scope = {}; exec(TAYLOR, scope)
-        payload = {'id':'taylor-live','title':'Taylor approximation','nodes':scope['compute']({'degree':3})['nodes'][2:], 'fallback':scope['compute']({'degree':3})['fallback']}
+        result = scope['compute']({'degree':3})
+        payload = {'id':'taylor-live','title':'Taylor approximation','nodes':[n for n in result['nodes'] if n['type'] != 'slider'], 'fallback':result['fallback']}
         yield StreamDelta(kind='text',text='Here is a computed approximation to explore. ')
         yield StreamDelta(kind='tool_call',tool_call=ToolCallDelta(index=0,id='preview-ui',name='render_ui',arguments=''))
         raw = json.dumps(payload)

@@ -6,6 +6,7 @@
   const surfaceId = params.get("surface");
   if (!channel || !surfaceId || parent === window) return;
   let initialized = false;
+  let standalone = false;
   let state = {};
   let theme = "light";
   let lastHeight = 0;
@@ -18,17 +19,22 @@
     try { return JSON.stringify(value).length <= 65536; } catch { return false; }
   }
   function resize() {
-    const height = Math.max(160, Math.min(1200, Math.ceil(document.body?.scrollHeight || 160)));
+    const body = document.body;
+    if (!body) return;
+    const style = getComputedStyle(body);
+    const contentHeight = Math.max(body.scrollHeight, body.offsetHeight) + (parseFloat(style.marginTop) || 0) + (parseFloat(style.marginBottom) || 0);
+    const height = Math.max(160, Math.min(4096, Math.ceil(contentHeight)));
     if (height !== lastHeight) { lastHeight = height; post("matopt:resize", { height }); }
   }
   function setState(next, notify = true) {
     if (!validState(next)) return;
-    // Only keys declared in the initial server-owned state may cross the bridge.
-    const allowed = {};
-    for (const key of Object.keys(state)) if (Object.hasOwn(next, key)) allowed[key] = next[key];
-    state = { ...state, ...copy(allowed) };
+    // Files and code fences have no host-owned state. Their edits stay in this frame.
+    const patch = standalone ? next : Object.fromEntries(Object.entries(next).filter(([key]) => Object.hasOwn(state, key)));
+    const updated = { ...state, ...copy(patch) };
+    if (!validState(updated) || JSON.stringify(updated) === JSON.stringify(state)) return;
+    state = updated;
     for (const listener of stateListeners) { try { listener(copy(state)); } catch { /* app-local error */ } }
-    if (notify) post("matopt:state", { state });
+    if (notify && !standalone) post("matopt:state", { state });
     requestAnimationFrame(resize);
   }
   function setTheme(next) {
@@ -60,6 +66,8 @@
   }
   async function render(html) {
     if (typeof html !== "string" || html.length > 2_000_000) throw new Error("Preview exceeds size limit");
+    // The host normally supplies the generated document after this runtime's own load.
+    const alreadyLoaded = document.readyState === "complete";
     const parsed = new DOMParser().parseFromString(html, "text/html");
     // Navigation, forms, unapproved external scripts and assets are blocked by HTTP CSP
     // and the embedding document's frame-src policy. Keep the runtime header intact.
@@ -71,6 +79,7 @@
     const scripts = [...parsed.querySelectorAll("script")].filter(executableType).map((script) => ({ text: script.textContent || "", type: script.type, src: script.getAttribute("src") }));
     parsed.querySelectorAll("script").forEach((script) => { if (executableType(script)) script.remove(); });
     document.body.replaceChildren(...[...parsed.body.childNodes].map((node) => document.importNode(node, true)));
+    const modules = [];
     for (const script of scripts) {
       if (script.src !== null) {
         if (!/^https:\/\/cdn\.plot\.ly\/plotly-(?:\d+\.\d+\.\d+|latest)\.min\.js$/.test(script.src) && script.src !== "/plotly.min.js") throw new Error("Unsupported external library");
@@ -80,8 +89,17 @@
       if (script.type && !["module", "text/javascript", "application/javascript"].includes(script.type)) continue;
       const executable = document.createElement("script");
       if (script.type) executable.type = script.type;
+      if (script.type === "module") modules.push(new Promise((resolve, reject) => {
+        executable.onload = resolve;
+        executable.onerror = reject;
+      }));
       executable.textContent = script.text;
       document.body.appendChild(executable);
+    }
+    await Promise.all(modules);
+    if (alreadyLoaded) {
+      document.dispatchEvent(new Event("DOMContentLoaded", { bubbles: true }));
+      window.dispatchEvent(new Event("load"));
     }
     new ResizeObserver(resize).observe(document.body);
     requestAnimationFrame(resize);
@@ -91,13 +109,16 @@
     if (event.source !== parent || !message || message.version !== 1 || message.channel !== channel || message.surfaceId !== surfaceId) return;
     if (message.type === "matopt:init" && !initialized) {
       if (!validState(message.state) || typeof message.html !== "string") return;
-      initialized = true; state = copy(message.state); setTheme(message.theme); void render(message.html).catch(fail);
-    } else if (initialized && message.type === "matopt:state") setState(message.state, false);
+      initialized = true; standalone = message.standalone === true; state = copy(message.state); setTheme(message.theme); void render(message.html).catch(fail);
+    } else if (initialized && !standalone && message.type === "matopt:state") setState(message.state, false);
     else if (initialized && message.type === "matopt:theme") setTheme(message.theme);
   });
   document.addEventListener("click", (event) => {
     if (event.target instanceof Element && event.target.closest("a[href]")) event.preventDefault();
   }, true);
   document.addEventListener("submit", (event) => event.preventDefault(), true);
+  addEventListener("keydown", (event) => {
+    if (event.key === "Escape" && !event.defaultPrevented) post("matopt:escape");
+  });
   post("matopt:ready");
 })();

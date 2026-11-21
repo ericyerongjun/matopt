@@ -318,7 +318,16 @@ async def test_truncation_tracks_the_final_call_and_cannot_pass_verification(rig
                 yield delta
     rig.provider = FinishReasonProvider([])
     rig.harness.providers = FakeRegistry(rig.provider)
-    events = await run(rig, [{"text": "Readable first part…", "finish_reason": "length"}], verify=True)
+    events = await run(rig, [{"text": "Readable ", "finish_reason": "length"},
+                             {"text": "second ", "finish_reason": "max_tokens"}, {"text": "part."}])
+    assert final(events)["parts"][0]["text"] == "Readable second part."
+    assert final(events)["status"] == "complete"
+    events = await run(rig, [{"text": "Draft."}, {"text": "Live ", "finish_reason": "length"},
+                             {"text": "answer."}], strict_final=False)
+    assert final(events)["status"] == "complete"
+    assert final(events)["parts"][0]["text"] == "Live answer."
+    events = await run(rig, [{"text": "Readable first part…", "finish_reason": "length"},
+                             {"text": "", "finish_reason": "length"}], verify=True)
     assert final(events)["parts"][0]["text"] == "Readable first part…"
     assert final(events)["status"] == "error" and "incomplete" in final(events)["notice"]
     assert final(events)["work"]["verification"]["status"] == "limit_reached"
@@ -328,6 +337,38 @@ async def test_truncation_tracks_the_final_call_and_cannot_pass_verification(rig
     events = await run(rig, [{"text": "Complete answer."}, {"text": "<verdict>correct</verdict>", "finish_reason": "length"}], verify=True)
     assert final(events)["work"]["verification"]["status"] == "uncertain"
     assert "unverified" in final(events)["notice"]
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("reject_first", [False, True])
+async def test_continuation_compacts_input_and_preserves_streamed_answer(rig, reject_first):
+    from app.agent.compaction import is_summary
+
+    prefix = "Results from section one. " * 800 + "The last exact phrase"
+
+    class WindowProvider(FakeProvider):
+        async def stream(self, messages, tools, options):
+            if len(self.calls) == 1 and reject_first and not any(is_summary(m) for m in messages):
+                raise RuntimeError("maximum context length exceeded")
+            first = not self.calls
+            async for delta in super().stream(messages, tools, options):
+                if first and delta.kind == "finish":
+                    delta.finish_reason = "length"
+                yield delta
+
+    rig.provider = WindowProvider([])
+    rig.harness.providers = FakeRegistry(rig.provider)
+    if not reject_first:
+        rig.config.history_char_budget = 10_000
+    events = await run(rig, [{"text": prefix}, {"text": " ends here."}], text="Hi", strict_final=False)
+    checkpoint = rig.provider.calls[-1]
+    assert any(is_summary(m) for m in checkpoint)
+    assert prefix.endswith(checkpoint[-2]["content"])
+    assert 0 < len(checkpoint[-2]["content"]) < len(prefix)
+    expected = prefix + " ends here."
+    assert final(events)["status"] == "complete"
+    assert final(events)["parts"][0]["text"] == expected
+    assert "".join(e["delta"] for e in events if e["type"] == "text_delta") == expected
 
 
 def test_output_artifact_dedup_uses_latest_data():

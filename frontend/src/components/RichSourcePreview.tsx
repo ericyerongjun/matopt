@@ -1,6 +1,7 @@
 import { useId, useMemo, useState, type ReactNode } from "react";
 import { Check, Code2, Copy, Eye } from "lucide-react";
 import { MiniAppFrame } from "../features/intelligent-ui/MiniAppFrame.tsx";
+import { ExpandablePreview } from "../features/intelligent-ui/ExpandablePreview.tsx";
 import { useOptionalUiWorkspace } from "../features/intelligent-ui/UiWorkspace.tsx";
 import { richSourcePreviewIssue, svgImageDataUrl, type RichSourceKind } from "../utils/richSource.ts";
 import css from "./RichSourcePreview.module.css";
@@ -32,16 +33,16 @@ export function RichSourcePreview({ source, kind, title, defaultView = "code", c
         catch { setCopyError(true); }
     };
 
-    return <section className={`${css.root} ${embedded ? css.embedded : ""}`} data-rich-source={kind} data-rich-view={view} aria-label={title || `${label} output`}>
+    const content = (expand?: ReactNode) => <section className={`${css.root} ${embedded ? css.embedded : ""}`} data-rich-source={kind} data-rich-view={view} aria-label={title || `${label} output`}>
         <div className={css.toolbar}>
             <div className={css.views} role="group" aria-label={`${label} view`}>
                 <button type="button" aria-pressed={view === "preview"} disabled={Boolean(issue)} aria-describedby={issue ? `${id}-notice` : undefined}
                     onClick={() => setSelection({ source, view: "preview" })}><Eye size={iconSize} strokeWidth={1.8} aria-hidden="true" />Preview</button>
                 <button type="button" aria-pressed={view === "code"} onClick={() => setSelection({ source, view: "code" })}><Code2 size={iconSize} strokeWidth={1.8} aria-hidden="true" />Code</button>
             </div>
-            {!embedded && <button className={css.copy} type="button" aria-label={copied ? "Copied source" : "Copy source"} title={copied ? "Copied" : "Copy source"} onClick={copy}>
+            <div className={css.views}>{expand}{!embedded && <button className={css.copy} type="button" aria-label={copied ? "Copied source" : "Copy source"} title={copied ? "Copied" : "Copy source"} onClick={copy}>
                 {copied ? <Check size={iconSize} strokeWidth={1.8} /> : <Copy size={iconSize} strokeWidth={1.8} />}
-            </button>}
+            </button>}</div>
         </div>
         {issue && <p id={`${id}-notice`} className={css.notice} role="status">{issue}</p>}
         {copyError && <p className={css.notice} role="status">Copy was unavailable. You can select the source below.</p>}
@@ -50,4 +51,6 @@ export function RichSourcePreview({ source, kind, title, defaultView = "code", c
                 : kind === "svg" ? <img className={css.image} src={imageUrl} alt={title || "SVG preview"} onError={() => setFailedImage(source)} />
                 : <MiniAppFrame surfaceId={`rich:${id}`} title={title || `${label} preview`} html={source} fallback="This preview is unavailable. Switch to Code to read the source." />}
     </section>;
+    return kind === "html" && !issue
+        ? <ExpandablePreview title={title || "HTML preview"}>{content}</ExpandablePreview> : content();
 }

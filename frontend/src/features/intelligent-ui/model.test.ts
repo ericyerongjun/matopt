@@ -56,7 +56,8 @@ test("bridge rejects forged channels, revisions and undeclared actions; resize v
     assert.equal(validateFrameMessage({ ...envelope, version: 2, type: "matopt:ready" }, identity, surface.state), null);
     assert.equal(validateFrameMessage({ ...envelope, type: "matopt:action", action: "python" }, identity, surface.state), null);
     assert.equal(validateFrameMessage({ ...envelope, type: "matopt:state", state: { url: "https://example.com" } }, identity, surface.state), null);
-    assert.deepEqual(validateFrameMessage({ ...envelope, type: "matopt:resize", height: 9000 }, identity, surface.state), { type: "matopt:resize", height: 1200 });
+    assert.deepEqual(validateFrameMessage({ ...envelope, type: "matopt:resize", height: 1800 }, identity, surface.state), { type: "matopt:resize", height: 1800 });
+    assert.deepEqual(validateFrameMessage({ ...envelope, type: "matopt:resize", height: 9000 }, identity, surface.state), { type: "matopt:resize", height: 4096 });
     assert.deepEqual(validateFrameMessage({ ...envelope, type: "matopt:state", state: { degree: 2 } }, identity, surface.state), { type: "matopt:state", state: { degree: 2, label: "Current degree" } });
 });
 

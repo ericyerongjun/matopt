@@ -133,7 +133,7 @@ an ordinary shutdown. Configuration stays in the host's `backend/.env`.
 | --- | --- | --- |
 | Voice interaction | Browser recording, local faster-whisper transcription, Kokoro synthesis, read-aloud and interruptible hands-free conversation. | Microphone permission, downloaded speech models and adequate CPU; mathematical speech can be imperfect. |
 | Animated 3D tutor | Three.js and VRM render a tutor with mouth motion, blinking and speaking/listening/working states; custom VRM import. | Approximate lip sync, WebGL support and avatar asset licenses. |
-| Interactive explanations | Validated native controls, equations, tables, charts and diagrams; isolated HTML mini-apps; shared inline/canvas state and registered Python recomputation. | Generated apps can fail; controls only recompute through declared actions; the separate mini-app runtime must run. |
+| Interactive explanations | Expandable charts and simulations with shared inline/canvas controls. Model parameters can recalculate outputs locally in HTML or automatically through a registered Python action. | Generated apps can fail. HTML previews require the separate mini-app runtime. |
 | PDF and image understanding | Page-oriented vision processing preserves a Markdown extraction, original files and page-coverage reporting. | API access, OCR mistakes and extra per-page time; unreadable pages must be acknowledged. |
 | Persistent computational workspace | A per-conversation Python kernel, files, shell tools, notebook capture and previews. | Kernel restarts lose in-memory variables; code execution remains subject to sandbox and tool policy. |
 | Bounded agent execution | Operation-specific repeated-failure checks, shared request/tool/time budgets, cancellation and limited optional subagents. | Stops bound work but do not prove correctness or guarantee quick completion. |
@@ -158,8 +158,9 @@ not train or fine-tune an LLM. Skills, prompts, tools and memory supply the spec
   (Right Alt elsewhere). Use **Read aloud** or enable **Speak** in the Tutor
   panel. Hands-free **Talk** mode sends speech and plays replies; speaking again
   interrupts playback. The language picker coordinates replies and speech.
-- **Explore results:** use **Open in canvas** to expand an interactive result,
-  **Files** for saved artifacts and **Activity** for progress and usage.
+- Use **Expand** on an interactive result to fill the area beside the sidebar.
+  **Open in canvas** shows the result alongside the chat. The sidebar toggle in
+  the chat header makes more room in either view.
 - **Control a run:** stop, pause/resume or send a follow-up while work is running.
   Enable **Check results** when a bounded verification pass is useful.
 - **Choose response behavior:** **Ultrafast Demo** is enabled by default and is

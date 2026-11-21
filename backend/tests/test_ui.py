@@ -29,7 +29,8 @@ from tests.fake_provider import FakeProvider, FakeRegistry
 def native(**overrides):
     return {"id": "taylor", "title": "Taylor approximation", "fallback": "Approximation at degree 2.",
             "nodes": [{"id": "degree", "type": "slider", "props": {"stateKey": "degree", "label": "Degree", "value": 2, "min": 1, "max": 10}},
-                      {"id": "equation", "type": "equation", "props": {"latex": "1+x+x^2/2"}}],
+                      {"id": "terms", "type": "table", "props": {"filterKey": "degree", "columns": ["Degree", "Polynomial"],
+                                                               "rows": [[1, "1+x"], [2, "1+x+x^2/2"]]}}],
             "state": {"degree": 2}, **overrides}
 
 
@@ -88,10 +89,11 @@ def setup_action(rig):
 
 
 class FakePython:
-    def __init__(self, *, fail=False, block=False):
+    def __init__(self, *, fail=False, block=False, change=None):
         self.calls = 0
         self.fail = fail
         self.block = block
+        self.change = change if change is not None else {"state": {"degree": 4}, "fallback": "Approximation at degree 4."}
         self.started = asyncio.Event()
         self.release = asyncio.Event()
 
@@ -104,7 +106,7 @@ class FakePython:
             return ToolResult(ok=False, error="Numerical calculation failed")
         tree = ast.parse(code)
         dest = next(ast.literal_eval(node.args[0]) for node in ast.walk(tree) if isinstance(node, ast.Call) and isinstance(node.func, ast.Name) and node.func.id == "_MatoptUIPath")
-        Path(dest).write_text(json.dumps({"state": {"degree": 4}, "fallback": "Approximation at degree 4."}))
+        Path(dest).write_text(json.dumps(self.change))
         return ToolResult(ok=True, output="computed")
 
 
@@ -153,7 +155,7 @@ async def test_negotiation_stream_commit_and_compact_replay(rig):
     assert active_call["function"]["arguments"] == raw_args
     receipt = json.loads(next(m["content"] for m in rig.provider.calls[1] if m.get("role") == "tool"))
     assert receipt["ok"] and receipt["status"] == "committed" and receipt["node_count"] == 2
-    assert receipt["node_types"] == ["equation", "slider"]
+    assert receipt["node_types"] == ["slider", "table"]
     assert len(rig.provider.calls) == 3 and final["content"]["stats"]["tool_calls"] == 1
     assert rig.provider.catalogs[-1] is None  # Final rendering cannot call tools.
     await run(rig, [{"text": "A follow-up."}])
@@ -268,6 +270,57 @@ def test_handler_schema_and_action_scope(rig):
         rig.service.prepare_action(rig.cid, "taylor", {**request, "action_id": "unknown"})
     with pytest.raises(ValueError):
         rig.service.prepare_action(rig.cid, "taylor", {**request, "values": {"degree": 4, "code": "evil"}})
+
+
+@pytest.mark.asyncio
+async def test_output_only_action_updates_nested_results_without_losing_controls(rig):
+    slider, table = native()["nodes"]
+    graph = {"id": "graph", "type": "plot", "props": {"data": [{"y": [2]}]}}
+    button = {"id": "again", "type": "button", "props": {"actionId": "recompute", "label": "Recompute"}}
+    header = {"id": "heading", "type": "markdown", "props": {"text": "Approximation"}}
+    result = rig.service.commit(rig.ctx, native(recompute_action_id="recompute", actions=[register(rig)],
+        nodes=[header, {"id": "layout", "type": "grid", "children": [slider, button, graph]}, table],
+        state={"degree": 2, "units": "radians"}))
+    new_table = {**table, "props": {**table["props"], "rows": [[4, "new result"]]}}
+    new_graph = {**graph, "props": {"data": [{"y": [4]}]}}
+    rig.service.python = FakePython(change={"nodes": [new_table, new_graph], "state": {"metric": 7}})
+    request = {"action_id": "recompute", "revision": result["revision"], "values": {"degree": 4}, "idempotency_key": "edit"}
+    events = [e.to_dict() async for e in rig.service.actions(rig.service.prepare_action(rig.cid, "taylor", request))]
+    assert events[-1]["type"] == "done"
+    saved = rig.service.store.get(rig.cid, "taylor")
+    assert saved == events[-2]["surface"] and saved["revision"] == result["revision"] + 1
+    nodes = saved["nodes"]
+    assert nodes[0] == result["nodes"][0] and nodes[1]["id"] == "layout"
+    assert nodes[1]["children"][:2] == result["nodes"][1]["children"][:2]
+    assert nodes[1]["children"][2]["props"] == new_graph["props"] and nodes[2]["props"] == new_table["props"]
+    assert saved["computed_state"] == saved["state"] == {"degree": 4, "units": "radians", "metric": 7}
+    assert rig.service.prepare_action(rig.cid, "taylor", request)["events"] == events[-2:]
+    assert rig.service.store.get(rig.cid, "taylor", result["revision"]) == result
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("shape", ["unknown", "duplicate", "control_target", "invalid_plot", "complete", "manual"])
+async def test_action_node_updates_keep_validation_and_complete_replacements(rig, shape):
+    result = rig.service.commit(rig.ctx, native(actions=[register(rig)],
+        recompute_action_id=None if shape == "manual" else "recompute"))
+    output = {"id": "terms", "type": "markdown", "props": {"text": "Updated"}}
+    nodes = {
+        "unknown": [{**output, "id": "missing"}],
+        "duplicate": [output, output],
+        "control_target": [{**output, "id": "degree"}],
+        "invalid_plot": [{**output, "type": "plot"}],
+        "complete": [result["nodes"][0], {**output, "id": "new-result"}],
+        "manual": [output],
+    }[shape]
+    rig.service.python = FakePython(change={"nodes": nodes})
+    request = {"action_id": "recompute", "revision": result["revision"], "values": {"degree": 4}, "idempotency_key": "edit"}
+    events = [e.to_dict() async for e in rig.service.actions(rig.service.prepare_action(rig.cid, "taylor", request))]
+    saved = rig.service.store.get(rig.cid, "taylor")
+    if shape in {"complete", "manual"}:
+        assert events[-1]["type"] == "done"
+        assert [node["id"] for node in saved["nodes"]] == [node["id"] for node in nodes]
+    else:
+        assert events[-1]["type"] == "ui_error" and saved == result
 
 
 @pytest.mark.asyncio
@@ -456,7 +509,28 @@ async def test_repair_budget_is_per_surface_revision(rig):
 
 def test_select_state_uses_renderer_option_identity(rig):
     surface = native(nodes=[{"id": "choice", "type": "select", "props": {"stateKey": "choice", "label": "Choice", "options": [{"label": "One"}, {"label": "Numeric", "value": 1}], "value": "One"}}], state={"choice": "One"})
+    surface["nodes"].append({"id": "selected", "type": "markdown", "props": {"text": {"$state": "choice"}}})
     committed = rig.service.commit(rig.ctx, surface)
     assert committed["state"]["choice"] == "One"
     with pytest.raises(ValueError):
         rig.service.store.patch_state(rig.cid, "taylor", 1, {"choice": True})
+
+
+@pytest.mark.asyncio
+async def test_parameter_controls_need_a_consumer_and_live_actions_need_matching_inputs(rig):
+    disconnected = native()
+    del disconnected["nodes"][1]["props"]["filterKey"]
+    with pytest.raises(ValueError, match="Controls without a connected output: degree"):
+        rig.service.commit(rig.ctx, disconnected)
+    register(rig)
+    result = await RenderUITool().run(rig.ctx, **disconnected, recompute_action_id="recompute")
+    assert result.ok
+    saved = rig.service.store.get(rig.cid, "taylor")
+    assert saved["recompute_action_id"] == saved["actions"][0]["id"] == "recompute"
+    for invalid in (
+        {**saved, "recompute_action_id": "missing"},
+        {**saved, "nodes": []},
+        {**saved, "kind": "mini_app", "app": {"html": "<p>Saved result</p>"}},
+    ):
+        with pytest.raises(ValueError, match="recompute"):
+            UISurface.model_validate(invalid)

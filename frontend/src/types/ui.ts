@@ -29,6 +29,7 @@ export interface UISurface {
     state: Record<string, JSONValue>;
     computed_state?: Record<string, JSONValue> | null;
     actions: Array<UIAction>;
+    recompute_action_id?: string | null;
 }
 export type UINodeType = UINode["type"];
 export interface UICapabilities {

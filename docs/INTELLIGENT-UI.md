@@ -84,11 +84,14 @@ Final `message_end` snapshots and recovered history use the same message shape.
 | PATCH | `/api/conversations/{cid}/ui/{sid}/state` | `{revision,state}` → `{surface}` |
 | POST | `/api/conversations/{cid}/ui/{sid}/actions` | `{action_id,revision,values,idempotency_key}` → SSE |
 
-Control edits are shared between inline and canvas views and saved after a short
-debounce. They do not call the model. Edits during a chat or another computation
-save when that work finishes. A changed computation input displays a notice
-until the user recomputes; persisted `computed_state` keeps that distinction
-after reload. Reset restores the view's initial controls. Explain explicitly
+Control edits are shared between inline and canvas views. A native surface can
+set `recompute_action_id` to a registered Python action whose input schema names
+its model parameters. After a 400 ms pause in editing, the host saves the controls
+and runs that action with the latest inputs. Edits made during a chat or calculation
+are queued. Display-only changes save the selected values without running Python.
+Actions on older surfaces keep their explicit buttons. The saved `computed_state`
+identifies the parameters behind the last successful result after a reload or failure.
+Reset restores the view's initial controls. Explain explicitly
 submits current parameters and the last result as a follow-up. Export downloads
 the surface, parameters and data as JSON; conversation exports include readable
 fallbacks and parameter information.
@@ -96,7 +99,12 @@ fallbacks and parameter information.
 An action handler is registered by the agent as a self-contained Python module
 defining `compute(values)`. Its versioned code, JSON input schema, required
 workspace files, seed and timeout are persisted server-side. It returns a JSON
-object containing `nodes`, `state`, `fallback` and/or `title`. The browser sends
+object containing `nodes`, `state`, `fallback` and/or `title`. On surfaces with
+`recompute_action_id`, an action can return just the updated output leaves in
+`nodes`. Each ID replaces its existing plot, table, comparison, equation,
+diagram or Markdown block in place. Other outputs, controls, buttons and
+layout groups stay in position. To change the layout, return the complete node
+tree including the controls. The browser sends
 only the registered action ID and validated values. Execution uses the existing
 conversation kernel and notebook, shares the chat's execution lease, supports
 Stop, and refuses stale revisions. Handlers reload their definitions and files
@@ -123,6 +131,11 @@ prevents scripted navigation to the main app or an external site. PDF previews
 render one bounded page image at a time through the backend, with page navigation
 and the original download available. They do not require a browser PDF plugin.
 Existing generated HTML previews use the same isolated runtime as new mini-apps.
+**Expand** fills the workspace below the chat header, beside the sidebar.
+**Collapse** returns the block to its original position in the chat or workspace. Generated simulations use compact
+controls beside the output, or below a smaller plot on narrow screens. Model
+parameter edits run the calculation and redraw dependent results. Playback
+controls step through previously computed data.
 
 Only complete self-contained HTML runs. Use inline CSS/JS and data/blob assets;
 external libraries and CDNs are unavailable. Inert JSON script blocks are
@@ -143,7 +156,8 @@ window.matopt.resize();
 Theme variables are `--matopt-bg`, `--matopt-text`, `--matopt-muted`,
 `--matopt-border` and `--matopt-control`. A frame-specific channel and source
 window bind all bridge messages to their surface. The host validates declared
-state keys, bounded JSON and resize values. Frames have no bridge method for
+state keys, bounded JSON and resize values. Standalone HTML files and code
+fences keep their preview state within the frame. Frames have no bridge method for
 server computation, downloads, navigation or model calls; the host supplies
 those controls.
 

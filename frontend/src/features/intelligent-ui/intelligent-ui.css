@@ -1,16 +1,22 @@
 /* MatOpt native results inherit the same quiet system typography as chat. */
 .ui-surface {
-  width: 100%; min-width: 0; overflow: hidden; padding: 20px;
+  width: 100%; min-width: 0; overflow: clip; padding: 20px;
   border: 1px solid var(--color-border, #e5e5e5); border-radius: var(--mo-radius-block, 12px);
   background: var(--color-panel, #fff); color: var(--color-foreground, #0d0d0d);
   font-family: inherit; font-size: var(--matopt-text-base, 16px); line-height: 1.5;
   container: ui-surface / inline-size;
 }
-.ui-surface-header { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; margin-bottom: 20px; min-height: 36px; }
+.ui-surface-header { position: sticky; top: 0; z-index: 1; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; margin-bottom: 20px; min-height: 36px; background: var(--color-panel, #fff); }
 .ui-surface-header h3, .ui-canvas-title { min-width: 0; margin: 0; font-size: 1em; font-weight: 600; line-height: 1.4; overflow-wrap: anywhere; }
 .ui-surface-header-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 4px; }
 .ui-surface-note, .ui-control-description, .ui-save-status { color: var(--color-foreground-subtle, #707070); font-size: max(12px, calc(var(--ui-font-size, 14px) - 1px)); line-height: 1.5; }
 .ui-native-surface, .ui-node-stack { display: flex; flex-direction: column; gap: 20px; min-width: 0; }
+.ui-parameter-plot { display: grid; grid-template-columns: minmax(0, 2fr) minmax(150px, 1fr); align-items: start; gap: 20px; }
+.ui-parameter-controls { display: grid; min-width: 0; gap: 12px; max-height: min(24rem, 48dvh); overflow: auto; padding: 4px; }
+@container ui-surface (max-width: 520px) {
+  .ui-parameter-plot { grid-template-columns: minmax(0, 1fr); gap: 8px; }
+  .ui-parameter-controls { max-height: min(12rem, 26dvh); }
+}
 .ui-node-row { flex-direction: row; flex-wrap: wrap; align-items: start; }
 .ui-node-row > * { flex: 1 1 150px; min-width: 0; }
 .ui-node-grid { display: grid; grid-template-columns: repeat(var(--ui-grid-columns, 2), minmax(0, 1fr)); gap: 20px; min-width: 0; }
@@ -92,6 +98,20 @@
 .ui-mini-app { width: 100%; min-width: 0; }
 .ui-mini-app-frame { display: block; width: 100%; border: 0; background: transparent; max-width: 100%; border-radius: 10px; }
 .ui-mini-app > .ui-surface-note { padding: 12px 0; }
+.ui-preview-slot, .ui-preview-block, .ui-preview-content { min-width: 0; width: 100%; }
+.matopt-expanded-panel > .ui-preview-block, .ui-preview-content[data-expanded] { height: 100%; }
+.ui-preview-content[data-expanded] > .ui-surface, .ui-preview-content[data-expanded] > [data-rich-source] {
+  height: 100%; display: flex; flex-direction: column; overflow: auto; border: 0; border-radius: 0;
+}
+.ui-preview-content[data-expanded] > .ui-surface { padding: 12px clamp(12px, 3vw, 40px); }
+.ui-preview-content[data-expanded] > .ui-surface > * { flex-shrink: 0; }
+.ui-preview-content[data-expanded] > .ui-surface > .ui-surface-header { margin-bottom: 8px; }
+.ui-preview-content[data-expanded] > .ui-surface > header .ui-icon-button { display: none; }
+.ui-preview-content[data-expanded] > :is([data-ui-kind="mini_app"], [data-rich-source="html"]) > .ui-mini-app {
+  display: flex; flex: 1 0 min(240px, 45dvh); flex-direction: column; min-height: 0;
+}
+.ui-preview-content[data-expanded] .ui-mini-app-frame { flex: 1 1 0px; min-height: 0; border-radius: 0; }
+.ui-preview-content[data-expanded] > .ui-surface > .ui-surface-footer { margin-top: 8px; padding-top: 4px; }
 .ui-canvas-content { min-width: 0; padding: 28px; overflow-x: hidden; background: var(--color-panel); font-size: var(--matopt-text-base, 16px); }
 .ui-canvas-title, .ui-surface-canvas .ui-surface-header h3 { font-size: calc(var(--ui-font-size, 14px) + 6px); line-height: 1.35; letter-spacing: -.02em; }
 .ui-canvas-title { margin-bottom: 24px; }

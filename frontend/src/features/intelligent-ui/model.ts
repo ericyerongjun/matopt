@@ -35,6 +35,7 @@ export function isSurface(value: unknown): value is UISurface {
     };
     return surface.nodes.every((node) => validNode(node))
         && surface.actions.every((action) => action && typeof action === "object" && typeof action.id === "string" && !FORBIDDEN_KEYS.has(action.id) && typeof action.label === "string" && isState(action.input_schema) && Number.isInteger(action.handler_version))
+        && (surface.recompute_action_id == null || surface.kind === "native" && surface.actions.some((action) => action.id === surface.recompute_action_id))
         && (surface.kind !== "mini_app" || surface.status === "preview" || typeof surface.app?.html === "string");
 }
 
@@ -100,7 +101,11 @@ export function declaredStateUpdate(value: unknown, current: Record<string, JSON
 }
 
 export function hasChangedActionInputs(surface: UISurface, state: Record<string, JSONValue>, resultState: Record<string, JSONValue>): boolean {
-    return surface.actions.some((action) => JSON.stringify(actionValues(action, state)) !== JSON.stringify(actionValues(action, resultState)));
+    return surface.actions.some((action) => actionInputsChanged(action, state, resultState));
+}
+
+export function actionInputsChanged(action: UIAction, state: Record<string, JSONValue>, previous: Record<string, JSONValue>): boolean {
+    return JSON.stringify(actionValues(action, state)) !== JSON.stringify(actionValues(action, previous));
 }
 
 export function surfaceExplanation(surface: UISurface, state: Record<string, JSONValue>, resultState = state): string {

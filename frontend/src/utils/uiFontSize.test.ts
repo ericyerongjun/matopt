@@ -86,8 +86,8 @@ describe("persistence", () => {
 
     it("loads the persisted value, defaulting when absent or corrupt", () => {
         assert.equal(loadUiFontSizePx(), DEFAULT_UI_FONT_SIZE_PX);
-        storage.set(UI_FONT_SIZE_STORAGE_KEY, "16");
-        assert.equal(loadUiFontSizePx(), 16);
+        storage.set(UI_FONT_SIZE_STORAGE_KEY, "14");
+        assert.equal(loadUiFontSizePx(), 14);
         storage.set(UI_FONT_SIZE_STORAGE_KEY, "not-a-number");
         assert.equal(loadUiFontSizePx(), DEFAULT_UI_FONT_SIZE_PX);
         storage.set(UI_FONT_SIZE_STORAGE_KEY, "999");

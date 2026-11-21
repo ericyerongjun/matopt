@@ -259,6 +259,87 @@ test("failed actions preserve the preceding result and expose a recoverable erro
     assert.ok(button(dom, "Reload saved result"));
 });
 
+test("parameter edits automatically compute the latest result across inline and canvas views", async () => {
+    const base = example();
+    let saved = example({ recompute_action_id: "recompute", computed_state: base.state,
+        nodes: [base.nodes[0], { id: "squared", type: "comparison", props: { items: [{ label: "Squared", value: 25 }] } },
+            { id: "units", type: "toggle", props: { label: "Show units", stateKey: "units", value: false } }],
+        state: { ...base.state, units: false } });
+    const initial = saved;
+    const inputs: number[] = [];
+    let finish!: () => void;
+    globalThis.fetch = async (url, init) => {
+        const body = JSON.parse(String(init?.body));
+        assert.equal(body.revision, saved.revision);
+        if (String(url).endsWith("/state")) {
+            saved = { ...saved, revision: saved.revision + 1, state: body.state };
+            return Response.json({ surface: saved });
+        }
+        const degree = body.values.degree;
+        assert.deepEqual(body.values, { degree });
+        inputs.push(degree);
+        return new Promise((resolve) => { finish = () => {
+            saved = { ...saved, revision: saved.revision + 1, computed_state: saved.state, nodes: [
+                saved.nodes[0], { ...saved.nodes[1], props: { items: [{ label: "Squared", value: degree ** 2 }] } }, saved.nodes[2],
+            ] };
+            resolve(sse(saved));
+        }; });
+    };
+    const debounce = () => act(async () => { await new Promise((resolve) => setTimeout(resolve, 450)); });
+    const dom = mount(initial);
+    act(() => dom.querySelector<HTMLButtonElement>('button[title="Open in canvas"]')!.click());
+    const input = dom.querySelector<HTMLInputElement>('input[type="number"]')!;
+    act(() => root!.render(wrap(initial, "conversation", true)));
+    setValue(input, "6"); setValue(input, "7");
+    await debounce();
+    assert.deepEqual(inputs, []);
+    act(() => root!.render(wrap(initial))); await tick();
+    assert.deepEqual(inputs, [7]);
+    assert.equal(input.disabled, false);
+    setValue(input, "9"); setValue(input, "8");
+    await debounce();
+    assert.deepEqual(inputs, [7]);
+    await act(async () => finish()); await tick();
+    assert.equal(input.value, "8");
+    assert.deepEqual(inputs, [7, 8]);
+    await act(async () => finish()); await tick();
+    assert.deepEqual(Array.from(dom.querySelectorAll('[data-ui-node="squared"] strong'), (el) => el.textContent), ["64", "64"]);
+    act(() => dom.querySelector<HTMLInputElement>('input[type="checkbox"]')!.click());
+    await debounce();
+    assert.deepEqual(inputs, [7, 8], "display-only edits only save state");
+    act(() => button(dom, "Reset").click()); await debounce();
+    assert.deepEqual(inputs, [7, 8, 3]);
+    await act(async () => finish()); await tick();
+    assert.equal(dom.querySelector('[data-ui-node="squared"] strong')?.textContent, "9");
+});
+
+test("a failed automatic calculation keeps its last result and waits for a retry or another edit", async () => {
+    const base = example();
+    let saved = example({ recompute_action_id: "recompute", nodes: [base.nodes[0],
+        { id: "result", type: "comparison", props: { items: [{ label: "Squared", value: 25 }] } }],
+        computed_state: base.state });
+    let attempts = 0;
+    globalThis.fetch = async (url, init) => {
+        if (String(url).endsWith("/state")) {
+            saved = { ...saved, revision: saved.revision + 1, state: JSON.parse(String(init?.body)).state };
+            return Response.json({ surface: saved });
+        }
+        attempts++;
+        if (attempts === 1) return new Response('data: {"type":"ui_error","error":"Calculation failed."}\n\n', { headers: { "content-type": "text/event-stream" } });
+        return sse({ ...saved, revision: saved.revision + 1, computed_state: saved.state, nodes: [base.nodes[0],
+            { id: "result", type: "comparison", props: { items: [{ label: "Squared", value: Number(saved.state.degree) ** 2 }] } }] });
+    };
+    const dom = mount(saved);
+    setValue(dom.querySelector<HTMLInputElement>("input")!, "6");
+    await act(async () => { await new Promise((resolve) => setTimeout(resolve, 450)); }); await tick();
+    assert.equal(attempts, 1);
+    assert.equal(dom.querySelector('[data-ui-node="result"] strong')?.textContent, "25");
+    assert.ok(dom.querySelector('[role="alert"]')?.textContent?.includes("Calculation failed."));
+    act(() => button(dom, "Recompute").click()); await tick();
+    assert.equal(attempts, 2);
+    assert.equal(dom.querySelector('[data-ui-node="result"] strong')?.textContent, "36");
+});
+
 test("a late action response cannot overwrite a different conversation", async () => {
     let respond!: (response: Response) => void;
     let signal: AbortSignal | undefined;

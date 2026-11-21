@@ -78,7 +78,9 @@ class RenderUITool(_UITool):
         "mermaid {code}, tabs {label} with children whose props.label is the tab caption; disclosure/stack/grid with children; controls slider/number/select/toggle "
         "{stateKey,label,value,min?,max?,step?,options?}; button {actionId,label}. "
         "A prop value {$state:'key'} binds declared local state; filters/selections cost no model call. "
-        "Register server computations before rendering their buttons. Put id/title/fallback before nodes to allow safe streaming previews. "
+        "For calculated outputs, register compute(values) first and pass its ID as recompute_action_id. "
+        "Changing a native control named in its input_schema then recalculates the result automatically. "
+        "Keep the primary output next to its compact controls. Put id/title/fallback before nodes to allow safe streaming previews. "
         "A committed receipt confirms the complete view was accepted; it summarizes the result without echoing all nodes."
     )
     parameters = {
@@ -87,19 +89,26 @@ class RenderUITool(_UITool):
             "id": {"type": "string"}, "title": {"type": "string"}, "fallback": {"type": "string"},
             "nodes": {"type": "array", "items": {"$ref": "#/$defs/UINode"}},
             "state": {"type": "object"}, "action_ids": {"type": "array", "items": {"type": "string"}},
+            "recompute_action_id": {"type": "string", "description": "Registered Python action to run when its native control inputs change."},
         }, "required": ["id", "title", "fallback", "nodes"],
     }
 
-    async def run(self, ctx, id: str, title: str, fallback: str, nodes: list, state: dict | None = None, action_ids: list[str] | None = None, **_: Any):
+    async def run(self, ctx, id: str, title: str, fallback: str, nodes: list, state: dict | None = None,
+                  action_ids: list[str] | None = None, recompute_action_id: str | None = None, **_: Any):
         try:
             service = self.available(ctx, "ui_native", id)
             actions = []
-            for aid in action_ids or []:
+            ids = list(action_ids or [])
+            if recompute_action_id is not None and recompute_action_id not in ids:
+                ids.append(recompute_action_id)
+            for aid in ids:
                 saved = service.store.action(ctx.conversation_id, id, aid)
                 if saved is None:
                     raise ValueError(f"Register action {aid} first")
                 actions.append(saved[0])
-            surface = service.commit(ctx, {"id": id, "kind": "native", "title": title, "fallback": fallback, "nodes": nodes, "state": state or {}, "actions": actions})
+            surface = service.commit(ctx, {"id": id, "kind": "native", "title": title, "fallback": fallback,
+                                          "nodes": nodes, "state": state or {}, "actions": actions,
+                                          "recompute_action_id": recompute_action_id})
             await ctx.emit(ev("ui_commit", surface=surface))
             return _committed_result(surface)
         except (ValueError, TypeError) as exc:
@@ -114,6 +123,9 @@ class CreateUIAppTool(_UITool):
         "It runs only after complete validation in an opaque-origin sandbox with no network, cookies, storage, or API access. "
         "Inline all assets; no CDN scripts, external links, downloads, forms or server calls. "
         "Use window.matopt.getState(), window.matopt.onStateChange(callback), window.matopt.setState(partial) for declared local state; "
+        "initialize from getState() and route edits, presets and resets through one compute(state) and draw(result) path. "
+        "Run the actual formula or simulation for changed model parameters and refresh every dependent plot and metric. "
+        "Pair a responsive plot with compact controls in the same viewport, with secondary controls in a disclosure. "
         "window.matopt.getTheme(), onThemeChange(callback), and resize() are also available; theme tokens are --matopt-bg, --matopt-text, --matopt-muted, --matopt-border, and --matopt-control CSS custom properties. Use a blob Web Worker for expensive local computation, falling back to the main thread on the worker's error event (external MCP Apps hosts may block blob: workers). "
         "Declare server action_ids for host-owned computation buttons outside the frame; never execute server code from the frame. "
         "Always provide a meaningful fallback, units, assumptions, and initial state. "
@@ -146,6 +158,8 @@ class RegisterUIActionTool(_UITool):
     description = (
         "Register a server-owned Python computation for an interactive surface. Code must define a self-contained "
         "compute(values) function returning a JSON object containing nodes, state, fallback and/or title. "
+        "On a native surface with recompute_action_id, return changed output leaves in nodes using their existing IDs. "
+        "For a new layout or new output IDs, return the complete tree including its controls. "
         "Import dependencies inside this definition/module and reload declared input_files; do not depend on previous kernel variables. "
         "Inputs must match a self-contained JSON Schema of type object. Return finite JSON values. "
         "The browser sends action_id and values only; code runs in the existing conversation kernel with timeout, cancellation "

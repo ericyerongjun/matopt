@@ -10,6 +10,7 @@
     body { margin: 0; padding: 16px; box-sizing: border-box; }
     *, *::before, *::after { box-sizing: inherit; }
     button, input, select, textarea { font: inherit; }
+    :where(canvas, svg, img) { max-width: 100%; }
     :focus-visible { outline: 2px solid currentColor; outline-offset: 3px; }
     @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; } }
   </style>

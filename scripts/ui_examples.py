@@ -15,7 +15,6 @@ def compute(values):
     error = max(abs(a-b) for a, b in zip(approx, exact))
     return {'state': {'degree': degree}, 'fallback': f'Degree {degree} Taylor approximation to sin(x), centered at zero. Maximum sampled absolute error on [-3, 3]: {error:.6g}. x is in radians.', 'nodes': [
         {'id':'controls', 'type':'slider', 'props':{'label':'Polynomial degree', 'stateKey':'degree', 'min':1, 'max':15, 'step':2}},
-        {'id':'compute', 'type':'button', 'props':{'label':'Recompute approximation', 'actionId':'recompute'}},
         {'id':'graph', 'type':'plot', 'props':{'label':'sin(x) and its Taylor approximation', 'caption':'Radians · expansion about x = 0 · 121 sampled points', 'data':[
             {'type':'scatter', 'mode':'lines', 'name':'sin(x)', 'x':x, 'y':exact},
             {'type':'scatter', 'mode':'lines', 'name':f'Degree {degree}', 'x':x, 'y':approx, 'line':{'dash':'dash'}}], 'layout':{'height':320, 'margin':{'l':44,'r':16,'t':52,'b':44},'legend':{'orientation':'h','x':0,'y':1.18},'xaxis':{'title':{'text':'x (radians)'}},'yaxis':{'title':{'text':'f(x)'}}}}},
@@ -95,11 +94,14 @@ def seed(rt):
         manifest = rt.harness.ui.register(ctx, sid, 'recompute', 'Recompute', {'type':'object','properties':properties,'required':list(properties)}, code, input_files=files, seed=7)
         if sid == 'taylor':
             scope = {}; exec(code, scope); change = scope['compute'](initial)
+            change['recompute_action_id'] = manifest['id']
+            instruction = 'Change the degree to recompute the curve and its maximum sampled error.'
         else:
             change = {'nodes':[{'id':'intro','type':'markdown','props':{'text':'Choose parameters, then recompute this reproducible example.'}}], 'state':initial,'fallback':title+' — ready to compute.'}
+            instruction = 'Run the calculation to inspect the result and adjust its parameters.'
         surface = rt.harness.ui.commit(ctx, {'id':sid,'title':title,'actions':[manifest],**change})
         rt.db.add_message(cid, 'user', {'text':f'Help me explore {title.lower()} interactively.', 'attachments':[]})
-        rt.db.add_message(cid, 'assistant', {'parts':[{'type':'text','text':'Adjust the parameters and inspect the result. Computation happens only when you request it.'},{'type':'ui','surface':surface}], 'provider':'deepseek','model':'deepseek-flash','reasoning':'high','usage':{},'status':'complete','plan':[],'stats':{'llm_calls':0,'tool_calls':0}})
+        rt.db.add_message(cid, 'assistant', {'parts':[{'type':'text','text':instruction},{'type':'ui','surface':surface}], 'provider':'deepseek','model':'deepseek-flash','reasoning':'high','usage':{},'status':'complete','plan':[],'stats':{'llm_calls':0,'tool_calls':0}})
         conversations.append((cid, sid))
     cid = rt.db.create_conversation(title='Interactive sine wave',provider='deepseek',model='deepseek-flash')['id']
     ctx = ToolContext(cid, rt.workspace(cid), lambda _: None, asyncio.Event(), kernels=rt.kernels, settings=rt.harness.settings)

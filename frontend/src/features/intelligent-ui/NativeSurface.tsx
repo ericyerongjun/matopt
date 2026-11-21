@@ -14,7 +14,21 @@ const text = (value: JSONValue | undefined, fallback = ""): string => value === 
 const numeric = (value: JSONValue | undefined, fallback?: number): number | undefined => typeof value === "number" && Number.isFinite(value) ? value : fallback;
 
 export function NativeSurface({ record }: { record: SurfaceRecord }) {
-    return <TableOverflow label={`${record.surface.title} data table`}><div className="ui-native-surface">{record.surface.nodes.map((node) => <SurfaceNode key={node.id} node={node} record={record} />)}</div></TableOverflow>;
+    const { nodes } = record.surface;
+    const render = (node: UINode) => <SurfaceNode key={node.id} node={node} record={record} />;
+    const controls = nodes.filter((node) => ["slider", "number", "select", "toggle", "button"].includes(node.type));
+    const plots = nodes.filter((node) => node.type === "plot");
+    const details = nodes.filter((node) => node.type === "table" || node.type === "comparison");
+    // Pair a flat chart with its controls. Explicit grids, stacks and narrative sequences keep their authored layout.
+    const paired = plots.length === 1 && controls.length > 0 && controls.length + details.length + 1 === nodes.length;
+    return <TableOverflow label={`${record.surface.title} data table`}><div className="ui-native-surface">
+        {paired ? <>
+            <div className="ui-parameter-plot">{render(plots[0])}
+                <div className="ui-parameter-controls" role="group" aria-label="Chart controls">{controls.map(render)}</div>
+            </div>
+            {details.map(render)}
+        </> : nodes.map(render)}
+    </div></TableOverflow>;
 }
 
 function SurfaceNode({ node, record }: { node: UINode; record: SurfaceRecord }) {
@@ -23,7 +37,7 @@ function SurfaceNode({ node, record }: { node: UINode; record: SurfaceRecord }) 
     const bound = useMemo(() => hasBindings(node.props), [node.props]);
     const props = useMemo(() => bound ? resolveBindings(node.props, record.state) as Record<string, JSONValue> : node.props, [bound, node.props, record.state]);
     const label = text(props.label, node.id);
-    const disabled = record.surface.status !== "committed" || record.busy;
+    const disabled = record.surface.status !== "committed" || (record.busy && !record.surface.recompute_action_id);
     const stateKey = text(node.props.stateKey);
     const value = record.state[stateKey] ?? props.value;
     const children = node.children?.map((child) => <SurfaceNode key={child.id} node={child} record={record} />);

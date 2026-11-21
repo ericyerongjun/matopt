@@ -75,10 +75,12 @@ def plan_cut(history: list[dict], target: int) -> Optional[int]:
     latest = starts[-1]
     sizes = [_size(message) for message in history]
     head = sizes[0] + 4_000  # room for the summary that replaces the span
+    tail_size = sum(sizes)
+    previous = 0
     for cut in starts:
-        if cut > latest:
-            break
-        if head + sum(sizes[cut:]) <= target:
+        tail_size -= sum(sizes[previous:cut])
+        previous = cut
+        if head + tail_size <= target:
             return cut
     return latest
 
@@ -108,8 +110,12 @@ def plan_intra_turn_cut(history: list[dict], target: int) -> Optional[tuple[int,
         return None
     sizes = [_size(message) for message in history]
     head = sum(sizes[:first]) + 4_000
+    tail_size = sum(sizes[first:])
+    previous = first
     for cut in groups[1:]:
-        if head + sum(sizes[cut:]) <= target:
+        tail_size -= sum(sizes[previous:cut])
+        previous = cut
+        if head + tail_size <= target:
             return first, cut
     return first, groups[-1]
 

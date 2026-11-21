@@ -814,6 +814,10 @@ class AgentHarness:
             reuse_answer = (req.ultrafast and not req.verify and not state.applied_steers
                             and not state.notice and state.last_finish_reason == "stop"
                             and not _current_published_results(state.parts))
+            # A complete draft can itself exceed the input window after several
+            # continuations. Deliver it directly if there are no results to consolidate.
+            if len(final_text) >= self._context_limits(state.context_window)[0] and not _current_published_results(state.parts):
+                reuse_answer = True
             if not direct and not req.strict_final and not state.answer_truncated and final_text.strip() and not reuse_answer:
                 await self._begin_final(state, original_emit, message_id)
                 final_text = await self._final_response(provider, options, req, final_text, history, ctx, state, emit)
@@ -1423,7 +1427,65 @@ class AgentHarness:
 
     async def _stream_llm(self, provider, options, history, schemas, emit: EmitFn, state: TurnState, cancel: asyncio.Event):
         """One step, with each actual dispatch durably recorded as an attempt."""
-        return await ModelAttempt(self, provider, options, history, schemas, emit, state, cancel).run()
+        text, reasoning, calls = await ModelAttempt(self, provider, options, history, schemas, emit, state, cancel).run()
+        if calls or state.phase not in {"answer", "revise", "final"}:
+            return text, reasoning, calls
+
+        segments = [text]
+        messages = list(history)
+        budget, token_limit = self._context_limits(state.context_window)
+        continuation = dataclasses.replace(options, reasoning="off", max_tokens=None)
+        while state.last_finish_reason in {"length", "max_tokens", "max-tokens"} and not cancel.is_set():
+            messages.append(provider.assistant_message(text, "", []))
+            messages.append({"role": "user", "content": "Continue the same answer exactly where it stopped. "
+                             "Return only the remaining text, preserving its formatting."})
+            size = _history_size(messages)
+            if size > budget or _estimated_prompt_tokens(messages, state) > token_limit * 0.95:
+                messages = await self._compact_continuation(provider, continuation, messages, state, budget)
+            try:
+                text, reasoning, calls = await ModelAttempt(
+                    self, provider, continuation, messages, None, emit, state, cancel).run()
+            except ContextOverflow:
+                # A provider can reject a prompt below our estimate. Retry only
+                # the unseen suffix, with a smaller checkpoint of the same work.
+                smaller = await self._compact_continuation(
+                    provider, continuation, messages, state, min(budget, _history_size(messages)))
+                if _history_size(smaller) >= _history_size(messages):
+                    break
+                messages = smaller
+                try:
+                    text, reasoning, calls = await ModelAttempt(
+                        self, provider, continuation, messages, None, emit, state, cancel).run()
+                except ContextOverflow:
+                    break
+            if calls:
+                raise RuntimeError("The answer continuation unexpectedly requested a tool.")
+            if text:
+                segments.append(text)
+            if state.last_finish_reason not in {"length", "max_tokens", "max-tokens"}:
+                if state.end_reason == "max-tokens":
+                    state.end_reason = None
+                break
+            if not text.strip():
+                break
+        return "".join(segments), reasoning, calls
+
+    async def _compact_continuation(self, provider, options, messages, state, budget):
+        """Keep the exact splice point while folding earlier material into a rolling summary."""
+        head = messages[0]
+        instruction = messages[-1]
+        room = max(0, (budget - _history_size([head, instruction])) // 2)
+        tail = messages[-2]["content"]
+        tail_limit = max(1, room // 2)
+        suffix = tail[-tail_limit:]
+        span = list(messages[1:-2])
+        if len(tail) > len(suffix):
+            span.append({"role": "assistant", "content": tail[:-len(suffix)]})
+        summary = await self._summarize_span(provider, options, span, state)
+        context = (summary or compaction.digest(span))[:max(1, room - len(suffix))]
+        return [head, compaction.summary_message(context, turns=0, model_written=bool(summary),
+                                                  steps=sum(m.get("role") == "assistant" for m in span)),
+                provider.assistant_message(suffix, "", []), instruction]
 
     async def _execute_calls(self, calls: list[ToolCallSpec], tools: ToolRegistry, ctx: ToolContext, emit: EmitFn, state: TurnState) -> list[ToolResult]:
         operation_policy = getattr(self.settings, "loop_policy", "operation") == "operation"

@@ -53,6 +53,69 @@ def validate_inputs(schema: dict, values: dict):
         raise ValueError("Invalid action inputs: " + exc.message) from exc
 
 
+def recompute_nodes(previous: list[dict], returned: list) -> list:
+    """Apply output-only updates by ID, or accept a replacement layout for normal validation."""
+    output_types = ("markdown", "equation", "comparison", "table", "plot", "mermaid")
+    def output_leaf(node):
+        return isinstance(node, dict) and node.get("type") in output_types and not node.get("children")
+
+    if not isinstance(returned, list):
+        raise ValueError("Computed nodes must be an array.")
+    if not returned or not all(output_leaf(n) for n in returned):
+        return returned
+
+    updates = {}
+    for node in returned:
+        node_id = node.get("id")
+        if not isinstance(node_id, str) or not node_id:
+            raise ValueError("Each computed output needs the ID of an existing output node.")
+        if node_id in updates:
+            raise ValueError(f"Duplicate computed output ID: {node_id}")
+        updates[node_id] = node
+
+    def replace(node):
+        if output_leaf(node) and node["id"] in updates:
+            return updates.pop(node["id"])
+        if node.get("children"):
+            return {**node, "children": [replace(child) for child in node["children"]]}
+        return node
+
+    merged = [replace(node) for node in previous]
+    if updates:
+        raise ValueError(f"No matching output node for {', '.join(updates)}. "
+                         "Use existing output IDs or return the complete layout with its controls.")
+    return merged
+
+
+def validate_control_connections(surface: dict):
+    """Catch disconnected native controls when authoring a new result."""
+    def bindings(value):
+        if isinstance(value, dict):
+            if set(value) == {"$state"} and isinstance(value["$state"], str):
+                yield value["$state"]
+            else:
+                for child in value.values():
+                    yield from bindings(child)
+        elif isinstance(value, list):
+            for child in value:
+                yield from bindings(child)
+
+    controls = set()
+    used = {key for action in surface["actions"] for key in action["input_schema"].get("properties", {})}
+    for node in walk_nodes(surface["nodes"]):
+        props = node["props"]
+        reads = set(bindings(props))
+        if node["type"] in {"slider", "number", "select", "toggle"}:
+            controls.add(props["stateKey"])
+            reads.discard(props["stateKey"])
+        if node["type"] == "table" and isinstance(props.get("filterKey"), str):
+            used.add(props["filterKey"])
+        used.update(reads)
+    if unused := sorted(controls - used):
+        raise ValueError(f"Controls without a connected output: {', '.join(unused)}. "
+                         "Bind a displayed result or table filter to the control, or register a calculation using its stateKey.")
+
+
 @dataclass
 class ActionLease:
     cid: str
@@ -123,7 +186,12 @@ class UIService:
                 raise ValueError(f"Unregistered action: {action_id}")
             resolved.append(saved[0])
         data["actions"] = resolved
+        if data["kind"] == "native":
+            validate_control_connections(data)
         data["state"] = validate_state(data, data["state"])
+        if action_id := data.get("recompute_action_id"):
+            schema = next(action["input_schema"] for action in resolved if action["id"] == action_id)
+            validate_inputs(schema, {key: data["state"][key] for key in schema.get("properties", {}) if key in data["state"]})
         data["computed_state"] = dict(data["state"])
         return self.store.commit(ctx.conversation_id, data, message_id=ctx.state.get("ui_message_id"))
 
@@ -225,11 +293,18 @@ class UIService:
                 if not isinstance(change, dict) or set(change) - {"nodes", "state", "fallback", "title"}:
                     raise ValueError("compute(values) must return only nodes, state, fallback, and/or title")
                 candidate = {**lease.surface, **change}
+                if lease.surface.get("recompute_action_id") and "nodes" in change:
+                    candidate["nodes"] = recompute_nodes(lease.surface["nodes"], change["nodes"])
                 parameter_state = {k: v for k, v in lease.request["values"].items() if k in lease.surface["state"]}
-                candidate["state"] = validate_state(candidate, {**lease.surface["state"], **parameter_state, **change.get("state", {})})
+                if not isinstance(change.get("state", {}), dict):
+                    raise ValueError("Computed state must be an object.")
+                candidate["state"] = {**lease.surface["state"], **parameter_state, **change.get("state", {})}
                 candidate["computed_state"] = dict(candidate["state"])
                 # Revalidate IDs/props/actions and reject late results by revision.
                 surface = UISurface.model_validate(candidate).model_dump(mode="json", exclude_none=True)
+                validate_state(surface, surface["state"])
+                if surface.get("recompute_action_id"):
+                    validate_control_connections(surface)
                 for node in walk_nodes(surface["nodes"]):
                     if node["type"] == "button" and node["props"]["actionId"] not in {a["id"] for a in surface["actions"]}:
                         raise ValueError("Computation referenced an undeclared action")
